@@ -2,7 +2,7 @@
   "name": "Trimpod Classic",
   "version": "v1.0.0",
   "type": "TOOL",
-  "description": "Rockbox-based music player for the TrimUI Brick, independently built for NextUI and themed after the 1st-gen iPod (1ST_GEN_REMIX).",
+  "description": "An iPod Classic-inspired, offline music player for the TrimUI Brick/Hammer with winamp-like visualizations.",
   "author": "tyrannotorus",
   "repo_url": "https://github.com/tyrannotorus/c-trimui-trimpod-classic-pak",
   "release_filename": "Trimpod.pak.zip",
