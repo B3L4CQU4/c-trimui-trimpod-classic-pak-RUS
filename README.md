@@ -1,17 +1,11 @@
 # Trimpod Classic For TrimUI Brick
 
-<img width="1024" height="768" alt="Trimpod Classic Now Playing" src="screenshots/now-playing.png" />
+<img width="512" height="384" alt="main-menu" src="https://github.com/user-attachments/assets/bac035ca-062e-42cf-a8d1-99fae6e1c871" /><img width="512" height="384" alt="now-playing" src="https://github.com/user-attachments/assets/60acf397-0810-4258-9c20-f16d1b049ea3" /><img width="512" height="384" alt="settings-power" src="https://github.com/user-attachments/assets/5d72058c-c2fe-47ca-937e-4190594fe4cf" />
+<img width="512" height="384" alt="viz-7" src="https://github.com/user-attachments/assets/654e9b30-07da-4072-b63c-15d9fd64ab67" /><img width="512" height="384" alt="viz-4" src="https://github.com/user-attachments/assets/c32f0fce-867e-4afe-8b78-df97928ddded" /><img width="512" height="384" alt="viz-1" src="https://github.com/user-attachments/assets/322a70cc-901e-45e7-9e69-b693386055b8" />
 
 ## Description
 
-I wanted my TrimUI Brick to feel like an iPod — a single-minded music player I could hand to anyone,
-not a stack of menus. So I took Rockbox, stripped it down to just the music, and themed it after the
-1st-generation iPod. It boots straight into the click-wheel-era interface: Chicago type, chevron
-menus, page-slide transitions, and a Now Playing screen with a scrubber and an iPod-style volume bar.
-
-The part I'm proudest of is the visualizer. Trimpod Classic ships a full Milkdrop/projectM music
-visualizer — the same reactive presets people remember from Winamp — running on its own CPU core so
-it stays smooth while the music plays. As far as I know, no other Rockbox port does this.
+Trimpod Classic is a classic ipod-inspired music player built for the TrimUI Brick, leveraging a cut-down Rockbox base and including 100 Winamp-inspired milkdrop visualizations.
 
 ## User Disclaimer
 
