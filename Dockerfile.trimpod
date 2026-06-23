@@ -1,0 +1,21 @@
+# Trimpod build toolchain: LoveRetro tg5040 cross toolchain + fixups for
+# building Rockbox as an SDL application for the TrimUI Brick (NextUI).
+#  - `zip` is required by Rockbox's language/voice build step.
+#  - The sysroot's stock sdl2-config bakes in an absolute build-machine include
+#    path that does not exist here, so we shadow it with one that emits the
+#    real $SYSROOT paths (placed in /usr/local/bin which precedes /usr/bin).
+FROM ghcr.io/loveretro/tg5040-toolchain:latest
+
+RUN apt-get update && apt-get install -y --no-install-recommends zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'inc="$SYSROOT/usr/include/SDL2"' \
+    'case "$1" in' \
+    '  --cflags) echo "-I$inc -D_REENTRANT" ;;' \
+    '  --libs|--static-libs) echo "-L$SYSROOT/usr/lib -lSDL2" ;;' \
+    '  --version) echo "2.26.1" ;;' \
+    'esac' \
+    > /usr/local/bin/sdl2-config \
+    && chmod +x /usr/local/bin/sdl2-config

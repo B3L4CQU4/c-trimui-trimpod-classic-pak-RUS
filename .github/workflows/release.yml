@@ -1,0 +1,44 @@
+# Builds the pak in the public tg5040 toolchain and publishes the Pak Store
+# release asset (Trimpod.pak.zip) whenever a v* tag is pushed.
+#
+# The NextUI Pak Store pulls the asset named release_filename in pak.json from
+# the GitHub release whose tag matches the pak.json "version", so this workflow
+# enforces that the tag and pak.json version agree before publishing.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write          # create the GitHub release + upload the asset
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pak.json "version" must equal the pushed tag (Pak Store requirement).
+      - name: Check pak.json version matches the tag
+        run: |
+          ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' pak.json \
+                | grep -oE 'v[0-9][^"]*')
+          echo "pak.json version: $ver   tag: ${GITHUB_REF_NAME}"
+          [ "$ver" = "${GITHUB_REF_NAME}" ] || {
+            echo "::error::pak.json version ($ver) != tag (${GITHUB_REF_NAME})"; exit 1; }
+
+      - name: Build (Docker tg5040 toolchain)
+        run: ./build.sh clean
+
+      - name: Package pak + Pak Store zip
+        run: ./package.sh
+
+      - name: Publish GitHub release with the Pak Store asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/Trimpod.pak.zip \
+            --title "${GITHUB_REF_NAME}" \
+            --generate-notes

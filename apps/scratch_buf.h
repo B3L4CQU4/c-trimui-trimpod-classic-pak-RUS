@@ -1,0 +1,34 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Shared scratch RAM. This buffer was historically borrowed from the plugin
+ * buffer (plugin_get_buffer()); since plugins were removed it lives here as
+ * plain infrastructure. Only one consumer uses it at a time -- these are all
+ * modal operations (cuesheet load, playlist viewer, skin parse, file/folder
+ * ops) that never run concurrently, exactly as when they shared the plugin
+ * buffer.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+
+#ifndef __SCRATCH_BUF_H__
+#define __SCRATCH_BUF_H__
+
+#include <stddef.h>
+
+/* Return the shared scratch buffer; *size (if non-NULL) is set to its size. */
+void *scratch_buffer_get(size_t *size);
+
+#endif /* __SCRATCH_BUF_H__ */

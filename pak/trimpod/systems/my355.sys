@@ -1,0 +1,10 @@
+# Battery paths
+export BATTERY_STATUS="/sys/class/power_supply/battery/status"
+export POWER_STATUS="/sys/class/power_supply/ac/online"
+export CAPACITY_STATUS="/sys/class/power_supply/battery/capacity"
+# Backlight paths
+export BL_TYPE="TYPE2"
+export SYSFS_BL_BRIGHTNESS="/sys/class/backlight/backlight/brightness"
+export SYSFS_BL_POWER="/sys/class/backlight/backlight/bl_power"
+# Zoom value
+ZOOMVAL="2"

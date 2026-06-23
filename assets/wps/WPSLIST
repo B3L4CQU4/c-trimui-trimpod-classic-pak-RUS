@@ -1,0 +1,70 @@
+#             __________               __   ___.
+#   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+#   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+#   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+#   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+#                     \/            \/     \/    \/            \/
+#
+# WPSLIST
+#
+# This should list all WPS and RWPS files we have and what their requirements
+# and preferences are.
+#
+# Each <theme> section will also cause a "theme" .cfg to be made, which the
+# <rwps> sections will not cause.
+#
+# A <wps> section can thus mention a "preferred" rwps file to load when that
+# theme is loaded.
+#
+# All sections should list what font and status bar setting they "like".
+#
+# Trimpod: the stock cabbiev2 theme (wps/backdrops/fonts) was removed -- the
+# device ships the hardcoded 1ST_GEN_REMIX theme injected by package.sh, so only
+# the icon defaults and the built-in failsafe theme are built here.
+
+<theme>
+Name: rockbox_default_icons
+Author: Rockbox team
+
+<main>
+iconset: -
+viewers iconset..+x1:  icons/viewers.6x8x1.bmp
+viewers iconset..+x2:  icons/viewers.6x8x2.bmp
+viewers iconset..+x(16|24|32): icons/viewers.6x8x16.bmp
+</main>
+
+<remote>
+iconset: -
+viewers iconset..+x1: icons/viewers.6x8x1.bmp
+viewers iconset..+x2: icons/viewers.6x8x2.bmp
+</remote>
+
+</theme>
+
+<theme>
+Name: rockbox_failsafe
+Author: Rockbox team
+
+WPS: yes
+RWPS: yes
+SBS: yes
+RSBS: yes
+FMS: yes
+RFMS: yes
+
+<main>
+backdrop: -
+font: -
+statusbar: top
+foreground color: 000000
+background color: B6C6E5
+selector type: bar (inverse)
+ui viewport: -
+</main>
+
+<remote>
+font: -
+statusbar: top
+ui viewport: -
+</remote>
+</theme>

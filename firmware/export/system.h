@@ -1,0 +1,256 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Copyright (C) 2002 by Alan Korr
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+
+#ifndef __SYSTEM_H__
+#define __SYSTEM_H__
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "cpu.h"
+#include "gcc_extensions.h" /* for LIKELY/UNLIKELY */
+
+extern void system_reboot (void);
+/* Called from any UIE handler and panicf - wait for a key and return
+ * to reboot system. */
+extern void system_exception_wait(void);
+
+#if NUM_CORES == 1
+extern void system_init(void) INIT_ATTR;
+#else
+/* TODO: probably safe to use INIT_ATTR on multicore but this needs checking */
+extern void system_init(void);
+#endif
+
+extern long cpu_frequency;
+
+/* Trimpod (SDL app): millisecond wall clock for present-paced animation. */
+extern unsigned long sdl_get_ms(void);
+
+struct flash_header {
+    uint32_t magic;
+    uint32_t length;
+    char version[32];
+};
+
+bool detect_flashed_romimage(void);
+bool detect_flashed_ramimage(void);
+bool detect_original_firmware(void);
+
+#ifndef FREQ
+#define FREQ CPU_FREQ
+#endif
+#define set_cpu_frequency(frequency)
+#define cpu_boost(on_off)
+#define cpu_boost_id(on_off, id)
+#define cpu_idle_mode(on_off)
+#define get_cpu_boost_counter()
+#define get_cpu_boost_tracker()
+
+#ifdef CPU_BOOST_LOGGING
+#define cpu_boost(on_off) cpu_boost_(on_off,__FILE__,  __LINE__)
+#endif
+
+#define BAUDRATE 9600
+
+/* wrap-safe macros for tick comparison */
+#define TIME_AFTER(a,b)         ((long)(b) - (long)(a) < 0)
+#define TIME_BEFORE(a,b)        TIME_AFTER(b,a)
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
+
+#ifndef MIN
+#define MIN(a, b) (((a)<(b))?(a):(b))
+#endif
+
+#ifndef MAX
+#define MAX(a, b) (((a)>(b))?(a):(b))
+#endif
+
+#ifndef SGN
+#define SGN(a)  ({ typeof (a) ___a = (a); (___a > 0) - (___a < 0); })
+#endif
+
+/* return number of elements in array a */
+#define ARRAYLEN(a) (sizeof(a)/sizeof((a)[0]))
+
+/* is the given pointer "p" inside the said bounds of array "a"? */
+#define PTR_IN_ARRAY(a, p, numelem)  ((uintptr_t)(p) - (uintptr_t)(a) < (uintptr_t)(numelem)*sizeof ((a)[0]))
+
+/* return p incremented by specified number of bytes */
+#define SKIPBYTES(p, count) ((typeof (p))((char *)(p) + (count)))
+
+#define P2_M1(p2)  ((1 << (p2))-1)
+
+/* align up or down to nearest 2^p2 */
+#define ALIGN_DOWN_P2(n, p2) ((n) & ~P2_M1(p2))
+#define ALIGN_UP_P2(n, p2)   ALIGN_DOWN_P2((n) + P2_M1(p2),p2)
+
+/* align up or down to nearest integer multiple of a */
+#define ALIGN_DOWN(n, a)     ((typeof(n))((uintptr_t)(n)/(a)*(a)))
+#define ALIGN_UP(n, a)       ALIGN_DOWN((n)+((a)-1),a)
+
+/* align start and end of buffer to nearest integer multiple of a */
+#define ALIGN_BUFFER(ptr, size, align)  ({                                            size_t    __sz = (size);                  size_t   __ali = (align);                 uintptr_t __a1 = (uintptr_t)(ptr);        uintptr_t __a2 = __a1 + __sz;             __a1 = ALIGN_UP(__a1, __ali);             __a2 = ALIGN_DOWN(__a2, __ali);           (ptr)  = (typeof (ptr))__a1;              (size) = __a2 > __a1 ?  __a2 - __a1 : 0;  })
+
+#define IS_ALIGNED(x, a) (((x) & ((typeof(x))(a) - 1)) == 0)
+
+#define PTR_ADD(ptr, x) ((typeof(ptr))((char*)(ptr) + (x)))
+#define PTR_SUB(ptr, x) ((typeof(ptr))((char*)(ptr) - (x)))
+
+#ifndef alignof
+#define alignof __alignof__
+#endif
+
+/* Get the byte offset of a type's member */
+#ifndef offsetof
+#define offsetof(type, member)  __builtin_offsetof(type, member)
+#endif
+
+/* Get the containing item of *ptr in type */
+#ifndef container_of
+#define container_of(ptr, type, member) ({               const typeof (((type *)0)->member) *__mptr = (ptr);  (type *)((void *)(__mptr) - offsetof(type, member)); })
+#endif
+
+/* returns index of first set bit or 32 if no bits are set */
+int find_first_set_bit(uint32_t val);
+
+static inline __attribute__((always_inline))
+uint32_t isolate_first_bit(uint32_t val)
+    { return val & -val; }
+
+/* Functions to set and clear register or variable bits atomically;
+ * return value is the previous value of *addr */
+uint16_t bitmod16(volatile uint16_t *addr, uint16_t bits, uint16_t mask);
+uint16_t bitset16(volatile uint16_t *addr, uint16_t mask);
+uint16_t bitclr16(volatile uint16_t *addr, uint16_t mask);
+
+uint32_t bitmod32(volatile uint32_t *addr, uint32_t bits, uint32_t mask);
+uint32_t bitset32(volatile uint32_t *addr, uint32_t mask);
+uint32_t bitclr32(volatile uint32_t *addr, uint32_t mask);
+
+/* gcc 3.4 changed the format of the constraints */
+#if (__GNUC__ >= 3) && (__GNUC_MINOR__ > 3) || (__GNUC__ >= 4)
+#define I_CONSTRAINT "I08"
+#else
+#define I_CONSTRAINT "I"
+#endif
+
+/* Utilize the user break controller to catch invalid memory accesses. */
+int system_memory_guard(int newmode);
+
+enum {
+    MEMGUARD_KEEP = -1,    /* don't change the mode; for reading */
+    MEMGUARD_NONE = 0,     /* catch nothing */
+    MEMGUARD_FLASH_WRITES, /* catch writes to area 02 (flash ROM) */
+    MEMGUARD_ZERO_AREA,    /* catch all accesses to areas 00 and 01 */
+    MAXMEMGUARD
+};
+
+#include "system-target.h"
+
+#include "bitswap.h"
+#include "rbendian.h"
+
+/* Compiler memory barrier */
+#ifndef membarrier
+# define membarrier() asm volatile("" ::: "memory")
+#endif
+
+#ifndef ASSERT_CPU_MODE
+/* Very useful to have defined properly for your architecture */
+#define ASSERT_CPU_MODE(mode, rstatus...)  ({ (void)(mode); rstatus; })
+#endif
+
+#ifndef CPU_MODE_THREAD_CONTEXT
+#define CPU_MODE_THREAD_CONTEXT 0
+#endif
+
+
+#ifndef BIT_N
+#define BIT_N(n) (1U << (n))
+#endif
+
+#ifndef MASK_N
+/* Make a mask of n contiguous bits, shifted left by 'shift' */
+#define MASK_N(type, n, shift)  ((type)((((type)1 << (n)) - (type)1) << (shift)))
+#endif
+
+/* Declare this as HIGHEST_IRQ_LEVEL if they don't differ */
+#ifndef DISABLE_INTERRUPTS
+#define DISABLE_INTERRUPTS  HIGHEST_IRQ_LEVEL
+#endif
+
+/* Define this if target has support for generating backtraces */
+
+/*
+ * ARM and MIPS ABIs generally require 8-byte stack alignment.
+ */
+
+#ifndef MIN_STACK_ALIGN
+#define MIN_STACK_ALIGN (sizeof (uintptr_t))
+#endif
+
+    /* Cache alignment attributes and sizes are not enabled */
+    #define CACHEALIGN_ATTR
+    #define CACHEALIGN_AT_LEAST_ATTR(x) __attribute__((aligned(x)))
+    #define CACHEALIGN_UP(x) (x)
+    #define CACHEALIGN_DOWN(x) (x)
+    /* Make no adjustments */
+    #define CACHEALIGN_BUFFER(start, size)
+
+/* Define MEM_ALIGN_ATTR which may be used to align e.g. buffers for faster
+ * access. */
+    /* Align pointer size */
+    #define MEM_ALIGN_ATTR __attribute__((aligned(sizeof(intptr_t))))
+    #define MEM_ALIGN_SIZE sizeof(intptr_t)
+
+#define MEM_ALIGN_UP(x)  ((typeof (x))ALIGN_UP((uintptr_t)(x), MEM_ALIGN_SIZE))
+#define MEM_ALIGN_DOWN(x)  ((typeof (x))ALIGN_DOWN((uintptr_t)(x), MEM_ALIGN_SIZE))
+
+/* Bounce buffers may have alignment requirments */
+#if defined(MAX_PHYS_SECTOR_SIZE) && !defined(STORAGE_WANTS_ALIGN)
+#define STORAGE_WANTS_ALIGN
+#endif
+
+#if defined(STORAGE_WANTS_ALIGN)
+    #define STORAGE_ALIGN_ATTR __attribute__((aligned(CACHEALIGN_SIZE)))
+    #define STORAGE_ALIGN_DOWN(x)  ((typeof (x))ALIGN_DOWN_P2((uintptr_t)(x), CACHEALIGN_BITS))
+    /* Pad a size so the buffer can be aligned later */
+    #define STORAGE_PAD(x) ((x) + CACHEALIGN_SIZE - 1)
+    /* Number of bytes in the last cacheline assuming buffer of size x is aligned */
+    #define STORAGE_OVERLAP(x) ((x) & (CACHEALIGN_SIZE - 1))
+    #define STORAGE_ALIGN_BUFFER(start, size)  ALIGN_BUFFER((start), (size), CACHEALIGN_SIZE)
+#else
+    #define STORAGE_ALIGN_ATTR
+    #define STORAGE_ALIGN_DOWN(x) (x)
+    #define STORAGE_PAD(x) (x)
+    #define STORAGE_OVERLAP(x) 0
+    #define STORAGE_ALIGN_BUFFER(start, size)
+#endif
+
+/* Double-cast to avoid 'dereferencing type-punned pointer will
+ * break strict aliasing rules' B.S. */
+#define PUN_PTR(type, p) ((type)(intptr_t)(p))
+
+bool dbg_ports(void);
+
+#endif /* __SYSTEM_H__ */

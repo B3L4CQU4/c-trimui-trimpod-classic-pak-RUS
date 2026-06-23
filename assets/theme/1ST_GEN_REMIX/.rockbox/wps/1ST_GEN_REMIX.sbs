@@ -1,0 +1,114 @@
+# Theme: 1ST_GEN_REMIX
+# Version 1.0
+# Last Update: 01/26/2026
+# License: CC-BY-SA 3.0
+# By: Monica G.
+# Description: Theme based on the iPod classic 1st generation's UI with some added features.
+# Icons & viewers based on Susan Kare's classic Macintosh icons.
+# Code based on: BACKBONE and Pixel Computer by me! which are based on SNARTY by Simon Anden and BONES by Chuck Largo!
+# Hold screen is stripped back from the WPS to make room for album art.
+
+# SBS File
+
+# Disable Status Bar
+%wd
+
+# Disable Title
+%?Lt<|>
+
+# Preload Fonts
+%Fl(2,18-ChicagoFLF.fnt)
+%Fl(3,20-ChicagoFLF.fnt)
+
+#Preload Images
+%xl(sad_mac,sad_mac.bmp,0,0)
+%xl(playmodes,playmodes.bmp,0,0,9)
+%xl(repeat,repeat_status.bmp,0,0,5)
+%xl(shuffle,shuffle.bmp,0,0,2)
+%xl(battery,battery.bmp,0,0,5)
+%xl(lock,lock.bmp,0,0)
+
+# Display Viewports
+%?if(%cs, =, 21)<%VI(clearScreen)%Vd(usbScreen)|%Vd(mainMenu)<%VI(mainMenu)%Vd(mainMenu)>>
+
+# Header button-legend (the standard): when a page sets a legend (%Tl non-empty)
+# overlay it on the header.  Conditionally DISPLAYED (like usbScreen), not a
+# content-conditional, so when hidden it doesn't clear over the header -- the
+# normal header (centred TrimPod) is left exactly as it is.
+%?Tl<%Vd(legend)|>
+
+# Clear Screen
+%Vi(clearScreen,0,0,1,1,-)
+
+## Main Menu ##
+
+# Main Menu UI Viewport (font slot 1 = user-selected font, so the Font setting applies)
+%Vi(mainMenu,5,45,310,170,1)
+
+# Play/Pause Icons
+%Vl(mainMenu,10,7,22,22,-)
+%?if(%mp, >, 1)<%xd(playmodes,%mp)|>
+
+# Title (shared status bar): Now Playing (%cs=2) shows the playlist name; otherwise
+# the current screen's title (%Lt) -- "TrimPod" on the main menu, "Settings"/etc
+# elsewhere, falling back to TrimPod if unset.  Hold is shown by the lock icon (left
+# of the battery), not the title.  Viewport centred (x 65..255) so %ac is centred.
+%Vl(mainMenu,65,9,190,24,3)
+%?if(%cs, =, 2)<%ac%s%?pn<%t(5)Now Playing;%t(5)%pn|%acNow Playing>|%?Lt<%ac%s%Lt|%acTrimPod>>
+
+# Battery
+%Vl(mainMenu,274,9,40,18,2)
+%?if(%bl, >, 88)<%xd(battery,5)|%?if(%bl, >, 63)<%xd(battery,4)|%?if(%bl, >, 38)<%xd(battery,3)|%?if(%bl, >, 13)<%xd(battery,2)|%xd(battery,1)>>>>
+
+# Hold lock: a padlock (lock.bmp) shown just left of the battery while the side
+# switch is engaged (%mh).
+%Vl(mainMenu,256,9,14,18,-)
+%?mh<%xd(lock)|>
+
+# Line
+%Vl(mainMenu,5,36,310,2,-)
+%dr(0,0,310,2)
+
+# Now Playing (bottom scroller on menu screens; hidden on the WPS, which draws
+# its own track info/times there)
+%Vl(mainMenu,5,218,310,15,2)
+%?if(%cs, =, 2)<|%ac%?mp<|%s%?it<%it|%fn>%?ia< - %ia>|>>
+
+## Header Button-Legend (overlay, displayed via %Vd when a page sets %Tl) ##
+
+# Left-aligned button labels over the header; TrimPod is covered while shown.
+%Vl(legend,10,7,245,24,3)
+%Tl
+
+## USB Screen ##
+
+# USB Screen Viewport
+%Vl(usbScreen,0,0,320,240,-)
+
+# Time / Battery (numerical)
+%Vl(usbScreen,40,10,240,25,3)
+%t(10)%ac%?cf<%ac%cH|%cl>:%cM%?cf<| %cP>;%t(10)%acBattery: %bl%%
+
+# Battery
+%Vl(usbScreen,274,9,40,18,2)
+%?if(%bl, >, 88)<%xd(battery,5)|%?if(%bl, >, 63)<%xd(battery,4)|%?if(%bl, >, 38)<%xd(battery,3)|%?if(%bl, >, 13)<%xd(battery,2)|%xd(battery,1)>>>>
+
+# Line
+%Vl(usbScreen,5,36,310,2,-)
+%dr(0,0,310,2)
+
+# USB Mac Icon
+%Vl(usbScreen,220,75,95,120,-)
+%xd(sad_mac)
+
+# USB Text
+%Vl(usbScreen,5,95,210,27,3)
+%acUSB CONNECTED%Vs(invert)
+
+# USB Eject Box
+%Vl(usbScreen,5,130,210,27,-)
+%dr(0,0,210,1)%dr(0,0,1,26)%dr(209,0,1,26)%dr(0,26,210,1)
+
+# Eject Warning
+%Vl(usbScreen,6,138,205,18,2)
+%ac%t(1)! EJECT BEFORE DISCONNECTING !;%t(.1)%ac

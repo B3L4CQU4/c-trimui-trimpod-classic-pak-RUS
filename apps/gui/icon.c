@@ -1,0 +1,181 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Copyright (C) 2007 Jonathan Gordon
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "inttypes.h"
+#include "config.h"
+#include "core_alloc.h"
+#include "icon.h"
+#include "screen_access.h"
+#include "icons.h"
+#include "settings.h"
+#include "rbpaths.h"
+#include "bmp.h"
+#include "filetypes.h"
+#include "language.h"
+#include "misc.h"
+
+#include "bitmaps/default_icons.h"
+
+/* We dont actually do anything with these pointers,
+   but they need to be grouped like this to save code
+   so storing them as void* is ok. (stops compile warning) */
+static const struct bitmap *inbuilt_iconset[NB_SCREENS] =
+{
+    &bm_default_icons,
+};
+
+enum Iconset {
+    Iconset_user,
+    Iconset_viewers,
+    Iconset_Count
+};
+
+static struct iconset {
+    struct bitmap bmp;
+    bool loaded;
+    int handle;
+} iconsets[Iconset_Count][NB_SCREENS];
+
+#define ICON_HEIGHT(screen) (!iconsets[Iconset_user][screen].loaded ?       \
+                             (*(inbuilt_iconset[screen])) : iconsets[Iconset_user][screen].bmp).height \
+                            / Icon_Last_Themeable
+
+#define ICON_WIDTH(screen)  (!iconsets[Iconset_user][screen].loaded ?       \
+                             (*(inbuilt_iconset[screen])) : iconsets[Iconset_user][screen].bmp).width
+
+/* x,y in letters, not pixles */
+void screen_put_icon(struct screen * display,
+                       int x, int y, enum themable_icons icon)
+{
+    screen_put_icon_with_offset(display, x, y, 0, 0, icon);
+}
+
+void screen_put_icon_with_offset(struct screen * display,
+                       int x, int y, int off_x, int off_y,
+                       enum themable_icons icon)
+{
+    const int screen = display->screen_type;
+    const int icon_width = ICON_WIDTH(screen);
+    const int icon_height = ICON_HEIGHT(screen);
+    int xpos, ypos;
+    int width, height;
+    display->getstringsize((unsigned char *)"M", &width, &height);
+    xpos = x*icon_width + off_x;
+    ypos = y*height + off_y;
+
+    if ( height > icon_height )/* center the cursor */
+        ypos += (height - icon_height) / 2;
+    screen_put_iconxy(display, xpos, ypos, icon);
+}
+
+/* x,y in pixels */
+void screen_put_iconxy(struct screen * display,
+                       int xpos, int ypos, enum themable_icons icon)
+{
+    const int screen = display->screen_type;
+    const int width = ICON_WIDTH(screen);
+    const int height = ICON_HEIGHT(screen);
+    const int is_rtl = lang_is_rtl();
+    const struct bitmap *iconset;
+
+    if (icon <= Icon_NOICON)
+    {
+        if (is_rtl)
+            xpos = display->getwidth() - xpos - width;
+        screen_clear_area(display, xpos, ypos, width, height);
+        return;
+    }
+    else if (icon >= Icon_Last_Themeable)
+    {
+        iconset = &iconsets[Iconset_viewers][screen].bmp;
+        icon -= Icon_Last_Themeable;
+        if (!iconsets[Iconset_viewers][screen].loaded ||
+           (global_status.viewer_icon_count * height > iconset->height) ||
+           (icon * height + height > iconset->height))
+        {
+            screen_put_iconxy(display, xpos, ypos, Icon_Questionmark);
+            return;
+        }
+    }
+    else if (iconsets[Iconset_user][screen].loaded)
+    {
+        iconset = &iconsets[Iconset_user][screen].bmp;
+    }
+    else
+    {
+        iconset = inbuilt_iconset[screen];
+    }
+
+    if (is_rtl)
+        xpos = display->getwidth() - xpos - width;
+
+
+    display->bmp_part(iconset, 0, height * icon, xpos, ypos, width, height);
+}
+
+void screen_put_cursorxy(struct screen * display, int x, int y, bool on)
+{
+    screen_put_icon(display, x, y, on?Icon_Cursor:0);
+}
+
+
+void icons_init(void)
+{
+    int i;
+    FOR_NB_SCREENS(j)
+    {
+        for (i=0; i<Iconset_Count; i++)
+        {
+            struct iconset* set = &iconsets[i][j];
+            if (set->loaded && set->handle > 0)
+            {
+                set->handle = core_free(set->handle);
+                set->loaded = false;
+            }
+        }
+    }
+    /* Trimpod: no list icons -- no user iconsets are loaded. */
+}
+
+int get_icon_width(enum screen_type screen_type)
+{
+    return ICON_WIDTH(screen_type);
+}
+
+int get_icon_height(enum screen_type screen_type)
+{
+    return ICON_HEIGHT(screen_type);
+}
+
+#if (LCD_DEPTH > 1)
+int get_icon_format(enum screen_type screen)
+{
+    const struct bitmap *iconset;
+
+    if (iconsets[Iconset_user][screen].loaded)
+        iconset = &iconsets[Iconset_user][screen].bmp;
+    else
+        iconset = inbuilt_iconset[screen];
+
+    return iconset->format;
+}
+#endif

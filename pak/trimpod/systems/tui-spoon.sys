@@ -1,0 +1,14 @@
+# Battery paths
+export BATTERY_STATUS="/sys/class/power_supply/axp2202-battery/status"
+export POWER_STATUS="/sys/class/power_supply/axp2202-usb/online"
+export CAPACITY_STATUS="/sys/class/power_supply/axp2202-battery/capacity"
+# Backlight paths
+export BL_TYPE="TYPE1"
+export SYSFS_BL_COMMAND="/sys/kernel/debug/dispdbg/command"
+export SYSFS_BL_NAME="/sys/kernel/debug/dispdbg/name"
+export SYSFS_BL_PARAM="/sys/kernel/debug/dispdbg/param"
+export SYSFS_BL_START="/sys/kernel/debug/dispdbg/start"
+export BL_COMMAND="setbl"
+export BL_NAME="lcd0"
+# Zoom value
+ZOOMVAL="3"

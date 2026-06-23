@@ -1,0 +1,85 @@
+# Theme: 1ST_GEN_REMIX
+# Version 1.0
+# Last Update: 01/26/2026
+# License: CC-BY-SA 3.0
+# By: Monica G.
+# Description: Theme based on the iPod classic 1st generation's UI with some added features.
+# Icons & viewers based on Susan Kare's classic Macintosh icons.
+# Code based on: BACKBONE and Pixel Computer by me! which are based on SNARTY by Simon Anden and BONES by Chuck Largo!
+
+## WPS File ##
+
+# Show the shared status bar (the SBS) on this screen
+%we
+
+# Clear Backdrop
+%V(0,0,-,-,-)%VB
+%V(0,0,-,-,-)
+
+# Preload Fonts
+%Fl(2,18-ChicagoFLF.fnt)
+%Fl(3,20-ChicagoFLF.fnt)
+
+# Preload Images
+%xl(PB,pb.bmp,0,0)
+%xl(PBB,pb_back.bmp,0,0)
+
+# Always show the main Now Playing display (no hold switch on this target)
+%Vd(mainDisplay)
+
+## Main Display ##
+
+# Clear Screen
+%Vl(mainDisplay,0,39,320,201,-)
+
+# Status bar is the shared SBS (enabled via %we above).
+
+# Playlist Number
+%Vl(mainDisplay,8,46,72,20,2)
+%?if(%pp, =, %pe)<%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe>
+
+# Track Title
+%Vl(mainDisplay,10,62,300,30,1)
+%ac%s%?it<%s%it|%fn>
+
+# Artist
+%Vl(mainDisplay,10,91,300,30,1)
+%ac%s%?ia<%ia>
+
+# Album
+%Vl(mainDisplay,10,119,300,30,1)
+%ac%s%?id<%id>
+
+# Spectrum analyzer (%pm renders FFT bars on this target)
+%Vl(mainDisplay,20,152,280,36,-)
+%pm
+
+## --- Bottom strip: swappable panels (y=190..235) -------------------------
+## Exactly ONE self-contained panel occupies this strip at a time.  Each panel
+## below is its own group of %Vl(<label>,...) viewports; this dispatch enables
+## one group's label and the skin engine hides + clears the others.
+##
+## To add another display in this spot (e.g. a second EQ): declare a new
+## %Vl(npFoo,...) panel below and add a %Vd(npFoo) branch to the dispatch --
+## the existing panels are NOT touched.  (For >2 panels use a token that picks
+## a branch, e.g. %?<mode><%Vd(A)|%Vd(B)|%Vd(C)>.)
+%V(0,0,1,1,-)
+%?mv(2)<%Vd(npVolume)|%Vd(npProgress)>
+
+# Panel: PROGRESS -- playback position (shown when idle)
+%Vl(npProgress,20,190,280,14,-)%Vf(-)%Vb(-)
+%pb(0,0,-,14,PBB,backdrop,PB)
+%Vl(npProgress,20,210,90,25,1)
+%al%pc
+%Vl(npProgress,235,210,65,25,1)
+%ar-%pr
+
+# Panel: VOLUME -- shown ~1s after a volume change (%mv).  Perceptual 0..10 dial
+# (20 even loudness steps): empty = 0 (silence), full = 10 (max), default = 5.
+# End labels are plain "0"/"10"; no dB (the scale isn't user-facing).
+%Vl(npVolume,20,190,280,14,-)%Vf(-)%Vb(-)
+%pv(0,0,-,14,PBB,backdrop,PB)
+%Vl(npVolume,20,210,40,25,1)
+%al0
+%Vl(npVolume,260,210,40,25,1)
+%ar10

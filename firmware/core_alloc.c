@@ -1,0 +1,131 @@
+/***************************************************************************
+ *             __________               __   ___.
+ *   Open      \______   \ ____   ____ |  | _\_ |__   _______  ___
+ *   Source     |       _//  _ \_/ ___\|  |/ /| __ \ /  _ \  \/  /
+ *   Jukebox    |    |   (  <_> )  \___|    < | \_\ (  <_> > <  <
+ *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
+ *                     \/            \/     \/    \/            \/
+ *
+ * Copyright (C) 2011 Thomas Martitz
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ****************************************************************************/
+#include "config.h"
+#include <string.h>
+#include "system.h"
+#include "core_alloc.h"
+#include "buflib.h"
+
+/* not static so it can be discovered by core_get_data() */
+struct buflib_context core_ctx;
+
+static unsigned char audiobuffer[(MEMORYSIZE-1)*1024*1024];
+unsigned char *audiobufend = audiobuffer + sizeof(audiobuffer);
+
+#ifdef BUFLIB_DEBUG_PRINT
+/* debug test alloc */
+static int test_alloc;
+#endif
+
+void core_allocator_init(void)
+{
+    unsigned char *start = ALIGN_UP(audiobuffer, sizeof(intptr_t));
+
+
+    buflib_init(&core_ctx, start, audiobufend - start);
+
+#ifdef BUFLIB_DEBUG_PRINT
+    test_alloc = core_alloc(112);
+#endif
+}
+
+/* Allocate memory in the "core" context. See documentation
+ * of buflib_alloc_ex() for details.
+ *
+ * Note: Buffers allocated by this functions are movable.
+ *       Don't pass them to functions that call yield()
+ *       like disc input/output. */
+int core_alloc(size_t size)
+{
+    return buflib_alloc_ex(&core_ctx, size, NULL);
+}
+
+int core_alloc_ex(size_t size, struct buflib_callbacks *ops)
+{
+    return buflib_alloc_ex(&core_ctx, size, ops);
+}
+
+size_t core_available(void)
+{
+    return buflib_available(&core_ctx);
+}
+
+size_t core_allocatable(void)
+{
+    return buflib_allocatable(&core_ctx);
+}
+
+int core_free(int handle)
+{
+    return buflib_free(&core_ctx, handle);
+}
+
+int core_alloc_maximum(size_t *size, struct buflib_callbacks *ops)
+{
+    return buflib_alloc_maximum(&core_ctx, size, ops);
+}
+
+bool core_shrink(int handle, void* new_start, size_t new_size)
+{
+    return buflib_shrink(&core_ctx, handle, new_start, new_size);
+}
+
+void core_pin(int handle)
+{
+    buflib_pin(&core_ctx, handle);
+}
+
+void core_unpin(int handle)
+{
+    buflib_unpin(&core_ctx, handle);
+}
+
+unsigned core_pin_count(int handle)
+{
+    return buflib_pin_count(&core_ctx, handle);
+}
+
+#ifdef BUFLIB_DEBUG_PRINT
+int core_get_num_blocks(void)
+{
+    return buflib_get_num_blocks(&core_ctx);
+}
+
+bool core_print_block_at(int block_num, char* buf, size_t bufsize)
+{
+    return buflib_print_block_at(&core_ctx, block_num, buf, bufsize);
+}
+
+bool core_test_free(void)
+{
+    bool ret = test_alloc > 0;
+    if (ret)
+        test_alloc = core_free(test_alloc);
+
+    return ret;
+}
+#endif
+
+#ifdef BUFLIB_DEBUG_CHECK_VALID
+void core_check_valid(void)
+{
+    buflib_check_valid(&core_ctx);
+}
+#endif
