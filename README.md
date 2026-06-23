@@ -5,7 +5,7 @@
 
 ## Description
 
-Trimpod Classic is a classic ipod-inspired music player built for the TrimUI Brick.
+Trimpod Classic is an iPod classic-inspired, offline music player built for the TrimUI Brick.
 It builds upon a heavily-modified Rockbox base and includes 100 Winamp-inspired milkdrop visualizations.
 
 ## User Disclaimer
