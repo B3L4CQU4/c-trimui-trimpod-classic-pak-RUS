@@ -11,8 +11,8 @@ It builds upon a heavily-modified Rockbox base and includes 100 Winamp-inspired 
 ## User Disclaimer
 
 Trimpod Classic is shared free with the TrimUI community and provided **as-is, without any
-warranty**. It is an independent build of Rockbox; use it at your own risk. The author accepts no
-liability for any damage to your device.
+warranty**. It is an independent personal-use app; use it at your own risk. The author accepts no
+liability for any damage to your device when it melts from awesomeness.
 
 ## Dev Disclaimer
 
@@ -22,7 +22,7 @@ as far as top-down architecture but 100% slop-coded. Thus beware when forking. H
 ## Supported Platforms
 
 - **tg5040** — TrimUI Brick
-- I have no other devices to test with
+- I have no other devices to test with. Send me one! :)
 
 ## Features
 
