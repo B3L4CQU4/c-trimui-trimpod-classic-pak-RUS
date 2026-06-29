@@ -242,16 +242,30 @@ static void load_enabled_state(void)
 
 static void save_enabled_state(void)
 {
-    int fd = open(VIZ_STATE_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if (fd < 0)
-        return;
+    /* Build the whole file in memory and flush it in ONE write().  This runs on
+     * every toggle; the previous code issued two tiny write() syscalls per
+     * disabled preset, so toggling got slower the more presets were off -- on the
+     * SD card those unbuffered per-entry writes dominate.  A single write keeps the
+     * cost flat regardless of how many are disabled.  viz_state_buf is reused here
+     * (load + save never overlap). */
+    int used = 0;
     for (int i = 0; i < preset_count; i++)
         if (!preset_enabled[i])
         {
             const char *nm = name_buf + name_off[i];
-            write(fd, nm, strlen(nm));
-            write(fd, "\n", 1);
+            int L = strlen(nm);
+            if (used + L + 1 > (int)sizeof(viz_state_buf))
+                break;                          /* never overflow the buffer */
+            memcpy(viz_state_buf + used, nm, L);
+            used += L;
+            viz_state_buf[used++] = '\n';
         }
+
+    int fd = open(VIZ_STATE_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return;
+    if (used)
+        write(fd, viz_state_buf, used);
     close(fd);
 }
 

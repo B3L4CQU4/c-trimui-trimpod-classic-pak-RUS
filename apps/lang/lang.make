@@ -8,7 +8,6 @@
 
 LANGS := $(call preprocess, $(APPSDIR)/lang/SOURCES)
 LANGOBJ := $(LANGS:$(ROOTDIR)/%.lang=$(BUILDDIR)/%.lng)
-VOICEOBJ := $(LANGS:$(ROOTDIR)/%.lang=$(BUILDDIR)/%.vstrings)
 LANG_O = $(BUILDDIR)/lang/lang_core.o
 ENGLISH := english
 
@@ -24,7 +23,7 @@ CLEANOBJS += $(BUILDDIR)/lang/max_language_size.h $(BUILDDIR)/lang/lang*
 # SUBHEADER_SIZE.
 # TODO: In the future generate this file within genlang or another script
 # in order to only calculate the maximum size based on the core strings.
-$(BUILDDIR)/lang/max_language_size.h: $(LANGOBJ) $(BUILDDIR)/apps/lang/voicestrings.zip
+$(BUILDDIR)/lang/max_language_size.h: $(LANGOBJ)
 	$(call PRINTS,GEN $(subst $(BUILDDIR)/,,$@))
 	$(SILENT)echo "#define MAX_LANGUAGE_SIZE `ls -ln $(BUILDDIR)/apps/lang/*.lng | awk '{print $$5-10}' | sort -n | tail -1`" > $@
 
@@ -43,27 +42,9 @@ $(BUILDDIR)/lang/lang_core.c: $(BUILDDIR)/lang/lang.h $(TOOLSDIR)/genlang
 
 $(BUILDDIR)/lang_enum.h: $(BUILDDIR)/lang/lang.h $(TOOLSDIR)/genlang
 
-# NOTE: for some weird reasons in GNU make, multi targets rules WITH patterns actually express
-# the fact that the two files are created as the result of one invocation of the rule
-$(BUILDDIR)/%.lng $(BUILDDIR)/%.vstrings: $(ROOTDIR)/%.lang $(APPSDIR)/lang/$(ENGLISH).lang $(BUILDDIR)/apps/genlang-features $(TOOLSDIR)/genlang $(TOOLSDIR)/updatelang
+$(BUILDDIR)/%.lng: $(ROOTDIR)/%.lang $(APPSDIR)/lang/$(ENGLISH).lang $(BUILDDIR)/apps/genlang-features $(TOOLSDIR)/genlang $(TOOLSDIR)/updatelang
 	$(call PRINTS,GENLANG $(subst $(ROOTDIR)/,,$<))
 	$(SILENT)mkdir -p $(dir $@)
 	$(SILENT)$(TOOLSDIR)/updatelang $(APPSDIR)/lang/$(ENGLISH).lang $< $@.tmp
-	$(SILENT)$(TOOLSDIR)/genlang -e=$(APPSDIR)/lang/$(ENGLISH).lang -t=$(MODELNAME):`cat $(BUILDDIR)/apps/genlang-features` -i=$(TARGET_ID) -b=$*.lng -c=$*.vstrings $@.tmp
+	$(SILENT)$(TOOLSDIR)/genlang -e=$(APPSDIR)/lang/$(ENGLISH).lang -t=$(MODELNAME):`cat $(BUILDDIR)/apps/genlang-features` -i=$(TARGET_ID) -b=$*.lng $@.tmp
 	$(SILENT)rm -f $@.tmp
-
-$(BUILDDIR)/apps/lang/voice-corrections.txt: $(ROOTDIR)/tools/voice-corrections.txt
-	$(SILENT)mkdir -p $(dir $@)
-	$(call PRINTS,CP $(subst $(ROOTDIR)/,,$<))cp $< $@
-
-$(BUILDDIR)/apps/lang/lang-enum.txt: $(BUILDDIR)/lang_enum.h
-	$(SILENT)mkdir -p $(dir $@)
-	$(call PRINTS,GEN $(subst $(BUILDDIR)/,,$@))perl -ne 'print if s|\s+(.*), /\* (\w+).*|$$2:$$1|' < $<  |grep -v 'this:' > $@
-
-$(BUILDDIR)/apps/lang/voicestrings.zip: $(VOICEOBJ) $(wildcard $(BUILDDIR)/apps/lang/*.talk) $(BUILDDIR)/apps/lang/voice-corrections.txt $(BUILDDIR)/apps/lang/lang-enum.txt
-	$(call PRINTS,ZIP $(subst $(BUILDDIR)/,,$@))
-	$(SILENT)zip -9 -q $@ $(subst $(BUILDDIR)/,,$^)
-
-#copy any included talk files to the /lang directory
-$(BUILDDIR)/apps/lang/%.talk: $(ROOTDIR)/apps/lang/%.talk
-	$(call PRINTS,CP $(subst $(ROOTDIR)/,,$<))cp $< $(BUILDDIR)/apps/lang

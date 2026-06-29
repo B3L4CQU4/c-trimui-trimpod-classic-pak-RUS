@@ -217,6 +217,10 @@ static void init(void)
     {
         extern void retrohh_cpu_apply_saved(void);
         retrohh_cpu_apply_saved();
+        /* Charge Limit (Settings -> Power): probe + start the in-app poll, or
+         * defer to the standalone Battery Care daemon if it's already running. */
+        extern void retrohh_battery_care_init(void);
+        retrohh_battery_care_init();
     }
 #endif
     init_battery_tables();

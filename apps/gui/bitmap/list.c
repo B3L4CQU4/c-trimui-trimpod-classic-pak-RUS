@@ -136,33 +136,44 @@ static void _default_listdraw_fn(struct list_putlineinfo_t *list_info)
      * name column, so the gutter bar+glyph persist under the marquee.  A toggle
      * draws its brackets at fixed positions (middle 'x'-wide) so [x]/[ ] don't
      * jitter. */
-    if ((list_info->indicator || list_info->show_chevron) && !is_title)
+    /* Trimpod: the list reserved a right gutter (indic_gutter) for the inline
+     * value / [x] / ">" glyph, which narrowed every row's name viewport.  Stretch
+     * the selection bar across that gutter on EVERY row -- not only rows that carry
+     * a glyph -- so the highlight spans the full row width uniformly.  Plain action
+     * rows (Add to Playlist, Start Visualizer) and the label-only Play/Pause row
+     * supply no indicator/chevron yet must still highlight edge-to-edge.  Draw the
+     * glyph on top only when there is one. */
+    if (list_info->indic_gutter > 0 && !is_title)
     {
-        const unsigned char *g = (const unsigned char *)
-                    (list_info->indicator ? list_info->indicator : ">");
-        int w, h;
-        display->getstringsize(g, &w, &h);
-        int lh = (linedes->height > 0) ? linedes->height : h;
-        int yy = y + (lh - h) / 2;
         vp->width += list_info->indic_gutter;
         display->put_line(vp->width - list_info->indic_gutter, y, linedes, "");
-        int x0 = vp->width - list_indicator_width(display, g) - 2;
-        /* inverse-video on the inverse selection bar so the glyph stays visible */
-        display->set_drawmode((linedes->style & STYLE_INVERT) ?
-                              (DRMODE_SOLID | DRMODE_INVERSEVID) : DRMODE_FG);
-        if (is_bracket_toggle(g))
+
+        if (list_info->indicator || list_info->show_chevron)
         {
-            int wl, wx, hh;
-            display->getstringsize((const unsigned char *)"[", &wl, &hh);
-            display->getstringsize((const unsigned char *)"x", &wx, &hh);
-            char mid[2] = { (char)g[1], '\0' };
-            display->putsxy(x0, yy, (const unsigned char *)"[");
-            display->putsxy(x0 + wl, yy, (const unsigned char *)mid);
-            display->putsxy(x0 + wl + wx, yy, (const unsigned char *)"]");
+            const unsigned char *g = (const unsigned char *)
+                        (list_info->indicator ? list_info->indicator : ">");
+            int w, h;
+            display->getstringsize(g, &w, &h);
+            int lh = (linedes->height > 0) ? linedes->height : h;
+            int yy = y + (lh - h) / 2;
+            int x0 = vp->width - list_indicator_width(display, g) - 2;
+            /* inverse-video on the inverse selection bar so the glyph stays visible */
+            display->set_drawmode((linedes->style & STYLE_INVERT) ?
+                                  (DRMODE_SOLID | DRMODE_INVERSEVID) : DRMODE_FG);
+            if (is_bracket_toggle(g))
+            {
+                int wl, wx, hh;
+                display->getstringsize((const unsigned char *)"[", &wl, &hh);
+                display->getstringsize((const unsigned char *)"x", &wx, &hh);
+                char mid[2] = { (char)g[1], '\0' };
+                display->putsxy(x0, yy, (const unsigned char *)"[");
+                display->putsxy(x0 + wl, yy, (const unsigned char *)mid);
+                display->putsxy(x0 + wl + wx, yy, (const unsigned char *)"]");
+            }
+            else
+                display->putsxy(x0, yy, g);
+            display->set_drawmode(DRMODE_SOLID);
         }
-        else
-            display->putsxy(x0, yy, g);
-        display->set_drawmode(DRMODE_SOLID);
         vp->width -= list_info->indic_gutter;
     }
 }

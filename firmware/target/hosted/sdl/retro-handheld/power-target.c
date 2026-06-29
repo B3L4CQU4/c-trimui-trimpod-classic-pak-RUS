@@ -32,6 +32,8 @@
 #include "sysfs.h"
 
 #include "tick.h"
+#include "kernel.h"      /* sleep(), HZ                 */
+#include "thread.h"      /* create_thread() for the charge-limit poll */
 
 #ifdef HAVE_TRIMUI_SAFE_POWEROFF
 /* The NextUI/MinUI launcher runs poweroff_next (safe AXP2202 PMIC shutdown:
@@ -212,4 +214,227 @@ int retrohh_cpu_get_freq(void)
     int khz = 0;
     sysfs_get_int(CPUFREQ_POLICY "/scaling_cur_freq", &khz);
     return khz;
+}
+
+/* ---- Trimpod: Charge Limit (Settings -> Power) --------------------------- *
+ * Caps charging at a target % by toggling the AXP2202 charger-enable bit
+ * (regmap reg 0x19 bit 1) -- the same mechanism as the standalone Battery Care
+ * app, but in-process (no daemon) and only while Trimpod runs. A 60s poll
+ * thread does the read-modify-write with 5% hysteresis. launch.sh re-enables
+ * the charger on exit (unless the daemon is running) so quitting never leaves
+ * charging capped -- even on SIGKILL, which the in-app path can't catch.
+ *
+ * If the standalone Battery Care daemon is already running we DEFER entirely:
+ * the poll thread is never started and the menu row is read-only (showing the
+ * daemon's target, else 100%).  Only one of the two ever writes the bit.
+ *
+ * No try/catch in C: every fs access is checked and the register is only ever
+ * written from a value derived from a *successful* read, so any failure is a
+ * true no-op (we never poke a garbage value). */
+#define BATT_REGS         "/sys/kernel/debug/regmap/6-0034/registers"
+#define BATT_CAP_FILE     "/sys/class/power_supply/axp2202-battery/capacity"
+#define BATT_USB_FILE     "/sys/class/power_supply/axp2202-usb/online"
+#define BATT_TARGET_FILE  ROCKBOX_DIR "/charge_limit.txt"
+#define BATT_DAEMON_PID   "/tmp/battery-care-daemon.pid"
+#define BATT_CHARGER_BIT  0x02   /* reg 0x19 bit 1 = charger enable */
+#define BATT_HYST         5      /* re-enable when cap <= target - HYST */
+#define BATT_OFF          100    /* target == 100 -> no cap (shown "100%") */
+#define BATT_POLL_SECONDS 60
+/* Step/max/default/Off-label/wrap mirror the standalone Battery Care app
+ * (pak/src/settings.c); the MINIMUM is 75 here (Trimpod-specific) vs the app's
+ * 50, so the in-app range is 75..100 in steps of 5, default 100 = Off. */
+#define BATT_MIN          75
+#define BATT_STEP         5
+
+/* Clamp to [BATT_MIN, BATT_OFF] and snap to the step grid (mirrors the Battery
+ * Care app's clamp_step). */
+static int batt_clamp_step(int v)
+{
+    if (v < BATT_MIN) v = BATT_MIN;
+    if (v > BATT_OFF) v = BATT_OFF;
+    return ((v + BATT_STEP / 2) / BATT_STEP) * BATT_STEP;
+}
+
+static bool batt_available;          /* probe ok and not deferred to the daemon */
+static bool batt_locked;             /* daemon present -> hide the Battery Limit row */
+static int  batt_target = BATT_OFF;
+
+/* Detect the standalone Battery Care daemon by name: its pidfile points at a
+ * live process whose cmdline contains "battery-care-daemon" (mirrors the app's
+ * own is_our_daemon check; a stale pidfile fails the cmdline test). */
+static bool batt_daemon_running(void)
+{
+    FILE *f = fopen(BATT_DAEMON_PID, "re");
+    if (!f)
+        return false;
+    int pid = -1;
+    if (fscanf(f, "%d", &pid) != 1)
+        pid = -1;
+    fclose(f);
+    if (pid <= 0)
+        return false;
+
+    char path[64];
+    snprintf(path, sizeof path, "/proc/%d/cmdline", pid);
+    f = fopen(path, "re");
+    if (!f)
+        return false;                /* pid not alive -> stale pidfile */
+    char buf[256];
+    size_t n = fread(buf, 1, sizeof buf - 1, f);
+    fclose(f);
+    if (n == 0)
+        return false;
+    for (size_t i = 0; i < n; i++)
+        if (buf[i] == '\0') buf[i] = ' ';
+    buf[n] = '\0';
+    return strstr(buf, "battery-care-daemon") != NULL;
+}
+
+/* reg 0x19 as an int, or -1 on any failure (so callers never write a value
+ * derived from a bad read). */
+static int batt_read_reg19(void)
+{
+    FILE *f = fopen(BATT_REGS, "re");
+    if (!f)
+        return -1;
+    char line[64];
+    int v = -1;
+    while (fgets(line, sizeof line, f))
+        if (strncmp(line, "19:", 3) == 0) { v = (int)strtol(line + 3, NULL, 16); break; }
+    fclose(f);
+    return v;
+}
+
+static void batt_write_reg19(int v)
+{
+    FILE *f = fopen(BATT_REGS, "we");
+    if (!f)
+        return;
+    fprintf(f, "19 %02x\n", v & 0xff);
+    fclose(f);
+}
+
+/* Always safe to call: ensure the charger bit is set (charging enabled). */
+static void batt_restore_charger(void)
+{
+    int cur = batt_read_reg19();
+    if (cur >= 0 && !(cur & BATT_CHARGER_BIT))
+        batt_write_reg19(cur | BATT_CHARGER_BIT);
+}
+
+static void batt_save_target(void)
+{
+    FILE *f = fopen(BATT_TARGET_FILE, "we");
+    if (!f)
+        return;
+    fprintf(f, "%d\n", batt_target);
+    fclose(f);
+}
+
+static void batt_load_target(void)
+{
+    batt_target = BATT_OFF;          /* default: no cap */
+    FILE *f = fopen(BATT_TARGET_FILE, "re");
+    if (!f)
+        return;
+    int t = 0;
+    if (fscanf(f, "%d", &t) == 1)
+        batt_target = batt_clamp_step(t);
+    fclose(f);
+}
+
+/* One poll tick: cap/uncap with hysteresis. No-op unless actively capping and
+ * on USB power; each read is checked so a failure writes nothing. */
+static void batt_care_tick(void)
+{
+    if (!batt_available || batt_target >= BATT_OFF)
+        return;
+    int usb = 0;
+    if (!sysfs_get_int(BATT_USB_FILE, &usb) || usb != 1)
+        return;                      /* only manage while on USB power */
+    int cap = 0;
+    if (!sysfs_get_int(BATT_CAP_FILE, &cap))
+        return;
+    int cur = batt_read_reg19();
+    if (cur < 0)
+        return;
+    bool on = (cur & BATT_CHARGER_BIT) != 0;
+    if (cap >= batt_target && on)
+        batt_write_reg19(cur & ~BATT_CHARGER_BIT);   /* reached cap: stop charging */
+    else if (cap <= batt_target - BATT_HYST && !on)
+        batt_write_reg19(cur | BATT_CHARGER_BIT);    /* dropped below: resume      */
+}
+
+static long batt_care_stack[DEFAULT_STACK_SIZE / sizeof(long)];
+static const char batt_care_thread_name[] = "battery care";
+
+static void batt_care_thread(void)
+{
+    while (1)
+    {
+        sleep(HZ * BATT_POLL_SECONDS);
+        batt_care_tick();
+    }
+}
+
+/* Called once at startup (apps/main.c, RETRO_HANDHELD). Decides ownership for
+ * the whole session: defer to the daemon if present, else probe the hardware
+ * and -- only if usable -- start the poll thread. */
+void retrohh_battery_care_init(void)
+{
+    batt_load_target();
+
+    if (batt_daemon_running())
+    {
+        batt_locked = true;          /* daemon owns charging -> hide our row */
+        batt_available = false;
+        return;                      /* never start the loop -- daemon owns it */
+    }
+
+    /* Need a root-writable regmap + readable capacity, or the feature can't run. */
+    if (access(BATT_REGS, W_OK) != 0 || access(BATT_CAP_FILE, R_OK) != 0)
+    {
+        batt_available = false;
+        return;
+    }
+    batt_available = true;
+
+    /* Self-heal: start from charging-enabled (clears any "off" left stranded by a
+     * prior hard force-off / crash that skipped launch.sh), then re-apply the
+     * saved cap on top.  So simply relaunching Trimpod fixes a stranded charger. */
+    batt_restore_charger();
+    if (batt_target < BATT_OFF)
+        batt_care_tick();            /* re-apply the saved cap immediately */
+
+    create_thread(batt_care_thread, batt_care_stack, sizeof batt_care_stack,
+                  0, batt_care_thread_name
+                  IF_PRIO(, PRIORITY_BACKGROUND) IF_COP(, CPU));
+}
+
+/* Menu hooks (power_menu.c). The row is hidden entirely when the daemon owns
+ * charging or the hardware isn't usable. */
+bool retrohh_battery_care_hidden(void)
+{
+    return batt_locked || !batt_available;
+}
+
+int retrohh_battery_care_get_target(void)
+{
+    return batt_target;
+}
+
+void retrohh_battery_care_cycle(int dir)
+{
+    if (retrohh_battery_care_hidden())
+        return;                      /* defensive: row isn't shown when hidden */
+    /* Step by BATT_STEP and wrap 100<->75, matching the Battery Care app's cycle. */
+    int v = batt_target + ((dir < 0) ? -BATT_STEP : BATT_STEP);
+    if (v < BATT_MIN) v = BATT_OFF;
+    if (v > BATT_OFF) v = BATT_MIN;
+    batt_target = v;
+    batt_save_target();
+    if (batt_target >= BATT_OFF)
+        batt_restore_charger();      /* Off -> resume charging now */
+    else
+        batt_care_tick();            /* apply the new cap immediately */
 }

@@ -96,6 +96,16 @@ cleanup() {
     echo "$TRIMPOD_OLD_MIN" > "$CPUP/scaling_min_freq"
     echo "$TRIMPOD_OLD_GOV" > "$CPUP/scaling_governor"
   fi
+  # Re-enable the battery charger (AXP2202 reg 0x19 bit 1) on exit, in case the
+  # in-app Charge Limit had disabled it -- guaranteed even on SIGKILL of the
+  # binary, which the in-app code can't catch.  Skipped when the standalone
+  # Battery Care daemon is running, since it owns the bit (the two never fight).
+  BC_REGS=/sys/kernel/debug/regmap/6-0034/registers
+  BC_PID=$(cat /tmp/battery-care-daemon.pid 2>/dev/null)
+  if [ -f "$BC_REGS" ] && ! { [ -n "$BC_PID" ] && tr -d '\0' < "/proc/$BC_PID/cmdline" 2>/dev/null | grep -q battery-care-daemon; }; then
+    bcval=$(grep '^19:' "$BC_REGS" 2>/dev/null | awk '{print $2}')
+    [ -n "$bcval" ] && printf '19 %02x\n' "$(( 0x$bcval | 2 ))" > "$BC_REGS" 2>/dev/null
+  fi
   while mount 2>/dev/null | grep -q "$RBDIR_BIND"; do umount -l "$RBDIR_BIND" 2>/dev/null; done
 }
 trap cleanup EXIT
