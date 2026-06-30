@@ -764,8 +764,6 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 if (retval == ONPLAY_MAINMENU
                     || !audio_status())
                     { w->result = GO_TO_ROOT; return TRIMPOD_PAGE_DONE; }
-                else if (retval == ONPLAY_REVEAL_FILE)
-                    { w->result = GO_TO_FILEBROWSER; return TRIMPOD_PAGE_DONE; }
                 else if (retval == ONPLAY_PLAYLIST)
                     { w->result = GO_TO_PLAYLIST_VIEWER; return TRIMPOD_PAGE_DONE; }
 
@@ -939,6 +937,7 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 /* Auto-start the visualizer after the configured idle (while
                  * music is playing) on Now Playing.  0 = Never. */
                 if (global_settings.viz_start_delay > 0
+                    && !power_display_off()   /* suspended while display blanked */
                     && (audio_status() & AUDIO_STATUS_PLAY)
                     && !(audio_status() & AUDIO_STATUS_PAUSE)
                     && TIME_AFTER(current_tick, button_last_activity_tick()

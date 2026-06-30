@@ -19,13 +19,9 @@
  ****************************************************************************/
 
 
-#include <stdio.h>
 #include <stdbool.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/ioctl.h>
-#include <linux/input.h>
 #include <SDL.h>
 #include "button.h"
 #include "button-target.h"
@@ -48,76 +44,50 @@ bool retrohh_hold_switch(void)
     return v == '1';               /* 1 = engaged -> block input */
 }
 
-/* Hardware volume rocker.
- * On the Brick the rocker is NOT a dedicated key device: it emits
- * KEY_VOLUMEUP / KEY_VOLUMEDOWN on the *gamepad* evdev node ("TRIMUI Player1").
- * gptokeyb2 claims that node as an SDL game controller, and game controllers
- * have no notion of volume keys, so those presses are dropped before they can
- * reach us as SDL key events.  So -- exactly like NextUI's keymon -- we read
- * the evdev node(s) directly (shared, no EVIOCGRAB so we don't steal the pad
- * buttons) and translate the volume keys into BUTTON_VOL_UP / BUTTON_VOL_DOWN.
- * action.c's global volume handler does the rest. */
-#define VOL_BITS_PER_LONG (8 * (int)sizeof(long))
-#define VOL_NLONGS(b)     (((b) + VOL_BITS_PER_LONG - 1) / VOL_BITS_PER_LONG)
-#define VOL_TEST_BIT(a,b) (((a)[(b) / VOL_BITS_PER_LONG] >> ((b) % VOL_BITS_PER_LONG)) & 1)
-#define VOL_MAX_FDS 8
-
-static void vol_open_devices(int *fds, int *nfds)
+/* Gamepad -> Rockbox button mapping.
+ *
+ * We read the TrimUI's gamepad through SDL's joystick layer directly (the pad
+ * is opened with SDL_JoystickOpen in button-sdl.c), exactly like NextUI does --
+ * no gptokeyb2 shim.  The raw SDL joystick button indices below are the Brick's
+ * (matching NextUI's JOY_* constants, workspace/tg5040/platform/platform.h), so
+ * the physical buttons land where the launcher puts them.  The volume rocker is
+ * NOT a separate device: SDL enumerates the pad node's KEY_VOLUMEUP/DOWN as
+ * joystick buttons 14/13, so the rocker arrives here for free.  Indices 8
+ * (MENU) and 9/10 (L3/R3) are unused by Trimpod. */
+int joybutton_to_button(int joybtn)
 {
-    *nfds = 0;
-    for (int i = 0; i < 12 && *nfds < VOL_MAX_FDS; i++)
+    switch (joybtn)
     {
-        char path[32];
-        snprintf(path, sizeof(path), "/dev/input/event%d", i);
-        int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-        if (fd < 0)
-            continue;
-
-        /* keep only nodes capable of emitting the volume keys */
-        unsigned long keybits[VOL_NLONGS(KEY_MAX + 1)];
-        memset(keybits, 0, sizeof(keybits));
-        if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keybits)), keybits) >= 0 &&
-            (VOL_TEST_BIT(keybits, KEY_VOLUMEUP) ||
-             VOL_TEST_BIT(keybits, KEY_VOLUMEDOWN)))
-            fds[(*nfds)++] = fd;
-        else
-            close(fd);
+        case 1:  return BUTTON_A;        /* face buttons (NextUI swaps A/B, X/Y) */
+        case 0:  return BUTTON_B;
+        case 3:  return BUTTON_X;
+        case 2:  return BUTTON_Y;
+        case 4:  return BUTTON_L;        /* L1 */
+        case 5:  return BUTTON_R;        /* R1 */
+        case 6:  return BUTTON_SELECT;
+        case 7:  return BUTTON_START;
+        case 14: return BUTTON_VOL_UP;   /* volume rocker, on the pad node */
+        case 13: return BUTTON_VOL_DOWN;
+        default: return BUTTON_NONE;     /* 8 = MENU, 9/10 = L3/R3 (unused) */
     }
 }
 
-int retrohh_read_volume_rocker(void)
+/* L2/R2 are reported as analog axes (ABS_Z / ABS_RZ = axes 2/5 on tg5040), not
+ * buttons -- same as NextUI's AXIS_L2/AXIS_R2. */
+int joyaxis_to_button(int axis)
 {
-    static int fds[VOL_MAX_FDS];
-    static int nfds = -1;          /* -1 = not yet scanned */
-    static int state = 0;          /* currently-held BUTTON_VOL_* bits */
-
-    if (nfds < 0)
-        vol_open_devices(fds, &nfds);
-
-    struct input_event ev;
-    for (int i = 0; i < nfds; i++)
+    switch (axis)
     {
-        while (read(fds[i], &ev, sizeof(ev)) == (int)sizeof(ev))
-        {
-            int bit;
-            if (ev.type != EV_KEY)
-                continue;
-            if (ev.code == KEY_VOLUMEUP)
-                bit = BUTTON_VOL_UP;
-            else if (ev.code == KEY_VOLUMEDOWN)
-                bit = BUTTON_VOL_DOWN;
-            else
-                continue;
-
-            if (ev.value)          /* press (1) or autorepeat (2) */
-                state |= bit;
-            else                   /* release (0) */
-                state &= ~bit;
-        }
+        case 2:  return BUTTON_L2;
+        case 5:  return BUTTON_R2;
+        default: return BUTTON_NONE;
     }
-    return state;
 }
 
+/* Keyboard -> Rockbox button mapping.  On the device nothing reaches this path
+ * any more (the pad is read as a joystick); it is the DESKTOP SIMULATOR's keymap
+ * -- you press l/k/i/j/w/s/a/d/... on the dev machine.  Kept so simulator builds
+ * stay usable. */
 int key_to_button(int keyboard_key)
 {
     int new_btn = BUTTON_NONE;
@@ -174,13 +144,6 @@ int key_to_button(int keyboard_key)
             break;
         case SDLK_AUDIONEXT:
             new_btn = RC_BUTTON_NEXTSONG;
-            break;
-        /* Hardware volume rocker (TrimUI Brick: sunxi-keyboard) */
-        case SDLK_VOLUMEUP:
-            new_btn = BUTTON_VOL_UP;
-            break;
-        case SDLK_VOLUMEDOWN:
-            new_btn = BUTTON_VOL_DOWN;
             break;
         default:
             break;

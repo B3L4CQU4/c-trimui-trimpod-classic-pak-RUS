@@ -421,3 +421,24 @@ void trimpod_about(void)
     if (fid != FONT_UI)
         font_unload(fid);
 }
+
+/* Measure every reel line once to fault its glyphs into the cache now (startup),
+ * sparing the first About open the synchronous .fnt reads.  font_load refcounts
+ * the .sbs-resident 18pt font, so the warmed cache survives the unload. */
+void trimpod_about_prewarm(void)
+{
+    struct screen *s = &screens[SCREEN_MAIN];
+    int fid = font_load(ABOUT_URL_FONT);
+    for (int i = 0; i < ABOUT_NLINES; i++)
+    {
+        const struct about_line *l = &about_lines[i];
+        if (!l->text)
+            continue;
+        s->setfont(l->kind == AB_URL && fid >= 0 ? fid : FONT_UI);
+        int w, h;
+        s->getstringsize((const unsigned char *)l->text, &w, &h);
+    }
+    s->setfont(FONT_UI);
+    if (fid >= 0 && fid != FONT_UI)
+        font_unload(fid);
+}

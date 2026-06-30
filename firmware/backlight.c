@@ -592,6 +592,13 @@ void backlight_set_timeout(int value)
     queue_post(&backlight_queue, BACKLIGHT_TMO_CHANGED, 0);
 }
 
+/* Trimpod: set the timeout without posting BACKLIGHT_TMO_CHANGED, so the screen
+ * isn't woken.  Next backlight_on() picks up the value. */
+void backlight_set_timeout_quiet(int value)
+{
+    backlight_timeout_normal = HZ * value;
+}
+
 #if CONFIG_CHARGING
 /* Trimpod: a single screen-off timer (Auto Screen Off) applies whether plugged
  * in or not, so there is no charging-specific timeout.  This stays a no-op to

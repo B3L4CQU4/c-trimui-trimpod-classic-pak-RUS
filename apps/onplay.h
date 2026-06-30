@@ -32,7 +32,6 @@ enum onplay_return_code {
     ONPLAY_MAINMENU = -1,
     ONPLAY_OK = 0,
     ONPLAY_RELOAD_DIR,
-    ONPLAY_REVEAL_FILE,
     ONPLAY_START_PLAY,
     ONPLAY_PLAYLIST,
     ONPLAY_PLUGIN,
@@ -54,7 +53,6 @@ enum hotkey_action {
     HOTKEY_INSERT_SHUFFLED,
     HOTKEY_BOOKMARK_LIST,
     HOTKEY_ALBUMART,
-    HOTKEY_SHOW_IN_FILES,
     HOTKEY_CONTEXT_MENU = 0x3E, /* Last item shows / executes above actions in a menu */
     /* Note no more than 62 items */
 };

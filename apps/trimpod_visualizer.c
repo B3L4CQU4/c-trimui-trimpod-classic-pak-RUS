@@ -559,7 +559,9 @@ static void visualizer_session(const char *locked_path)
     SDL_Thread *rt = SDL_CreateThread(viz_render_thread, "trimpod_viz", NULL);
     if (rt)
     {
-        while (get_action(CONTEXT_STD, HZ/20) == ACTION_NONE)
+        /* Exit also when a power-button short press blanks the display, so the
+         * visualizer doesn't keep rendering to a dark screen (music plays on). */
+        while (get_action(CONTEXT_STD, HZ/20) == ACTION_NONE && !power_display_off())
             ;
         viz_thread_stop = true;
         SDL_WaitThread(rt, NULL);
@@ -568,7 +570,13 @@ static void visualizer_session(const char *locked_path)
 
     projectm_set_preset_locked(pm, false);
     trimpod_viz_active = false;
-    backlight_set_timeout(global_settings.backlight_timeout);  /* restore Auto Screen Off */
+    /* Restore Auto Screen Off.  If a power short press blanked us, restore it
+     * silently -- the normal setter's backlight-on would flash Now Playing before
+     * we re-blank.  Stay dark; the repaint below lands behind it. */
+    if (power_display_off())
+        backlight_set_timeout_quiet(global_settings.backlight_timeout);
+    else
+        backlight_set_timeout(global_settings.backlight_timeout);
     button_clear_queue();
     /* The user was just interacting (they pressed B to exit); stamp activity so
      * the WPS idle->auto-start timer restarts instead of immediately re-firing. */

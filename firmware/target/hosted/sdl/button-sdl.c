@@ -36,18 +36,6 @@
 #include "powermgmt.h"
 #include "storage.h"
 
-/* how long until repeat kicks in */
-#define REPEAT_START      6
-
-/* the speed repeat starts at */
-#define REPEAT_INTERVAL_START   4
-
-/* speed repeat finishes at */
-#define REPEAT_INTERVAL_FINISH  2
-
-#define USB_KEY SDLK_u
-#define EXT_KEY SDLK_e
-
 
 static int btn = 0;    /* Hopefully keeps track of currently pressed keys... */
 
@@ -64,6 +52,60 @@ bool button_hold(void) {
 static void button_event(int key, bool pressed);
 extern bool debug_wps;
 extern bool mapping;
+
+/* Trimpod: power button.  On-device the power key is KEY_POWER on the
+ * axp2202-pek PMIC node, which SDL's evdev layer opens as a keyboard and
+ * delivers as scancode SDL_SCANCODE_POWER (== NextUI's CODE_POWER 102) -- so we
+ * track its held state from SDL key events in event_handler (power_key_held),
+ * exactly like NextUI.  (SDLK_x in button_event is the desktop simulator's
+ * shutdown shortcut.)  The gesture is timed in button_read_device to match
+ * NextUI's power-button TIMING: a short press (held < 1s) toggles the display
+ * off/on in-app while music keeps playing; a long press (held >= 1s) powers off.
+ * We deliberately do NOT replicate NextUI's deep sleep (which pauses audio); a
+ * short press just blanks the backlight via the existing backlight system. */
+#define POWER_LONG_PRESS_TICKS  HZ      /* 1s, matches NextUI's 1000ms */
+static long power_down_tick = 0;        /* current_tick of power press (0 = up) */
+static bool power_blanked   = false;    /* display blanked by a power short press */
+static bool power_key_held  = false;    /* set from SDL_SCANCODE_POWER key events */
+
+bool power_display_off(void) { return power_blanked; }
+
+/* The TrimUI gamepad is read directly through SDL's joystick layer (no gptokeyb2
+ * shim), mirroring NextUI: open every joystick at loop start, translate
+ * JOYBUTTON/JOYHAT/JOYAXIS events to Rockbox buttons in event_handler. */
+static SDL_Joystick **joysticks = NULL;
+static int num_joysticks = 0;
+
+static void open_joysticks(void)
+{
+    if (SDL_InitSubSystem(SDL_INIT_JOYSTICK) < 0)
+    {
+        DEBUGF("SDL_INIT_JOYSTICK failed: %s\n", SDL_GetError());
+        return;
+    }
+    SDL_JoystickEventState(SDL_ENABLE);
+    num_joysticks = SDL_NumJoysticks();
+    if (num_joysticks > 0)
+    {
+        joysticks = malloc(sizeof(*joysticks) * num_joysticks);
+        for (int i = 0; i < num_joysticks; i++)
+            joysticks[i] = SDL_JoystickOpen(i);
+    }
+}
+
+static void close_joysticks(void)
+{
+    if (joysticks)
+    {
+        for (int i = 0; i < num_joysticks; i++)
+            if (joysticks[i] && SDL_JoystickGetAttached(joysticks[i]))
+                SDL_JoystickClose(joysticks[i]);
+        free(joysticks);
+        joysticks = NULL;
+    }
+    num_joysticks = 0;
+    SDL_QuitSubSystem(SDL_INIT_JOYSTICK);
+}
 
 
 #if ((defined(BUTTON_SCROLL_FWD) && defined(BUTTON_SCROLL_BACK)))
@@ -177,11 +219,57 @@ static bool event_handler(SDL_Event *event)
         break;
     case SDL_KEYDOWN:
     case SDL_KEYUP:
+        /* Power key (axp2202-pek PMIC node) arrives as scancode
+         * SDL_SCANCODE_POWER; track held state for the gesture timing in
+         * button_read_device.  Everything else is the simulator keymap. */
+        if (event->key.keysym.scancode == SDL_SCANCODE_POWER)
+        {
+            power_key_held = (event->type == SDL_KEYDOWN);
+            break;
+        }
         ev_key = event->key.keysym.sym;
         button_event(ev_key, event->type == SDL_KEYDOWN);
         break;
 
-
+    /* Gamepad (read directly via SDL's joystick layer, no gptokeyb2). */
+    case SDL_JOYBUTTONDOWN:
+    case SDL_JOYBUTTONUP:
+    {
+        int b = joybutton_to_button(event->jbutton.button);
+        if (b != BUTTON_NONE)
+        {
+            if (event->type == SDL_JOYBUTTONDOWN)
+                btn |= b;
+            else
+                btn &= ~b;
+        }
+        break;
+    }
+    case SDL_JOYHATMOTION:
+    {
+        /* Brick d-pad is a hat; rebuild the four direction bits each event. */
+        int hat = event->jhat.value;
+        btn &= ~(BUTTON_UP | BUTTON_DOWN | BUTTON_LEFT | BUTTON_RIGHT);
+        if (hat & SDL_HAT_UP)    btn |= BUTTON_UP;
+        if (hat & SDL_HAT_DOWN)  btn |= BUTTON_DOWN;
+        if (hat & SDL_HAT_LEFT)  btn |= BUTTON_LEFT;
+        if (hat & SDL_HAT_RIGHT) btn |= BUTTON_RIGHT;
+        break;
+    }
+    case SDL_JOYAXISMOTION:
+    {
+        /* L2/R2 triggers report as axes; any positive deflection = pressed
+         * (matches NextUI's val > 0 test).  Non-trigger axes map to nothing. */
+        int b = joyaxis_to_button(event->jaxis.axis);
+        if (b != BUTTON_NONE)
+        {
+            if (event->jaxis.value > 0)
+                btn |= b;
+            else
+                btn &= ~b;
+        }
+        break;
+    }
 
     case SDL_MOUSEMOTION:
     {
@@ -213,11 +301,14 @@ void gui_message_loop(void)
     SDL_Event event;
     bool quit;
 
+    /* Open the gamepad here, on the same thread that pumps SDL events. */
+    open_joysticks();
+
     do {
         /* wait for the next event */
         if(SDL_WaitEvent(&event) == 0) {
             printf("SDL_WaitEvent(): %s\n", SDL_GetError());
-            return; /* error, out of here */
+            break; /* error, out of here */
         }
 
         sim_enter_irq_handler();
@@ -225,6 +316,8 @@ void gui_message_loop(void)
         sim_exit_irq_handler();
 
     } while(!quit);
+
+    close_joysticks();
 }
 
 
@@ -233,7 +326,7 @@ static void button_event(int key, bool pressed)
     int new_btn = 0;
     switch (key)
     {
-    case SDLK_x:
+    case SDLK_x:    /* desktop simulator only: the 'X' key = shutdown */
         sys_poweroff();
         break;
 #ifdef HAS_BUTTON_HOLD
@@ -275,6 +368,45 @@ int button_read_device(int* data)
 int button_read_device(void)
 {
 #endif
+    /* Trimpod: power button (held state tracked from SDL_SCANCODE_POWER events).
+     * Match NextUI's timing -- a short press (held < 1s) toggles the display
+     * off/on in-app while music keeps playing; a long press (>= 1s) powers off.
+     * Run before the hold check so power works even when input is locked. */
+    {
+        bool held = power_key_held;
+        if (held)
+        {
+            if (!power_down_tick)
+                power_down_tick = current_tick ? current_tick : 1;
+            else if (current_tick - power_down_tick >= POWER_LONG_PRESS_TICKS)
+            {
+                power_down_tick = 0;        /* long press -> power off (once) */
+                sys_poweroff();
+            }
+        }
+        else if (power_down_tick)           /* released */
+        {
+            if (current_tick - power_down_tick < POWER_LONG_PRESS_TICKS)
+            {   /* Short press: if the screen is dark -- whether from a manual
+                 * blank OR an Auto-Screen-Off timeout -- WAKE it, like any other
+                 * button (is_backlight_on() is the real state; power_blanked
+                 * covers the always-on cases where it can't tell, e.g. viz).
+                 * Otherwise blank it. */
+                if (power_blanked || !is_backlight_on(true))
+                {
+                    backlight_on();
+                    power_blanked = false;
+                }
+                else
+                {
+                    backlight_off();
+                    power_blanked = true;
+                }
+            }
+            power_down_tick = 0;
+        }
+    }
+
     /* Brick physical hold/lock switch (gpio243): lock INPUT ONLY.
      * We deliberately do NOT call backlight_hold_changed() or
      * skin_request_update_locked() here -- those poked the backlight fade engine
@@ -283,17 +415,25 @@ int button_read_device(void)
     hold_button_state = retrohh_hold_switch();
     if (hold_button_state)
     {
-        /* The side switch reports as EV_SW SW_TABLET_MODE on the gamepad node;
-         * on the switch edge gptokeyb2 can inject a phantom keypress that would
-         * otherwise survive into a real button.  Discard any accumulated press
-         * while locked so nothing leaks out. */
+        /* The side switch reports as EV_SW SW_TABLET_MODE on the gamepad node,
+         * which SDL's joystick layer ignores (it's not a button), so nothing
+         * leaks from the switch itself.  Still discard any button held across
+         * the lock edge so it can't survive into the locked state. */
         btn = 0;
         return BUTTON_NONE;
     }
 
-    /* Volume rocker emits KEY_VOLUMEUP/DOWN on the gamepad evdev node, which
-     * gptokeyb2/SDL swallow; read it straight off evdev and fold it in here. */
-    return btn | retrohh_read_volume_rocker();
+    /* Volume rocker arrives as joystick buttons 14/13 (folded into btn by
+     * event_handler, like every other gamepad key) -- no separate read here. */
+    int result = btn;
+
+    /* Any non-power button wakes the screen (backlight_on() in button_tick), so
+     * a manual power-blank is over -- the next power tap blanks again rather
+     * than being treated as a wake. */
+    if (result != 0)
+        power_blanked = false;
+
+    return result;
 }
 
 void button_init_device(void)

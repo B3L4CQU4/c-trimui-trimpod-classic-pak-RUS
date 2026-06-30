@@ -256,7 +256,7 @@ static int batt_clamp_step(int v)
 }
 
 static bool batt_available;          /* probe ok and not deferred to the daemon */
-static bool batt_locked;             /* daemon present -> hide the Battery Limit row */
+static bool batt_locked;             /* daemon present -> hide the Charge Limit row */
 static int  batt_target = BATT_OFF;
 
 /* Detect the standalone Battery Care daemon by name: its pidfile points at a
@@ -380,7 +380,7 @@ static void batt_care_thread(void)
 /* Called once at startup (apps/main.c, RETRO_HANDHELD). Decides ownership for
  * the whole session: defer to the daemon if present, else probe the hardware
  * and -- only if usable -- start the poll thread. */
-void retrohh_battery_care_init(void)
+void retrohh_charge_limit_init(void)
 {
     batt_load_target();
 
@@ -413,19 +413,19 @@ void retrohh_battery_care_init(void)
 
 /* Menu hooks (power_menu.c). The row is hidden entirely when the daemon owns
  * charging or the hardware isn't usable. */
-bool retrohh_battery_care_hidden(void)
+bool retrohh_charge_limit_hidden(void)
 {
     return batt_locked || !batt_available;
 }
 
-int retrohh_battery_care_get_target(void)
+int retrohh_charge_limit_get_target(void)
 {
     return batt_target;
 }
 
-void retrohh_battery_care_cycle(int dir)
+void retrohh_charge_limit_cycle(int dir)
 {
-    if (retrohh_battery_care_hidden())
+    if (retrohh_charge_limit_hidden())
         return;                      /* defensive: row isn't shown when hidden */
     /* Step by BATT_STEP and wrap 100<->75, matching the Battery Care app's cycle. */
     int v = batt_target + ((dir < 0) ? -BATT_STEP : BATT_STEP);

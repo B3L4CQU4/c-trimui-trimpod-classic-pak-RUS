@@ -38,8 +38,8 @@ void retrohh_cpu_apply_saved(void);   /* apply persisted choice (call at startup
  * Trimpod runs, by toggling the AXP2202 charger bit -- in-process, no daemon.
  * Defers entirely (read-only row, loop never started) if the standalone Battery
  * Care daemon is already running. launch.sh re-enables charging on exit. */
-void retrohh_battery_care_init(void);     /* startup: probe + maybe start the loop */
-bool retrohh_battery_care_hidden(void);   /* true -> hide the menu row entirely     */
-int  retrohh_battery_care_get_target(void); /* current cap % (100 = Off)           */
-void retrohh_battery_care_cycle(int dir); /* step the cap                           */
+void retrohh_charge_limit_init(void);     /* startup: probe + maybe start the loop */
+bool retrohh_charge_limit_hidden(void);   /* true -> hide the menu row entirely     */
+int  retrohh_charge_limit_get_target(void); /* current cap % (100 = Off)           */
+void retrohh_charge_limit_cycle(int dir); /* step the cap                           */
 #endif /* _POWER_RHH_H_ */

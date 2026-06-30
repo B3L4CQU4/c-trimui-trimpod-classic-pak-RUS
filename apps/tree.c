@@ -648,10 +648,6 @@ static int dirbrowse(void)
                         return exit_to_new_screen(GO_TO_ROOT);
                         break;
 
-                    case ONPLAY_REVEAL_FILE:
-                        return exit_to_new_screen(GO_TO_FILEBROWSER);
-                        break;
-
                     case ONPLAY_OK:
                         restore = do_restore_display;
                         break;

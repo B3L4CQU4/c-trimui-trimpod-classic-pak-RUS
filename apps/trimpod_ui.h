@@ -36,6 +36,10 @@ bool trimpod_confirm(const char *question, const char *detail);
  * Blocking. */
 void trimpod_about(void);
 
+/* Pre-fault the About reel's glyphs into the font cache at startup, so the first
+ * (possibly mid-playback) About open doesn't stall the codec on disk reads. */
+void trimpod_about_prewarm(void);
+
 /* The shared on/off toggle glyph ("[x]"/"[ ]") for list indicator callbacks.
  * One convention for every toggle list (Menu Settings, Visualizers, ...). */
 const char *trimpod_toggle_str(bool on);

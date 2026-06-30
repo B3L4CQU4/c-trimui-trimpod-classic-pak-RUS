@@ -364,9 +364,8 @@ struct eq_band_setting eq_defaults[EQ_NUM_BANDS] = {
 static const int wps_context_menu_default =
     HK_CTX_SET(0, HOTKEY_VIEW_PLAYLIST) /* hotkey*/
   | HK_CTX_SET(1, HOTKEY_SHOW_TRACK_INFO)
-  | HK_CTX_SET(2, HOTKEY_SHOW_IN_FILES)
-  | HK_CTX_SET(3, HOTKEY_DELETE)
-  | HK_CTX_SET(4, HOTKEY_ALBUMART);
+  | HK_CTX_SET(2, HOTKEY_DELETE)
+  | HK_CTX_SET(3, HOTKEY_ALBUMART);
 
 #ifdef HAVE_HOTKEY
 static const int tree_hotkey_default = HOTKEY_OFF;
