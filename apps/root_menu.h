@@ -55,6 +55,7 @@ enum {
     GO_TO_TRIMPOD_MUSIC,
     GO_TO_TRIMPOD_PODCASTS,
     GO_TO_TRIMPOD_AUDIOBOOKS,
+    GO_TO_TRIMPOD_SHUFFLE,
 };
 #ifndef PLUGIN
 extern struct menu_item_ex root_menu_;

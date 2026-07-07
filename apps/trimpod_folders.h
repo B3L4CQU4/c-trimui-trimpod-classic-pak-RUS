@@ -14,4 +14,8 @@ int trimpod_music_browse(void *param);
 int trimpod_podcast_browse(void *param);
 int trimpod_audiobook_browse(void *param);
 
+/* root menu "Shuffle Songs": build one recursive playlist of every track in the
+ * virtual Music folder, shuffle it and start playing.  Returns GO_TO_WPS. */
+int trimpod_shuffle_all(void *param);
+
 #endif /* _TRIMPOD_FOLDERS_H */

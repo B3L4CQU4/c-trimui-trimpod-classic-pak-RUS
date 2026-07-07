@@ -28,13 +28,14 @@
 
 /* persisted key + display label for each toggle, indexed by trimpod_mainmenu_id */
 static const char *const mm_keys[TRIMPOD_MM_COUNT] = {
-    "music", "podcasts", "audiobooks", "playlists", "browse",
+    "music", "podcasts", "audiobooks", "playlists", "browse", "shuffle",
 };
 
 /* Shipped default when there is no saved mainmenu.txt: Music + Playlists only
- * (Podcasts / Audiobooks / Browse off), matching the pared-down music player. */
+ * (Podcasts / Audiobooks / Browse / Shuffle off), matching the pared-down
+ * music player. */
 static const bool mm_default[TRIMPOD_MM_COUNT] = {
-    true, false, false, true, false,
+    true, false, false, true, false, false,
 };
 static bool mm_enabled[TRIMPOD_MM_COUNT];
 static bool mm_loaded;
@@ -123,15 +124,17 @@ static const struct menu_value_cb mm_value[TRIMPOD_MM_COUNT] = {
     { mm_toggle_get, mm_toggle_cycle, &mm_enabled[2] },
     { mm_toggle_get, mm_toggle_cycle, &mm_enabled[3] },
     { mm_toggle_get, mm_toggle_cycle, &mm_enabled[4] },
+    { mm_toggle_get, mm_toggle_cycle, &mm_enabled[5] },
 };
-MENUITEM_VALUE(mm_item_music,      ID2P(LANG_TRIMPOD_MUSIC),      &mm_value[0], Icon_NOICON);
-MENUITEM_VALUE(mm_item_podcasts,   ID2P(LANG_TRIMPOD_PODCASTS),   &mm_value[1], Icon_NOICON);
-MENUITEM_VALUE(mm_item_audiobooks, ID2P(LANG_TRIMPOD_AUDIOBOOKS), &mm_value[2], Icon_NOICON);
-MENUITEM_VALUE(mm_item_playlists,  ID2P(LANG_PLAYLISTS),          &mm_value[3], Icon_NOICON);
-MENUITEM_VALUE(mm_item_browse,     ID2P(LANG_TRIMPOD_BROWSE),     &mm_value[4], Icon_NOICON);
+MENUITEM_VALUE(mm_item_music,      ID2P(LANG_TRIMPOD_MUSIC),         &mm_value[0], Icon_NOICON);
+MENUITEM_VALUE(mm_item_podcasts,   ID2P(LANG_TRIMPOD_PODCASTS),      &mm_value[1], Icon_NOICON);
+MENUITEM_VALUE(mm_item_audiobooks, ID2P(LANG_TRIMPOD_AUDIOBOOKS),    &mm_value[2], Icon_NOICON);
+MENUITEM_VALUE(mm_item_playlists,  ID2P(LANG_PLAYLISTS),             &mm_value[3], Icon_NOICON);
+MENUITEM_VALUE(mm_item_browse,     ID2P(LANG_TRIMPOD_BROWSE),        &mm_value[4], Icon_NOICON);
+MENUITEM_VALUE(mm_item_shuffle,    ID2P(LANG_SHUFFLE),               &mm_value[5], Icon_NOICON);
 MAKE_MENU(trimpod_mainmenu_menu, ID2P(LANG_TRIMPOD_MAINMENU), NULL, Icon_Submenu_Entered,
           &mm_item_music, &mm_item_podcasts, &mm_item_audiobooks,
-          &mm_item_playlists, &mm_item_browse);
+          &mm_item_playlists, &mm_item_browse, &mm_item_shuffle);
 
 int trimpod_mainmenu_settings(void)
 {

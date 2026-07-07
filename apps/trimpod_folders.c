@@ -35,6 +35,7 @@
 #include <string.h>
 #include "string-extra.h"
 #include "strnatcmp.h"   /* natural alphabetical sort (2 before 10) */
+#include "kernel.h"      /* current_tick (shuffle seed) */
 #include "file.h"
 #include "dir.h"
 #include "pathfuncs.h"
@@ -678,21 +679,30 @@ static int farm_build(struct folder_category *cat)
     return created;
 }
 
-static int folder_browse(struct folder_category *cat)
+/* Resolve a category's flattened root the same way for browsing and shuffle:
+ * a single existing source folder is used directly; several are merged into the
+ * symlink farm.  Returns NULL if no source folder currently exists.  The folder
+ * list must already be loaded; the returned pointer is owned by `cat`. */
+static const char *folder_resolve_root(struct folder_category *cat)
 {
-    folders_load(cat);
-
     /* Only existing source folders matter; a missing folder (the seeded default
      * included) is fine -- it's simply not part of the view. */
     int n_exist = 0, only = -1;
     for (int i = 0; i < cat->n_folders; i++)
         if (dir_exists(cat->folders[i])) { n_exist++; only = i; }
 
-    const char *root = NULL;
     if (n_exist == 1)
-        root = cat->folders[only];          /* single source: browse it directly */
-    else if (n_exist > 1 && farm_build(cat) > 0)
-        root = cat->farm_path;              /* several: a merged symlink farm */
+        return cat->folders[only];          /* single source: use it directly */
+    if (n_exist > 1 && farm_build(cat) > 0)
+        return cat->farm_path;              /* several: a merged symlink farm */
+    return NULL;
+}
+
+static int folder_browse(struct folder_category *cat)
+{
+    folders_load(cat);
+
+    const char *root = folder_resolve_root(cat);
 
     if (root)
     {
@@ -794,3 +804,54 @@ int trimpod_audiobook_settings(void) { return folders_settings(&cat_audiobook); 
 int trimpod_music_browse(void *param)     { (void)param; return folder_browse(&cat_music); }
 int trimpod_podcast_browse(void *param)   { (void)param; return folder_browse(&cat_podcast); }
 int trimpod_audiobook_browse(void *param) { (void)param; return folder_browse(&cat_audiobook); }
+
+/* ---- root "Shuffle": shuffle + play the whole Music folder ----------------
+ * Builds ONE dynamic playlist of every track under the Music root (recursively),
+ * shuffles it and starts playback.  Music only -- podcasts/audiobooks are never
+ * shuffled.  The recursive insert (O(tracks)) runs through a progress=false
+ * context so the engine draws NO per-batch "inserting" splash -- those full-
+ * screen redraws cost more than the insert itself and made the action feel slow;
+ * we slide straight to the WPS instead.  The insert still cpu_boosts and can
+ * never starve audio (nothing is playing yet).  Tracks beyond
+ * TRIMPOD_MAX_FILES_IN_PLAYLIST (10000) are dropped by the engine. */
+int trimpod_shuffle_all(void *param)
+{
+    (void)param;
+    folders_load(&cat_music);
+
+    const char *root = folder_resolve_root(&cat_music);
+    if (!root)
+    {
+        /* No music configured yet: drop into the Music folder setup, exactly as
+         * browsing an empty Music entry does, rather than a dead-end splash. */
+        folders_settings(&cat_music);
+        return GO_TO_ROOT;
+    }
+
+    /* about to replace the current playlist -- let the user cancel */
+    if (!warn_on_pl_erase())
+        return GO_TO_ROOT;
+
+    if (playlist_create(root, NULL) == -1)
+        return GO_TO_ROOT;
+
+    /* Self-managed insert context with progress=false: silent, no splash spam
+     * (mirrors ft_build_playlist).  The engine still cpu_boosts the scan. */
+    struct playlist_info *pl = playlist_get_current();
+    struct playlist_insert_context ctx;
+    if (playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST,
+                                       false, false) >= 0)
+    {
+        playlist_insert_directory(pl, root, PLAYLIST_INSERT_LAST, false, true, &ctx);
+        playlist_insert_context_release(&ctx);
+    }
+    if (playlist_amount() <= 0)
+    {
+        splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
+        return GO_TO_ROOT;
+    }
+
+    playlist_shuffle(current_tick, -1);
+    playlist_start(0, 0, 0);
+    return GO_TO_WPS;
+}

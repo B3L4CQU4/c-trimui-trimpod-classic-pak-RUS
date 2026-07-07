@@ -11811,6 +11811,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_TRIMPOD_NO_MUSIC
+  desc: Trimpod splash when Shuffle Songs finds no playable tracks
+  user: core
+  <source>
+    *: "No music found"
+  </source>
+  <dest>
+    *: "No music found"
+  </dest>
+  <voice>
+    *: "No music found"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_KEYCLICK_SOFTWARE
   desc: in keyclick settings menu
   user: core

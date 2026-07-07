@@ -18,6 +18,7 @@ enum trimpod_mainmenu_id
     TRIMPOD_MM_AUDIOBOOKS,
     TRIMPOD_MM_PLAYLISTS,
     TRIMPOD_MM_BROWSE,
+    TRIMPOD_MM_SHUFFLE,
     TRIMPOD_MM_COUNT,
 };
 

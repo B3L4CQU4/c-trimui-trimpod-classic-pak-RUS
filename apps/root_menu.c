@@ -245,6 +245,7 @@ static const struct root_items items[] = {
     [GO_TO_TRIMPOD_MUSIC] =     { trimpod_music_browse, NULL, NULL },
     [GO_TO_TRIMPOD_PODCASTS] =  { trimpod_podcast_browse, NULL, NULL },
     [GO_TO_TRIMPOD_AUDIOBOOKS] = { trimpod_audiobook_browse, NULL, NULL },
+    [GO_TO_TRIMPOD_SHUFFLE] =   { trimpod_shuffle_all, NULL, NULL },
 };
 #define NUM_ITEMS (int)(sizeof(items)/sizeof(*items))
 
@@ -286,6 +287,9 @@ MENUITEM_RETURNVALUE_CHEVRON(podcast_item, ID2P(LANG_TRIMPOD_PODCASTS), GO_TO_TR
                      item_callback, Icon_Audio);
 MENUITEM_RETURNVALUE_CHEVRON(audiobook_item, ID2P(LANG_TRIMPOD_AUDIOBOOKS), GO_TO_TRIMPOD_AUDIOBOOKS,
                      item_callback, Icon_Audio);
+/* Shuffle is an action (plays immediately), not a submenu -> no chevron. */
+MENUITEM_RETURNVALUE(shuffle_item, ID2P(LANG_SHUFFLE), GO_TO_TRIMPOD_SHUFFLE,
+                     item_callback, Icon_Audio);
 
 struct menu_item_ex root_menu_;
 static struct menu_callback_with_desc root_menu_desc = {
@@ -300,6 +304,7 @@ static struct menu_table menu_table[] = {
     { "files", &file_browser },
     { "settings", &menu_ },
     { "exit", &exit_item },
+    { "shuffle", &shuffle_item },
     /* Trimpod: Resume Playback / Now Playing sits below Exit */
     { "wps", &wps_item },
 };
@@ -463,6 +468,7 @@ static int trimpod_root_run(int last)
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_BROWSE),     &file_browser);
     ROOT_ADD(true, &menu_);          /* Settings  */
     ROOT_ADD(true, &exit_item);      /* Exit      */
+    ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_SHUFFLE), &shuffle_item);
     ROOT_ADD(true, &wps_item);       /* Now Playing / Resume Playback */
 #undef ROOT_ADD
 
@@ -518,6 +524,14 @@ static inline int load_screen(int screen)
     last_screen = screen;
     if (ret_val == GO_TO_PREVIOUS)
         last_screen = old_previous;
+
+    /* Shuffle is a one-shot action, not a re-enterable screen: once it has
+     * started playback and handed off to the WPS, backing out of the WPS must
+     * return to the root menu -- NOT resolve "previous" back to here and
+     * re-shuffle.  Pin its "previous" to the root. */
+    if (screen == GO_TO_TRIMPOD_SHUFFLE && ret_val == GO_TO_WPS)
+        last_screen = GO_TO_ROOT;
+
     return ret_val;
 }
 

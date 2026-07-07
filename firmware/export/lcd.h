@@ -172,6 +172,7 @@ extern void lcd_init_device(void) INIT_ATTR;
 /* Trimpod (SDL app): drop on-screen presents while set, so a frame can be
  * rendered to the framebuffer off-screen (slide transitions). */
 extern void lcd_set_update_suppressed(bool suppress);
+extern bool lcd_is_update_suppressed(void);
 
 extern void lcd_backlight(bool on);
 extern int  lcd_default_contrast(void);
