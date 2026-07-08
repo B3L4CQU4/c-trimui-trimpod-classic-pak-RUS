@@ -121,7 +121,7 @@ static int trimpod_about_page(void)
 /* Settings list: nav rows (chevron) open sub-pages via do_menu. */
 MENUITEM_FUNCTION(tp_set_mainmenu, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_MAINMENU),
                   trimpod_mainmenu_settings, NULL, Icon_NOICON);
-MENUITEM_FUNCTION(tp_set_audio, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_AUDIO_FOLDERS),
+MENUITEM_FUNCTION(tp_set_audio, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_LIBRARY),
                   trimpod_audio_folders_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_viz, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_AUDIO_VISUALIZER),
                   trimpod_av_page, NULL, Icon_NOICON);

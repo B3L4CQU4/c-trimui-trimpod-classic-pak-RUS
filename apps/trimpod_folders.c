@@ -56,6 +56,7 @@
 #include "trimpod_page.h"
 #include "trimpod_transition.h"   /* slide on folder descend/ascend */
 #include "trimpod_playlists.h"    /* Y = add highlighted file/folder to a playlist */
+#include "trimpod_library.h"      /* Shuffle Songs builds from the SQLite index */
 
 #define PICKER_ROOT     "/mnt/SDCARD"
 #define MAX_FOLDERS     24
@@ -177,6 +178,40 @@ static void folders_remove(struct folder_category *cat, int idx)
         strlcpy(cat->folders[i], cat->folders[i + 1], FPATH_LEN);
     cat->n_folders--;
     folders_save(cat);
+}
+
+/* ---- library access (trimpod_library.c) ------------------------------- */
+
+static struct folder_category *cat_by_index(int cat)
+{
+    switch (cat)
+    {
+        case TP_CAT_MUSIC:     return &cat_music;
+        case TP_CAT_PODCAST:   return &cat_podcast;
+        case TP_CAT_AUDIOBOOK: return &cat_audiobook;
+        default:               return NULL;
+    }
+}
+
+void trimpod_folders_load_all(void)
+{
+    folders_load(&cat_music);
+    folders_load(&cat_podcast);
+    folders_load(&cat_audiobook);
+}
+
+int trimpod_folders_root_count(int cat)
+{
+    struct folder_category *c = cat_by_index(cat);
+    return c ? c->n_folders : 0;
+}
+
+const char *trimpod_folders_root_path(int cat, int idx)
+{
+    struct folder_category *c = cat_by_index(cat);
+    if (!c || idx < 0 || idx >= c->n_folders)
+        return NULL;
+    return c->folders[idx];
 }
 
 /* ---- "+ Add Folder" picker: a native directory-picker page --------------
@@ -806,21 +841,18 @@ int trimpod_podcast_browse(void *param)   { (void)param; return folder_browse(&c
 int trimpod_audiobook_browse(void *param) { (void)param; return folder_browse(&cat_audiobook); }
 
 /* ---- root "Shuffle": shuffle + play the whole Music folder ----------------
- * Builds ONE dynamic playlist of every track under the Music root (recursively),
- * shuffles it and starts playback.  Music only -- podcasts/audiobooks are never
- * shuffled.  The recursive insert (O(tracks)) runs through a progress=false
- * context so the engine draws NO per-batch "inserting" splash -- those full-
- * screen redraws cost more than the insert itself and made the action feel slow;
- * we slide straight to the WPS instead.  The insert still cpu_boosts and can
- * never starve audio (nothing is playing yet).  Tracks beyond
- * TRIMPOD_MAX_FILES_IN_PLAYLIST (10000) are dropped by the engine. */
+ * Builds ONE dynamic playlist of every track in the Music library, shuffles it
+ * and starts playback.  Music only -- podcasts/audiobooks are never shuffled.
+ * The track list comes from the SQLite index (trimpod_library), so this is a
+ * query + batched insert rather than a recursive filesystem walk; we slide
+ * straight to the WPS with no per-batch "inserting" splash.  Tracks beyond
+ * TRIMPOD_MAX_FILES_IN_PLAYLIST (10000) are still capped by the playlist engine. */
 int trimpod_shuffle_all(void *param)
 {
     (void)param;
     folders_load(&cat_music);
 
-    const char *root = folder_resolve_root(&cat_music);
-    if (!root)
+    if (!folder_resolve_root(&cat_music))
     {
         /* No music configured yet: drop into the Music folder setup, exactly as
          * browsing an empty Music entry does, rather than a dead-end splash. */
@@ -832,20 +864,11 @@ int trimpod_shuffle_all(void *param)
     if (!warn_on_pl_erase())
         return GO_TO_ROOT;
 
-    if (playlist_create(root, NULL) == -1)
-        return GO_TO_ROOT;
-
-    /* Self-managed insert context with progress=false: silent, no splash spam
-     * (mirrors ft_build_playlist).  The engine still cpu_boosts the scan. */
-    struct playlist_info *pl = playlist_get_current();
-    struct playlist_insert_context ctx;
-    if (playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST,
-                                       false, false) >= 0)
-    {
-        playlist_insert_directory(pl, root, PLAYLIST_INSERT_LAST, false, true, &ctx);
-        playlist_insert_context_release(&ctx);
-    }
-    if (playlist_amount() <= 0)
+    /* Reflect any source-folder edits since launch (stat-gated -> a blink when
+     * nothing changed), then build the shuffle set from the index -- a query +
+     * batched insert, not a recursive filesystem walk. */
+    trimpod_library_reconcile(false);
+    if (trimpod_library_build_playlist(TP_CAT_MUSIC, NULL, NULL) <= 0)
     {
         splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
         return GO_TO_ROOT;

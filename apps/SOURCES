@@ -28,6 +28,8 @@ trimpod_transition.c
 trimpod_page.c
 trimpod_ui.c
 trimpod_folders.c
+trimpod_library.c
+trimpod_library_browse.c
 trimpod_playlists.c
 trimpod_keyboard.c
 trimpod_visualizer.c

@@ -11685,20 +11685,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TRIMPOD_AUDIO_FOLDERS
-  desc: Trimpod Settings > Audio Folders (nested: Music/Podcast/Audiobook folder lists)
-  user: core
-  <source>
-    *: "Folders"
-  </source>
-  <dest>
-    *: "Folders"
-  </dest>
-  <voice>
-    *: "Folders"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_TRIMPOD_DEVICE
   desc: Trimpod Settings > Power Settings (Brightness, Colour, Display Poweroff, CPU, Idle Power Off)
   user: core
@@ -11822,6 +11808,76 @@
   </dest>
   <voice>
     *: "No music found"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LIBRARY
+  desc: Trimpod Settings > Library submenu (folder lists + Rescan Library)
+  user: core
+  <source>
+    *: "Library"
+  </source>
+  <dest>
+    *: "Library"
+  </dest>
+  <voice>
+    *: "Library"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_ARTISTS
+  desc: Trimpod Library entry / screen title listing artists
+  user: core
+  <source>
+    *: "Artists"
+  </source>
+  <dest>
+    *: "Artists"
+  </dest>
+  <voice>
+    *: "Artists"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_ALL_SONGS
+  desc: Trimpod Library Albums screen row that plays every track by the artist
+  user: core
+  <source>
+    *: "All Songs"
+  </source>
+  <dest>
+    *: "All Songs"
+  </dest>
+  <voice>
+    *: "All Songs"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_RESCAN
+  desc: Trimpod Library menu row that rebuilds the SQLite index from disk
+  user: core
+  <source>
+    *: "Rescan Library"
+  </source>
+  <dest>
+    *: "Rescan Library"
+  </dest>
+  <voice>
+    *: "Rescan Library"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_UNKNOWN_ARTIST
+  desc: Trimpod Library label for tracks with no artist tag
+  user: core
+  <source>
+    *: "Unknown Artist"
+  </source>
+  <dest>
+    *: "Unknown Artist"
+  </dest>
+  <voice>
+    *: "Unknown Artist"
   </voice>
 </phrase>
 <phrase>

@@ -7,6 +7,12 @@
 /* root menu Playlists entry (a root_menu items[] function) */
 int trimpod_playlists_screen(void *param);
 
+/* Consume a pending Play/Shuffle Playlist request and start playback.  Returns
+ * 1 (started -> go to Now Playing), 0 (nothing pending -> show the file list),
+ * or -1 (empty/failed -> back to the list).  Called by root_menu.c's
+ * playlist_view() so the file list ends up behind Now Playing. */
+int trimpod_playlists_start_pending(void);
+
 /* Show the Playlists screen in "pick" mode: the chosen (or newly created)
  * playlist receives `sel` (a file or directory) via the stock Rockbox
  * catalog_insert_into() -- a directory is expanded into its tracks.  Used by the

@@ -50,6 +50,7 @@
 #include "splash.h"
 #include "sound.h"
 #include "playlist.h"
+#include "trimpod_library.h"
 #include "yesno.h"
 #include "viewport.h"
 #include "list.h"
@@ -300,6 +301,7 @@ bool settings_parseline(char* line, char** name, char** value)
 static void system_flush(void)
 {
     playlist_shutdown();
+    trimpod_library_close();    /* close the SQLite index cleanly on shutdown */
     tree_flush();
     call_storage_idle_notifys(true); /*doesnt work on usb and shutdown from ata thread */
 }

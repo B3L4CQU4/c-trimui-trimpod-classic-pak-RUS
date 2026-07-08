@@ -58,6 +58,7 @@
 #include "misc.h"
 #include "trimpod_hold.h"
 #include "trimpod_ui.h"
+#include "trimpod_library.h"
 #include "rbunicode.h"
 #include "dsp_core.h"
 #include "dircache.h"
@@ -160,6 +161,9 @@ int main(void)
 
     global_status.last_volume_change = 0;
     validate_start_directory_init();
+    /* Build/refresh the SQLite library index (stat-gated: a blink when nothing
+     * changed) so Shuffle Songs and the library browse are ready. */
+    trimpod_library_init();
     /* no calls INIT_ATTR functions after this point anymore!
      * see definition of INIT_ATTR in config.h */
     CHART(">root_menu");

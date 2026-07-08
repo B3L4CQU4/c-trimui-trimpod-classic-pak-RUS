@@ -5,7 +5,8 @@
  * "+ Add Playlist" row, mirroring the Music Folders settings page:
  *   A on "+ Add Playlist" -> the Rockbox keyboard (catalog_pick_new_playlist_name);
  *     a confirmed name creates an empty .m3u8 and the list refreshes.
- *   A on a playlist row    -> open it in the playlist viewer (view / play).
+ *   A on a playlist row    -> a Play/Shuffle/Rename/Edit/Delete action chooser;
+ *     Play/Shuffle start playback at once (file list sits behind Now Playing).
  *   B                      -> leave, back to the main menu.
  *
  * NOTE: this first cut exists mainly to surface the stock Rockbox keyboard from
@@ -33,8 +34,8 @@
 #include "misc.h"        /* push/pop_current_activity, ACTIVITY_PLAYLISTBROWSER */
 #include "root_menu.h"
 #include "playlist_catalog.h"
-#include "playlist_viewer.h"
 #include "playlist.h"          /* playlist_load/get_track_info/delete/save (Edit) */
+#include "kernel.h"            /* current_tick (shuffle seed) */
 #include "scratch_buf.h"       /* scratch_buffer_get -- playlist_load buffers */
 #include "trimpod_page.h"
 #include "trimpod_ui.h"        /* trimpod_confirm */
@@ -55,6 +56,15 @@ static int  pl_count;
  * string = the "+ Add Playlist" row.  Session-only. */
 static char pl_last_sel[MAX_PATH];
 static bool pl_have_last;
+
+/* A pending "Play Playlist" / "Shuffle Playlist" request handed to the root
+ * dispatch: the action menu records the pick and returns GO_TO_PLAYLIST_VIEWER,
+ * then playlist_view() calls trimpod_playlists_start_pending() to begin playback
+ * so the file list sits *behind* Now Playing (backing out of the WPS reveals
+ * it).  Filename only -- the catalog dir is the stable pl_dir. */
+static char pl_pending_file[MAX_PATH];
+static bool pl_pending_active;
+static bool pl_pending_shuffle;
 
 static bool is_playlist(const char *name)
 {
@@ -305,10 +315,10 @@ static void edit_playlist(int sel)
 
 /* The per-playlist action chooser.  do_menu returns the row index
  * (0 Play, 1 Rename, 2 Edit, 3 Delete) or GO_TO_PREVIOUS on cancel. */
-enum { PL_ACT_PLAY = 0, PL_ACT_RENAME, PL_ACT_EDIT, PL_ACT_DELETE };
+enum { PL_ACT_PLAY = 0, PL_ACT_SHUFFLE, PL_ACT_RENAME, PL_ACT_EDIT, PL_ACT_DELETE };
 MENUITEM_STRINGLIST(playlist_action_menu, ID2P(LANG_PLAYLISTS), NULL,
-                    "Play Playlist", "Rename Playlist", "Edit Playlist",
-                    "Delete Playlist");
+                    "Play Playlist", "Shuffle Playlist", "Rename Playlist",
+                    "Edit Playlist", "Delete Playlist");
 
 /* Open the action chooser for playlist `sel`; returns TRIMPOD_PAGE_DONE when a
  * chosen action leaves the page (play -> Now Playing), else STAY. */
@@ -317,23 +327,24 @@ static enum trimpod_page_result playlist_action(struct playlists_page *p, int se
     char path[MAX_PATH];
     path_append(path, pl_dir, pl_namebuf + pl_off[sel], sizeof(path));
 
-    switch (do_menu(&playlist_action_menu, NULL, NULL, false))
+    int act = do_menu(&playlist_action_menu, NULL, NULL, false);
+    switch (act)
     {
         case PL_ACT_PLAY:
+        case PL_ACT_SHUFFLE:
         {
-            int start = 0;
-            switch (playlist_viewer_ex(path, &start))
-            {
-                case PLAYLIST_VIEWER_OK:
-                    p->result = GO_TO_WPS;
-                    return TRIMPOD_PAGE_DONE;
-                case PLAYLIST_VIEWER_USB:
-                case PLAYLIST_VIEWER_MAINMENU:
-                    return TRIMPOD_PAGE_DONE;
-                default:                        /* CANCEL: stay on the list */
-                    break;
-            }
-            break;
+            /* Record the pick and hand off to the root dispatch: playback starts
+             * immediately (from the top, or shuffled) and slides to Now Playing,
+             * with the playlist's file list shown *behind* it -- backing out of
+             * the WPS reveals it.  Routed via GO_TO_PLAYLIST_VIEWER; the play
+             * happens in trimpod_playlists_start_pending() (root_menu.c). */
+            if (!warn_on_pl_erase())            /* about to replace the playlist */
+                break;                          /* declined: stay on the list */
+            strlcpy(pl_pending_file, pl_namebuf + pl_off[sel], sizeof pl_pending_file);
+            pl_pending_shuffle = (act == PL_ACT_SHUFFLE);
+            pl_pending_active = true;
+            p->result = GO_TO_PLAYLIST_VIEWER;
+            return TRIMPOD_PAGE_DONE;
         }
         case PL_ACT_RENAME:
         {
@@ -479,6 +490,29 @@ static int run_playlists(struct playlists_page *p, const char *title)
     trimpod_page_run(&p->base);
     pop_current_activity();
     return p->result;
+}
+
+/* Consume a pending Play/Shuffle Playlist request (set by the action menu) and
+ * start playback, mirroring the root Shuffle action: physically shuffle the
+ * track order when requested, then play from the top; global_settings.playlist_
+ * shuffle is left untouched.  Returns 1 when playback started (caller -> Now
+ * Playing), 0 when nothing was pending (caller -> show the file list), or -1 on
+ * an empty/unloadable playlist (caller -> back to the Playlists list). */
+int trimpod_playlists_start_pending(void)
+{
+    if (!pl_pending_active)
+        return 0;
+    pl_pending_active = false;
+
+    if (playlist_create(pl_dir, pl_pending_file) == -1 || playlist_amount() <= 0)
+    {
+        splashf(HZ, "Playlist is empty");
+        return -1;
+    }
+    if (pl_pending_shuffle)
+        playlist_shuffle(current_tick, -1);
+    playlist_start(0, 0, 0);
+    return 1;
 }
 
 int trimpod_playlists_screen(void *param)
