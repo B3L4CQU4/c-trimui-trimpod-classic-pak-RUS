@@ -39,11 +39,11 @@
 
 static const struct button_mapping button_context_standard[]  = {
     { ACTION_STD_PREV,          BUTTON_UP,                  BUTTON_NONE },
-    { ACTION_STD_PREVREPEAT,    BUTTON_UP|BUTTON_REPEAT,    BUTTON_NONE },
     { ACTION_STD_NEXT,          BUTTON_DOWN,                BUTTON_NONE },
-    { ACTION_STD_NEXTREPEAT,    BUTTON_DOWN|BUTTON_REPEAT,  BUTTON_NONE },
-    { ACTION_STD_CANCEL,        BUTTON_B,                   BUTTON_NONE },
-    { ACTION_STD_OK,            BUTTON_A,                   BUTTON_NONE },
+    /* A (select) and B (back) fire on RELEASE, not press: a held B is what the
+     * "hold = home" gesture keys off (timed in global_home_action). */
+    { ACTION_STD_OK,            BUTTON_A|BUTTON_REL,        BUTTON_A },
+    { ACTION_STD_CANCEL,        BUTTON_B|BUTTON_REL,        BUTTON_B },
     { ACTION_STD_MENU,          BUTTON_Y|BUTTON_REL,        BUTTON_Y },
     { ACTION_STD_CONTEXT,       BUTTON_START|BUTTON_REL,    BUTTON_START },
     {ACTION_STD_KEYLOCK,        BUTTON_L2|BUTTON_R2,        BUTTON_NONE},
@@ -56,7 +56,7 @@ static const struct button_mapping button_context_standard[]  = {
  *   D-pad <- ->  = previous / next track
  *   L1 / R1      = seek -10s / +10s in the current track
  *   Volume +/-   = volume (dedicated hardware rocker)
- *   B            = back to the previous screen
+ *   B            = back to the browser (hold >1s = main menu / home)
  * All other buttons intentionally do nothing on this screen. */
 static const struct button_mapping button_context_wps[]  = {
     { ACTION_WPS_PLAY,      BUTTON_A|BUTTON_REL,            BUTTON_A },
@@ -64,10 +64,7 @@ static const struct button_mapping button_context_wps[]  = {
     { ACTION_WPS_SKIPNEXT,  BUTTON_RIGHT|BUTTON_REL,        BUTTON_RIGHT },
     { ACTION_WPS_SEEKBACK,  BUTTON_L|BUTTON_REL,            BUTTON_L },
     { ACTION_WPS_SEEKFWD,   BUTTON_R|BUTTON_REL,            BUTTON_R },
-    { ACTION_WPS_VOLUP,     BUTTON_VOL_UP,                  BUTTON_NONE },
-    { ACTION_WPS_VOLUP,     BUTTON_VOL_UP|BUTTON_REPEAT,    BUTTON_NONE },
-    { ACTION_WPS_VOLDOWN,   BUTTON_VOL_DOWN,                BUTTON_NONE },
-    { ACTION_WPS_VOLDOWN,   BUTTON_VOL_DOWN|BUTTON_REPEAT,  BUTTON_NONE },
+    /* the volume rocker is consumed globally (global_volume_action) */
     { ACTION_WPS_BROWSE,    BUTTON_B|BUTTON_REL,            BUTTON_B },
     LAST_ITEM_IN_LIST
 }; /* button_context_wps */
@@ -86,13 +83,13 @@ static const struct button_mapping button_context_wps_locked[] = {
 
 static const struct button_mapping button_context_list[] = {
     { ACTION_LIST_VOLUP,      BUTTON_SELECT|BUTTON_A,                  BUTTON_NONE },
-    { ACTION_LIST_VOLUP,      BUTTON_SELECT|BUTTON_A|BUTTON_REPEAT,    BUTTON_NONE },
     { ACTION_LIST_VOLDOWN,    BUTTON_SELECT|BUTTON_Y,                  BUTTON_NONE },
-    { ACTION_LIST_VOLDOWN,    BUTTON_SELECT|BUTTON_Y|BUTTON_REPEAT,    BUTTON_NONE },
+    /* D-pad L/R and the L1/R1 shoulder buttons each page the list one screen */
     { ACTION_LISTTREE_PGUP,   BUTTON_LEFT,                             BUTTON_NONE },
-    { ACTION_LISTTREE_PGUP,   BUTTON_LEFT|BUTTON_REPEAT,               BUTTON_NONE },
     { ACTION_LISTTREE_PGDOWN, BUTTON_RIGHT,                            BUTTON_NONE },
-    { ACTION_LISTTREE_PGDOWN, BUTTON_RIGHT|BUTTON_REPEAT,              BUTTON_NONE },
+    { ACTION_LISTTREE_PGUP,   BUTTON_L,                                BUTTON_NONE },
+    { ACTION_LISTTREE_PGDOWN, BUTTON_R,                                BUTTON_NONE },
+    /* A (select) and B (back; hold >1s = home) are inherited from CONTEXT_STD */
 
     LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_STD)
 }; /* button_context_list */
@@ -100,7 +97,6 @@ static const struct button_mapping button_context_list[] = {
 static const struct button_mapping button_context_tree[]  = {
     { ACTION_TREE_WPS,    BUTTON_X|BUTTON_REL,         BUTTON_X },
     { ACTION_TREE_HOTKEY, BUTTON_L|BUTTON_REL,         BUTTON_L },
-    { ACTION_TREE_STOP,   BUTTON_L|BUTTON_REPEAT,      BUTTON_NONE},
 
     LAST_ITEM_IN_LIST__NEXTLIST(CONTEXT_LIST)
 }; /* button_context_tree */
@@ -184,17 +180,11 @@ static const struct button_mapping button_context_pitchscreen[]  = {
 
 static const struct button_mapping button_context_keyboard[]  = {
     { ACTION_KBD_LEFT,         BUTTON_LEFT,                    BUTTON_NONE },
-    { ACTION_KBD_LEFT,         BUTTON_LEFT|BUTTON_REPEAT,      BUTTON_NONE },
     { ACTION_KBD_RIGHT,        BUTTON_RIGHT,                   BUTTON_NONE },
-    { ACTION_KBD_RIGHT,        BUTTON_RIGHT|BUTTON_REPEAT,     BUTTON_NONE },
     { ACTION_KBD_UP,           BUTTON_UP,                      BUTTON_NONE },
-    { ACTION_KBD_UP,           BUTTON_UP|BUTTON_REPEAT,        BUTTON_NONE },
     { ACTION_KBD_DOWN,         BUTTON_DOWN,                    BUTTON_NONE },
-    { ACTION_KBD_DOWN,         BUTTON_DOWN|BUTTON_REPEAT,      BUTTON_NONE },
     { ACTION_KBD_CURSOR_LEFT,  BUTTON_L,                       BUTTON_NONE },
-    { ACTION_KBD_CURSOR_LEFT,  BUTTON_L|BUTTON_REPEAT,         BUTTON_NONE },
     { ACTION_KBD_CURSOR_RIGHT, BUTTON_R,                       BUTTON_NONE },
-    { ACTION_KBD_CURSOR_RIGHT, BUTTON_R|BUTTON_REPEAT,         BUTTON_NONE },
     { ACTION_KBD_SELECT,       BUTTON_A,                       BUTTON_NONE },
     { ACTION_KBD_BACKSPACE,    BUTTON_Y|BUTTON_REL,            BUTTON_Y },
     { ACTION_KBD_PAGE_FLIP,    BUTTON_X,                       BUTTON_NONE },

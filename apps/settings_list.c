@@ -571,8 +571,11 @@ const struct settings_list settings[] = {
 #endif
 
     /* playback */
-    OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
-                  LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
+    /* Shuffle shows On/Off (not the OFFON_SETTING default "Yes"/"No"); config
+     * still stores off_on for compatibility. */
+    BOOL_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
+                 LANG_SHUFFLE, false, "shuffle", off_on,
+                 LANG_ON, LANG_OFF, shuffle_playlist_callback),
 
     CHOICE_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, repeat_mode,
                    LANG_REPEAT, REPEAT_OFF, "repeat", "off,all,one,shuffle"

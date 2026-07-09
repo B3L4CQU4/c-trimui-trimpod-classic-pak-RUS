@@ -43,6 +43,8 @@
 #include "trimpod_library_browse.h"
 #include "trimpod_playlists.h"
 #include "trimpod_mainmenu.h"
+#include "trimpod_page.h"          /* trimpod_home_pending (hold-BACK -> root) */
+#include "trimpod_transition.h"    /* arm a single back-slide when homing */
 
 int trimpod_settings_page(void);   /* main_menu.c */
 
@@ -175,7 +177,10 @@ static int wpsscrn(void* param)
         }
     }
     else if (!file_exists(PLAYLIST_CONTROL_FILE))
+    {
         splash(HZ*2, ID2P(LANG_NOTHING_TO_RESUME));
+        trimpod_transition_suppress_next();   /* only a splash: don't re-slide the menu */
+    }
     else if (yesno_pop(ID2P(LANG_REPLAY_FINISHED_PLAYLIST)) &&
              playlist_resume() != -1)
     {
@@ -267,7 +272,9 @@ static const struct root_items items[] = {
     [GO_TO_TRIMPOD_PODCASTS] =  { trimpod_podcast_browse, NULL, NULL },
     [GO_TO_TRIMPOD_AUDIOBOOKS] = { trimpod_audiobook_browse, NULL, NULL },
     [GO_TO_TRIMPOD_SHUFFLE] =   { trimpod_shuffle_all, NULL, NULL },
-    [GO_TO_TRIMPOD_ARTISTS] =   { trimpod_library_browse, NULL, NULL },
+    [GO_TO_TRIMPOD_ARTISTS] =   { trimpod_library_browse, (void*)(intptr_t)TP_LIB_ARTISTS, NULL },
+    [GO_TO_TRIMPOD_ALBUMS] =    { trimpod_library_browse, (void*)(intptr_t)TP_LIB_ALBUMS, NULL },
+    [GO_TO_TRIMPOD_SONGS] =     { trimpod_library_browse, (void*)(intptr_t)TP_LIB_SONGS, NULL },
 };
 #define NUM_ITEMS (int)(sizeof(items)/sizeof(*items))
 
@@ -311,8 +318,12 @@ MENUITEM_RETURNVALUE_CHEVRON(audiobook_item, ID2P(LANG_TRIMPOD_AUDIOBOOKS), GO_T
                      item_callback, Icon_Audio);
 MENUITEM_RETURNVALUE_CHEVRON(artists_item, ID2P(LANG_TRIMPOD_ARTISTS), GO_TO_TRIMPOD_ARTISTS,
                      item_callback, Icon_Audio);
-/* Shuffle is an action (plays immediately), not a submenu -> no chevron. */
-MENUITEM_RETURNVALUE(shuffle_item, ID2P(LANG_SHUFFLE), GO_TO_TRIMPOD_SHUFFLE,
+MENUITEM_RETURNVALUE_CHEVRON(albums_item, ID2P(LANG_TRIMPOD_ALBUMS), GO_TO_TRIMPOD_ALBUMS,
+                     item_callback, Icon_Audio);
+MENUITEM_RETURNVALUE_CHEVRON(songs_item, ID2P(LANG_TRIMPOD_SONGS), GO_TO_TRIMPOD_SONGS,
+                     item_callback, Icon_Audio);
+/* Shuffle All is an action (plays immediately), not a submenu -> no chevron. */
+MENUITEM_RETURNVALUE(shuffle_item, ID2P(LANG_TRIMPOD_SHUFFLE_ALL), GO_TO_TRIMPOD_SHUFFLE,
                      item_callback, Icon_Audio);
 
 struct menu_item_ex root_menu_;
@@ -325,6 +336,8 @@ static struct menu_table menu_table[] = {
     { "podcasts", &podcast_item },
     { "audiobooks", &audiobook_item },
     { "artists", &artists_item },
+    { "albums", &albums_item },
+    { "songs", &songs_item },
     { "playlists", &playlists },
     { "files", &file_browser },
     { "settings", &menu_ },
@@ -455,6 +468,16 @@ static int item_callback(int action,
                 if (!trimpod_mainmenu_is_enabled(TRIMPOD_MM_ARTISTS))
                     return ACTION_EXIT_MENUITEM;
             }
+            else if (this_item == &albums_item)
+            {
+                if (!trimpod_mainmenu_is_enabled(TRIMPOD_MM_ALBUMS))
+                    return ACTION_EXIT_MENUITEM;
+            }
+            else if (this_item == &songs_item)
+            {
+                if (!trimpod_mainmenu_is_enabled(TRIMPOD_MM_SONGS))
+                    return ACTION_EXIT_MENUITEM;
+            }
             else if (this_item == &playlists)
             {
                 if (!trimpod_mainmenu_is_enabled(TRIMPOD_MM_PLAYLISTS))
@@ -498,6 +521,8 @@ static int trimpod_root_run(int last)
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_PODCASTS),   &podcast_item);
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_AUDIOBOOKS), &audiobook_item);
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_ARTISTS),    &artists_item);
+    ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_ALBUMS),     &albums_item);
+    ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_SONGS),      &songs_item);
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_PLAYLISTS),  &playlists);
     ROOT_ADD(trimpod_mainmenu_is_enabled(TRIMPOD_MM_BROWSE),     &file_browser);
     ROOT_ADD(true, &menu_);          /* Settings  */
@@ -597,6 +622,11 @@ void root_menu(void)
                 /* fall through */
             case GO_TO_ROOT:
                 global_status.last_screen = GO_TO_ROOT; /* We've returned to ROOT */
+                if (trimpod_home_pending)
+                    trimpod_transition_arm_back();  /* home: one back-slide, as if
+                                                     * the Main Menu were the prev
+                                                     * screen (not the deep stack) */
+                trimpod_home_pending = false;  /* home reached: stop unwinding */
                 /* hardware BACK handled by HOST, not rockbox, at the root */
                 ignore_back_button_stub(true);
 

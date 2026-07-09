@@ -41,6 +41,7 @@
 #include "settings_list.h"
 #include "option_select.h"
 #include "trimpod_transition.h"   /* page slide transitions (shared) */
+#include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
 #include "screens.h"
 #include "lang.h"
 #include "misc.h"
@@ -423,7 +424,9 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
     /* slide the menu in: back if we got here by backing out of a deeper screen
      * (it armed a back slide), otherwise forward.  The very first screen at app
-     * launch has no prior frame to slide from, so render it with no slide. */
+     * launch has no prior frame to slide from, so render it with no slide.  A
+     * return from a screen that aborted before rendering (an empty facet that
+     * only splashed) is handled inside animate: it presents with no motion. */
     if (trimpod_transition_first_screen())
         gui_synclist_draw(&lists);
     else
@@ -433,6 +436,14 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
     while (!done)
     {
+        /* A nested screen (a submenu, or a page launched from a function item)
+         * requested home: unwind this menu too so we land on the Main Menu. */
+        if (trimpod_home_pending)
+        {
+            ret = GO_TO_ROOT;
+            break;
+        }
+
         keyclick_set_callback(gui_synclist_keyclick_callback, &lists);
 
         if (UNLIKELY(start_action != ACTION_ENTER_MENUITEM))
@@ -493,6 +504,16 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
         if (LIKELY(gui_synclist_do_button(&lists, &action)))
             continue;
+        else if (action == ACTION_TP_HOME)   /* hold BACK: jump to the Main Menu */
+        {
+            /* already at the Main Menu -> nothing to jump to, so do nothing */
+            if (menu != &root_menu_)
+            {
+                trimpod_home_pending = true;
+                ret = GO_TO_ROOT;
+                done = true;
+            }
+        }
         else if (action == ACTION_TREE_WPS)
         {
             ret = GO_TO_PREVIOUS_MUSIC;
@@ -504,12 +525,11 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
         }
         else if (action == ACTION_STD_CONTEXT)
         {
-            if (menu == &root_menu_)
-            {
-                ret = GO_TO_ROOTITEM_CONTEXT;
-                done = true;
-            }
-            else if (!in_stringlist)
+            /* Trimpod's root menu is fixed, so Hold-A has no context action there
+             * -- and the stock GO_TO_ROOTITEM_CONTEXT reorder screen is NOT wired
+             * into the dispatch, so returning it spins the dispatch loop (freeze).
+             * Only non-root setting rows have a context menu (reset). */
+            if (menu != &root_menu_ && !in_stringlist)
             {
                 int type = (menu->flags&MENU_TYPE_MASK);
                 selected = get_menu_selection(gui_synclist_get_sel_pos(&lists),menu);
@@ -548,7 +568,7 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                         done = true; /* in case onplay menu contains setting */
                     redraw_lists = true;
                 }
-            } /* else if (!in_stringlist) */
+            } /* setting-row context menu (non-root, non-stringlist) */
         }
         else if (action == ACTION_STD_MENU)
         {
@@ -730,6 +750,12 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                     break;
             }
         }
+
+        /* Home unwind in progress: skip this menu's redraw/back-slide and loop
+         * to the top, which exits with GO_TO_ROOT.  Keeps home to a single slide
+         * at the Main Menu instead of animating each level as it pops. */
+        if (trimpod_home_pending)
+            continue;
 
         if (redraw_lists && !done)
         {

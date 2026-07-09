@@ -361,6 +361,8 @@ enum {
     ACTION_USB_HID_MOUSE_WHEEL_SCROLL_DOWN,
     ACTION_USB_HID_LAST, /* Place holder */
 
+    ACTION_TP_HOME, /* Trimpod: hold BACK -> jump to the main menu (home) */
+
     LAST_ACTION_PLACEHOLDER, /* custom actions should be this + something */
 };
 

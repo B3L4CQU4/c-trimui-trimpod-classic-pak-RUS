@@ -21,7 +21,7 @@
 static void hold_draw(struct trimpod_page *self)
 {
     (void)self;
-    trimpod_centered_message("Flip the side switch off", "HOLD is ON");
+    trimpod_centered_message("Flip the side switch off", "HOLD is ON", NULL);
 }
 
 /* Input is muted while held, so poll the switch quickly (not the HZ the loop

@@ -459,12 +459,13 @@ int trimpod_library_build_playlist(int category, const char *ba, const char *alb
     if (playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST, false, false) < 0)
         return 0;
 
-    /* Order only when it matters: an album -> disc/track; an artist's songs ->
-     * path (folder-grouped, deterministic).  The whole-library case (no filter)
-     * is only ever Shuffle Songs, which reshuffles -- so skip the sort. */
+    /* Deterministic order so a row index in the matching browse list equals its
+     * playlist index: an album -> disc/track; an artist's songs -> path (folder-
+     * grouped); the whole library (Songs facet) -> title.  Shuffle Songs uses the
+     * same no-filter query but reshuffles, so the ordering is harmless there. */
     const char *order = album ? " ORDER BY discnum,tracknum"
                       : ba    ? " ORDER BY path"
-                      :         "";
+                      :         " ORDER BY title, path";
     char sql[256];
     snprintf(sql, sizeof sql,
         "SELECT path FROM tracks WHERE category=?%s%s%s;",
@@ -509,13 +510,19 @@ void trimpod_library_albums(int category, const char *ba,
         void (*cb)(const char *, int, void *), void *ctx)
 {
     if (!db || !cb) return;
+    /* One artist -> chronological (year, then title); ba==NULL -> every album in
+     * the library, alphabetical (the flat "Albums" facet). */
+    char sql[160];
+    snprintf(sql, sizeof sql,
+        "SELECT album, MAX(year) FROM tracks WHERE category=?%s"
+        " GROUP BY album ORDER BY %s;",
+        ba ? " AND browse_artist=?" : "",
+        ba ? "MAX(year), album" : "album");
     sqlite3_stmt *st;
-    if (sqlite3_prepare_v2(db,
-            "SELECT album, MAX(year) FROM tracks WHERE category=? AND browse_artist=?"
-            " GROUP BY album ORDER BY MAX(year), album;", -1, &st, NULL) != SQLITE_OK)
+    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
         return;
-    sqlite3_bind_int (st, 1, category);
-    sqlite3_bind_text(st, 2, ba ? ba : "", -1, SQLITE_STATIC);
+    sqlite3_bind_int(st, 1, category);
+    if (ba) sqlite3_bind_text(st, 2, ba, -1, SQLITE_STATIC);
     while (sqlite3_step(st) == SQLITE_ROW)
         cb((const char *)sqlite3_column_text(st, 0), sqlite3_column_int(st, 1), ctx);
     sqlite3_finalize(st);
@@ -526,19 +533,24 @@ void trimpod_library_tracks(int category, const char *ba, const char *album,
 {
     if (!db || !cb) return;
     /* Same filter + order trimpod_library_build_playlist() uses for this
-     * (browse_artist, album), so a row's index equals its position in the
-     * started playlist.  album==NULL is the artist's whole library (All Songs). */
-    const char *order = album ? " ORDER BY discnum,tracknum" : " ORDER BY path";
+     * (browse_artist, album), so a row's index equals its position in the started
+     * playlist.  album==NULL -> the artist's whole library; ba==NULL too -> the
+     * whole-library "Songs" facet (alphabetical by title). */
+    const char *order = album ? " ORDER BY discnum,tracknum"
+                      : ba    ? " ORDER BY path"
+                      :         " ORDER BY title, path";
     char sql[256];
     snprintf(sql, sizeof sql,
-        "SELECT title, path FROM tracks WHERE category=? AND browse_artist=?%s%s;",
-        album ? " AND album=?" : "", order);
+        "SELECT title, path FROM tracks WHERE category=?%s%s%s;",
+        ba ? " AND browse_artist=?" : "",
+        album ? " AND album=?" : "",
+        order);
     sqlite3_stmt *st;
     if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
         return;
     int bi = 1;
     sqlite3_bind_int (st, bi++, category);
-    sqlite3_bind_text(st, bi++, ba ? ba : "", -1, SQLITE_STATIC);
+    if (ba)    sqlite3_bind_text(st, bi++, ba,    -1, SQLITE_STATIC);
     if (album) sqlite3_bind_text(st, bi++, album, -1, SQLITE_STATIC);
     while (sqlite3_step(st) == SQLITE_ROW)
         cb((const char *)sqlite3_column_text(st, 0),

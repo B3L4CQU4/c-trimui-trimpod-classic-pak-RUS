@@ -21,6 +21,8 @@
 #include "trimpod_page.h"
 #include "trimpod_transition.h"
 
+bool trimpod_home_pending;   /* see trimpod_page.h: hold-BACK unwinds to root */
+
 static bool action_allowed(const int *allowed, int action)
 {
     if (!allowed)
@@ -75,6 +77,8 @@ void trimpod_page_run(struct trimpod_page *page)
     }
     else
     {
+        /* animate honors a pending suppress (splash-only abort) by presenting
+         * with no motion; otherwise it slides in the chosen direction. */
         enum trimpod_transition_dir enter_dir =
             (page->enter_honor_back && trimpod_transition_take_back())
                 ? TRIMPOD_TRANS_BACK : TRIMPOD_TRANS_FORWARD;
@@ -84,8 +88,26 @@ void trimpod_page_run(struct trimpod_page *page)
     bool done = false, shutting_down = false;
     while (!done)
     {
+        /* A nested page/menu requested home while we were inside it: keep
+         * unwinding so the dispatcher lands on the Main Menu. */
+        if (trimpod_home_pending)
+        {
+            page->home = true;
+            break;
+        }
+
         int action = page->vt->poll ? page->vt->poll(page, HZ)
                                     : get_action(page->context, HZ);
+
+        /* Hold BACK >1s anywhere = home (the hold is timed globally in
+         * global_home_action).  Flag it so every enclosing loop unwinds too,
+         * then leave; the dispatcher slides the Main Menu back in one step. */
+        if (action == ACTION_TP_HOME)
+        {
+            trimpod_home_pending = true;
+            page->home = true;
+            break;
+        }
 
         /* key whitelist: swallow non-allowed buttons; SYS events still pass */
         if (!(action & SYS_EVENT) && !action_allowed(page->allowed, action))
@@ -105,6 +127,13 @@ void trimpod_page_run(struct trimpod_page *page)
 
         if (done)
             break;
+
+        /* Home unwind in progress: don't play this level's back-slide -- loop
+         * straight back to the top, which exits.  Only the final landing at the
+         * Main Menu animates, so it's one slide from here to home, not a cascade
+         * of slides back through every intermediate screen. */
+        if (trimpod_home_pending)
+            continue;
 
         /* Once shutdown has begun, never redraw: clean_shutdown drew "Shutting
          * Down" and the real exit is deferred (an SDL event), so a page redraw

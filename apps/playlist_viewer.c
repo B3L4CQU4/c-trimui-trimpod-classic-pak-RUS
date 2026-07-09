@@ -53,6 +53,7 @@
 #include "yesno.h"
 #include "playback.h"
 #include "trimpod_transition.h"   /* slide the viewer in/out like every other screen */
+#include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
 
 
 
@@ -846,6 +847,13 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
     {
         int track;
 
+        /* a nested screen requested home: unwind to the Main Menu */
+        if (trimpod_home_pending)
+        {
+            ret = PLAYLIST_VIEWER_MAINMENU;
+            break;
+        }
+
         if (global_status.resume_index != -1 && !viewer.playlist)
             playlist_get_resume_info(&track);
         else
@@ -884,6 +892,11 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
         }
         switch (button)
         {
+            case ACTION_TP_HOME:        /* hold BACK: jump to the Main Menu */
+                trimpod_home_pending = true;
+                ret = PLAYLIST_VIEWER_MAINMENU;
+                exit = true;
+                break;
             case ACTION_TREE_WPS:
             case ACTION_STD_CANCEL:
             {

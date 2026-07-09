@@ -31,11 +31,13 @@ int  trimpod_library_build_playlist(int category, const char *browse_artist,
 void trimpod_library_artists(int category,
         void (*cb)(const char *browse_artist, int track_count, void *ctx),
         void *ctx);
+/* browse_artist==NULL -> every album in the library (the flat "Albums" facet). */
 void trimpod_library_albums(int category, const char *browse_artist,
         void (*cb)(const char *album, int year, void *ctx), void *ctx);
-/* Tracks of one album (album==NULL -> the artist's whole library).  Rows are in
- * the same order build_playlist uses, so a row index maps 1:1 to a playlist
- * index.  `title` may be "" (untagged) -> caller falls back to path's basename. */
+/* Tracks of one album (album==NULL -> the artist's whole library; with
+ * browse_artist==NULL too -> every song, the "Songs" facet).  Rows are in the
+ * same order build_playlist uses, so a row index maps 1:1 to a playlist index.
+ * `title` may be "" (untagged) -> caller falls back to path's basename. */
 void trimpod_library_tracks(int category, const char *browse_artist,
         const char *album,
         void (*cb)(const char *title, const char *path, void *ctx), void *ctx);

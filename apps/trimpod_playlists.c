@@ -35,6 +35,7 @@
 #include "root_menu.h"
 #include "playlist_catalog.h"
 #include "playlist.h"          /* playlist_load/get_track_info/delete/save (Edit) */
+#include "filetypes.h"         /* FILE_ATTR_AUDIO (track-set inserts) */
 #include "kernel.h"            /* current_tick (shuffle seed) */
 #include "scratch_buf.h"       /* scratch_buffer_get -- playlist_load buffers */
 #include "trimpod_page.h"
@@ -111,13 +112,17 @@ struct playlists_page
     struct gui_synclist lists;
     int result;                       /* GO_TO_* handed back to the root dispatch */
 
-    /* "pick" mode (from a folder browser's Y = Add to Playlist): the chosen or
-     * newly created playlist receives `pick_sel` via the stock Rockbox
-     * catalog_insert_into() -- a file is appended, a directory is expanded into
-     * its tracks.  Normal mode (pick=false) is the standalone Playlists screen. */
-    bool        pick;
-    const char *pick_sel;
-    int         pick_attr;
+    /* "pick" mode (Hold-A = Add to Playlist): the chosen or newly created
+     * playlist receives the selection via the stock Rockbox catalog_insert_into().
+     * Either a single (pick_sel, pick_attr) -- a file appended, a directory
+     * expanded into its tracks -- OR, when pick_paths is set, an explicit set of
+     * track paths (a library album/artist has no single path to expand).
+     * Normal mode (pick=false) is the standalone Playlists screen. */
+    bool         pick;
+    const char  *pick_sel;
+    int          pick_attr;
+    char       **pick_paths;          /* non-NULL -> add these tracks instead */
+    int          pick_npaths;
 };
 
 /* Copy playlist row `sel`'s filename with its .m3u8/.m3u extension stripped --
@@ -214,11 +219,8 @@ static const char *editor_get_name(int sel, void *data, char *buf, size_t buf_le
     return buf;
 }
 
-static const char *editor_legend(struct trimpod_page *self)
-{
-    (void)self;
-    return "Y Remove   B Back";
-}
+/* No legend: B=back is the universal convention and Remove lives in the Hold-A
+ * context submenu. */
 
 static void editor_draw(struct trimpod_page *self)
 {
@@ -242,11 +244,13 @@ static enum trimpod_page_result editor_on_action(struct trimpod_page *self, int 
     if (action == ACTION_STD_CANCEL)             /* B: leave (saved on exit) */
         return TRIMPOD_PAGE_DONE;
 
-    if (action == ACTION_STD_MENU && sel >= 0 && sel < n)   /* Y: remove track */
+    if (action == ACTION_STD_CONTEXT && sel >= 0 && sel < n)   /* Hold A: context */
     {
         char name[MAX_PATH];
         editor_track_name(p, sel, name, sizeof(name));
-        if (trimpod_confirm("Remove from playlist?", name) &&
+        static const char *const opts[] = { "Remove from Playlist" };
+        if (trimpod_context_menu(name, opts, 1) == 0 &&
+            trimpod_confirm("Remove from playlist?", name) &&
             playlist_delete(p->pl, sel) == 0)
         {
             p->dirty = true;
@@ -261,14 +265,14 @@ static enum trimpod_page_result editor_on_action(struct trimpod_page *self, int 
 
 static const struct trimpod_page_vtable editor_vtable =
 {
-    .legend    = editor_legend,
+    .legend    = NULL,
     .draw      = editor_draw,
     .poll      = editor_poll,
     .on_action = editor_on_action,
 };
 
-/* only Y (remove) and B (back) act; scrolling is consumed in poll */
-static const int editor_allowed[] = { ACTION_STD_MENU, ACTION_STD_CANCEL, -1 };
+/* only Hold-A (context: remove) and B (back) act; scrolling is consumed in poll */
+static const int editor_allowed[] = { ACTION_STD_CONTEXT, ACTION_STD_CANCEL, -1 };
 
 /* Edit playlist `sel`: load it, let the user remove tracks, save if changed. */
 static void edit_playlist(int sel)
@@ -395,13 +399,18 @@ static enum trimpod_page_result playlist_action(struct playlists_page *p, int se
 
 /* ---- pick mode: add the pending file/dir to a chosen / new playlist ----- */
 
-/* Insert pick_sel into an existing playlist `sel` (Rockbox expands a directory
- * into its tracks); the screen closes afterwards. */
+/* Insert the pending selection into an existing playlist `sel`: a single file/dir
+ * (Rockbox expands a directory into its tracks), or an explicit set of track
+ * paths (a library album/artist).  The screen closes afterwards. */
 static enum trimpod_page_result pick_into_existing(struct playlists_page *p, int sel)
 {
     char path[MAX_PATH];
     path_append(path, pl_dir, pl_namebuf + pl_off[sel], sizeof(path));
-    catalog_insert_into(path, false, p->pick_sel, p->pick_attr);
+    if (p->pick_paths)
+        for (int i = 0; i < p->pick_npaths; i++)
+            catalog_insert_into(path, false, p->pick_paths[i], FILE_ATTR_AUDIO);
+    else
+        catalog_insert_into(path, false, p->pick_sel, p->pick_attr);
     splashf(HZ, "Added to playlist");
     return TRIMPOD_PAGE_DONE;
 }
@@ -489,7 +498,7 @@ static int run_playlists(struct playlists_page *p, const char *title)
     push_current_activity(ACTIVITY_PLAYLISTBROWSER);
     trimpod_page_run(&p->base);
     pop_current_activity();
-    return p->result;
+    return p->base.home ? GO_TO_ROOT : p->result;
 }
 
 /* Consume a pending Play/Shuffle Playlist request (set by the action menu) and
@@ -509,6 +518,9 @@ int trimpod_playlists_start_pending(void)
         splashf(HZ, "Playlist is empty");
         return -1;
     }
+    /* Reflect the chosen mode in the shuffle setting so Now Playing shows it
+     * correctly (On for Shuffle Playlist, Off for Play Playlist). */
+    global_settings.playlist_shuffle = pl_pending_shuffle;
     if (pl_pending_shuffle)
         playlist_shuffle(current_tick, -1);
     playlist_start(0, 0, 0);
@@ -542,4 +554,38 @@ void trimpod_playlists_pick(const char *sel, int sel_attr)
         .pick = true, .pick_sel = sel, .pick_attr = sel_attr,
     };
     run_playlists(&p, "Add to Playlist");
+}
+
+/* Add an explicit set of track paths (a library album/artist, which has no
+ * single directory to expand) to a chosen / new playlist. */
+static void trimpod_playlists_pick_tracks(char **paths, int count)
+{
+    struct playlists_page p =
+    {
+        .base = { .vt = &playlists_vtable, .context = CONTEXT_LIST,
+                  .allowed = playlists_allowed },
+        .result = GO_TO_ROOT,
+        .pick = true, .pick_paths = paths, .pick_npaths = count,
+    };
+    run_playlists(&p, "Add to Playlist");
+}
+
+/* ---- shared Hold-A "Add to Playlist" entry points ------------------------
+ * The one gesture every music browser routes through: show the context submenu
+ * for `title`, and on confirm add the selection.  One flow, so a page only has
+ * to resolve its highlighted row to a path (or a set of track paths). */
+static const char *const add_to_pl_opts[] = { "Add to Playlist" };
+
+void trimpod_add_to_playlist(const char *title, const char *path, int attr)
+{
+    if (trimpod_context_menu(title, add_to_pl_opts, 1) == 0)
+        trimpod_playlists_pick(path, attr);
+}
+
+void trimpod_add_to_playlist_tracks(const char *title, char **paths, int count)
+{
+    if (count <= 0)
+        return;
+    if (trimpod_context_menu(title, add_to_pl_opts, 1) == 0)
+        trimpod_playlists_pick_tracks(paths, count);
 }

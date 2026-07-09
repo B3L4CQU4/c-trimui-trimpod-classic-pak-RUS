@@ -675,11 +675,8 @@ static void vm_preview(int sel)
     visualizer_session(path);
 }
 
-static const char *vm_legend(struct trimpod_page *self)
-{
-    (void)self;
-    return "A Toggle   Y Preview   B Back";
-}
+/* No legend: the [x]/[ ] checkboxes make A=toggle self-evident, B=back is the
+ * universal convention, and Preview lives in the Hold-A context submenu. */
 
 static void vm_draw(struct trimpod_page *self)
 {
@@ -711,10 +708,14 @@ static enum trimpod_page_result vm_on_action(struct trimpod_page *self, int acti
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_MENU:        /* Y: preview the highlighted preset */
+        case ACTION_STD_CONTEXT:     /* Hold A: context submenu for this preset */
             if (have)
             {
-                vm_preview(sel);
+                static const char *const opts[] = { "Preview" };
+                char title[64];
+                if (trimpod_context_menu(vm_get_name(sel, NULL, title,
+                                                     sizeof title), opts, 1) == 0)
+                    vm_preview(sel);
                 gui_synclist_draw(&p->lists);   /* repaint on return */
             }
             return TRIMPOD_PAGE_STAY;
@@ -727,15 +728,15 @@ static enum trimpod_page_result vm_on_action(struct trimpod_page *self, int acti
 
 static const struct trimpod_page_vtable vm_vtable =
 {
-    .legend    = vm_legend,
+    .legend    = NULL,
     .draw      = vm_draw,
     .poll      = vm_poll,
     .on_action = vm_on_action,
 };
 
-/* A (toggle), Y (preview), B (back) */
+/* A (toggle), Hold-A (context: Preview), B (back) */
 static const int vm_allowed[] =
-    { ACTION_STD_OK, ACTION_STD_MENU, ACTION_STD_CANCEL, -1 };
+    { ACTION_STD_OK, ACTION_STD_CONTEXT, ACTION_STD_CANCEL, -1 };
 
 int trimpod_visualizer_menu(void)
 {

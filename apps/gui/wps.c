@@ -1023,7 +1023,7 @@ long gui_wps_show(void)
     wps_state_init();
 
     trimpod_page_run(&w.base);
-    return w.result;
+    return w.base.home ? GO_TO_ROOT : w.result;
 }
 
 struct wps_state *get_wps_state(void)

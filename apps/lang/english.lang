@@ -11853,6 +11853,48 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_TRIMPOD_ALBUMS
+  desc: Trimpod Library root entry / screen title listing all albums
+  user: core
+  <source>
+    *: "Albums"
+  </source>
+  <dest>
+    *: "Albums"
+  </dest>
+  <voice>
+    *: "Albums"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_SONGS
+  desc: Trimpod Library root entry / screen title listing all songs
+  user: core
+  <source>
+    *: "Songs"
+  </source>
+  <dest>
+    *: "Songs"
+  </dest>
+  <voice>
+    *: "Songs"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_SHUFFLE_ALL
+  desc: Trimpod root-menu action that shuffles and plays the whole Music library
+  user: core
+  <source>
+    *: "Shuffle All"
+  </source>
+  <dest>
+    *: "Shuffle All"
+  </dest>
+  <voice>
+    *: "Shuffle All"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_TRIMPOD_RESCAN
   desc: Trimpod Library menu row that rebuilds the SQLite index from disk
   user: core

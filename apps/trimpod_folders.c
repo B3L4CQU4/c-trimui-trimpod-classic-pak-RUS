@@ -55,7 +55,7 @@
 #include "trimpod_ui.h"
 #include "trimpod_page.h"
 #include "trimpod_transition.h"   /* slide on folder descend/ascend */
-#include "trimpod_playlists.h"    /* Y = add highlighted file/folder to a playlist */
+#include "trimpod_playlists.h"    /* Hold-A = add highlighted file/folder to a playlist */
 #include "trimpod_library.h"      /* Shuffle Songs builds from the SQLite index */
 
 #define PICKER_ROOT     "/mnt/SDCARD"
@@ -239,7 +239,7 @@ struct picker_page
     struct gui_synclist lists;
     char   curdir[FPATH_LEN];
     char   root[FPATH_LEN];
-    /* folder-picker mode (out!=NULL): Y picks a folder into out[] */
+    /* folder-picker mode (out!=NULL): Hold A picks a folder into out[] */
     char  *out;
     size_t out_len;
     bool   picked;
@@ -423,8 +423,11 @@ static const char *pick_get_name(int sel, void *data, char *buf, size_t buf_len)
 
 static const char *picker_legend(struct trimpod_page *self)
 {
-    return ((struct picker_page *)self)->music ? "A Play   Y Playlist   B Back"
-                                               : "A Open   Y Add   B Back";
+    /* music: no legend (A plays / opens, Hold-A adds to a playlist, B backs out).
+     * folder-picker (Settings): A opens and B backs (universal), but Hold-A to add
+     * is the one non-obvious gesture, so publicize just that. */
+    return ((struct picker_page *)self)->music ? NULL
+                                               : "Hold A to add";
 }
 
 static void picker_draw(struct trimpod_page *self)
@@ -472,19 +475,19 @@ static enum trimpod_page_result picker_on_action(struct trimpod_page *self,
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_MENU:        /* Y */
-            if (p->music)            /* add highlighted file/folder to a playlist */
+        case ACTION_STD_CONTEXT:     /* Hold A: add-to-playlist (music) / pick folder */
+            if (p->music)
             {
                 if (have_sel)
                 {
                     char path[FPATH_LEN];
                     path_append(path, p->curdir, item_name(p, sel), sizeof(path));
-                    trimpod_playlists_pick(path,
+                    trimpod_add_to_playlist(item_name(p, sel), path,
                         item_isdir(p, sel) ? ATTR_DIRECTORY : FILE_ATTR_AUDIO);
                 }
                 return TRIMPOD_PAGE_STAY;
             }
-            /* folder-picker mode: Y picks a folder into out[] */
+            /* folder-picker: pick the highlighted folder (or curdir if empty) */
             if (have_sel)
                 path_append(p->out, p->curdir, item_name(p, sel), p->out_len);
             else
@@ -532,9 +535,9 @@ static const struct trimpod_page_vtable picker_vtable =
     .on_action = picker_on_action,
 };
 
-/* only A (descend), B (up/leave) and Y (add) act */
+/* A (descend/play), B (up/leave), Hold-A (music: add-to-playlist / picker: add folder) */
 static const int picker_allowed[] =
-    { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_MENU, -1 };
+    { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_CONTEXT, -1 };
 
 /* Returns true and fills out[] with the chosen folder if the user picked one. */
 static bool folder_pick(char *out, size_t out_len)
@@ -818,7 +821,7 @@ static int folder_browse(struct folder_category *cat)
         memcpy(global_status.browse_last_folder, saved_last, sizeof(saved_last));
 
         if (browsed)
-            return p.result;
+            return p.base.home ? GO_TO_ROOT : p.result;
     }
 
     /* No usable source folder yet: instead of a dead-end "(empty)", drop the user
@@ -871,9 +874,11 @@ int trimpod_shuffle_all(void *param)
     if (trimpod_library_build_playlist(TP_CAT_MUSIC, NULL, NULL) <= 0)
     {
         splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
+        trimpod_transition_suppress_next();   /* only a splash: don't re-slide the menu */
         return GO_TO_ROOT;
     }
 
+    global_settings.playlist_shuffle = true;   /* Now Playing shows Shuffle: On */
     playlist_shuffle(current_tick, -1);
     playlist_start(0, 0, 0);
     return GO_TO_WPS;

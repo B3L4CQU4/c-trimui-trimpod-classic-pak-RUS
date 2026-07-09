@@ -995,6 +995,78 @@ static int global_volume_action(int button, int action)
 }
 #endif
 
+/* Trimpod: tap vs. hold on the BACK/SELECT buttons.
+ *
+ * A quick tap runs the primary action on release (back / select).  Holding the
+ * button for a second runs the *secondary* action WHILE STILL HELD -- fired once
+ * off the auto-repeat the button driver emits for any held button -- and the
+ * eventual release is then swallowed so it does not also run the primary.
+ *
+ * Doing it here (not with per-keymap BUTTON_REPEAT entries) makes every screen
+ * behave identically.  BUTTON_B -> ACTION_TP_HOME (home); BUTTON_A ->
+ * ACTION_STD_CONTEXT (that screen's context menu).  Context-gated: B stays plain
+ * "abort" in the keyboard; A stays plain "select" only on the list-style screens
+ * that actually have a context menu (elsewhere -- e.g. Now Playing's play/pause
+ * -- a held A is left completely alone). */
+#define TP_HOLD_TICKS   HZ          /* a "hold" is one second */
+#define TP_CTX_BASE(c)  ((c) & 0x00ffffff)   /* context minus the flag bits */
+
+/* Shared tap/hold engine.  `btn` is the bare button (BUTTON_A/BUTTON_B); returns
+ * the (possibly rewritten) action.  The tick and fired pointers hold this
+ * button's press state; `secondary` is the action a completed hold produces. */
+static int tp_hold(int button, int action, int btn, int secondary,
+                   long *tick, bool *fired)
+{
+    if ((button & ~(BUTTON_REPEAT | BUTTON_REL)) != btn)
+        return action;                          /* a different (or combo) button */
+
+    if (button == btn)                          /* pressed (deferred) */
+    {
+        *tick  = current_tick;
+        *fired = false;
+    }
+    else if (button & BUTTON_REPEAT)            /* still held */
+    {
+        if (!*fired && *tick != 0 && current_tick - *tick >= TP_HOLD_TICKS)
+        {
+            *fired = true;
+            return secondary;                   /* fire the hold at ~1s, held */
+        }
+        return ACTION_NONE;                      /* swallow the auto-repeats */
+    }
+    else if (button & BUTTON_REL)               /* released */
+    {
+        bool did_fire = *fired;
+        *tick  = 0;
+        *fired = false;
+        if (did_fire)
+            return ACTION_NONE;                  /* hold already ran: ignore tap */
+        /* short tap: let the primary action through unchanged */
+    }
+    return action;
+}
+
+static long home_tick;  static bool home_fired;
+
+static int global_home_action(int context, int button, int action)
+{
+    if (TP_CTX_BASE(context) == CONTEXT_KEYBOARD)
+        return action;                           /* keyboard: B stays "abort" */
+    return tp_hold(button, action, BUTTON_B, ACTION_TP_HOME, &home_tick,
+                   &home_fired);
+}
+
+static long ctx_tick;   static bool ctx_fired;
+
+static int global_context_action(int context, int button, int action)
+{
+    int base = TP_CTX_BASE(context);
+    if (base != CONTEXT_LIST && base != CONTEXT_TREE && base != CONTEXT_MAINMENU)
+        return action;                           /* only list-style context menus */
+    return tp_hold(button, action, BUTTON_A, ACTION_STD_CONTEXT, &ctx_tick,
+                   &ctx_fired);
+}
+
 int get_action(int context, int timeout)
 {
     action_cur_t current;
@@ -1008,6 +1080,8 @@ int get_action(int context, int timeout)
 #if defined(BUTTON_VOL_UP) && defined(BUTTON_VOL_DOWN)
     action = global_volume_action(current.button, action);
 #endif
+    action = global_home_action(current.context, current.button, action);
+    action = global_context_action(current.context, current.button, action);
 
     return action;
 }
@@ -1111,6 +1185,8 @@ int get_custom_action(int context,int timeout,
 #if defined(BUTTON_VOL_UP) && defined(BUTTON_VOL_DOWN)
     action = global_volume_action(current.button, action);
 #endif
+    action = global_home_action(current.context, current.button, action);
+    action = global_context_action(current.context, current.button, action);
 
     return action;
 }

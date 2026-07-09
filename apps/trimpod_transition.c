@@ -27,6 +27,7 @@
 static fb_data s_from[LCD_FBWIDTH * LCD_FBHEIGHT];
 static fb_data s_to[LCD_FBWIDTH * LCD_FBHEIGHT];
 static bool    s_back_pending;
+static bool    s_suppress_next;   /* skip the next screen-entry slide entirely */
 
 /* base of the on-screen framebuffer (force the default fullscreen viewport so
  * FBADDR(0,0) is the real top-left, not some sub-viewport's origin) */
@@ -133,6 +134,21 @@ void trimpod_transition_animate(enum trimpod_transition_dir dir,
 {
     s_back_pending = false;                 /* consumed by this animate */
 
+    /* A screen aborted before it ever rendered (e.g. an empty facet that only
+     * showed a splash over the current menu) asked us not to slide.  Render the
+     * destination and present it with NO motion.  The lcd_update is essential:
+     * it commits the frame and clears the splash -- a bare draw with no present
+     * leaves the splash up and the menu loop spinning on it (a hang). */
+    if (s_suppress_next)
+    {
+        s_suppress_next = false;
+        if (render)
+            render(ctx);
+        if (!trimpod_viz_active)
+            lcd_update();
+        return;
+    }
+
     /* The visualizer owns the GL context and suppresses LCD presents, so a
      * slide would be invisible and just waste cycles.  Render the destination
      * (so it's ready when the visualizer releases the screen) and skip the
@@ -180,4 +196,8 @@ bool trimpod_transition_take_back(void)
     bool b = s_back_pending;
     s_back_pending = false;
     return b;
+}
+void trimpod_transition_suppress_next(void)
+{
+    s_suppress_next = true;
 }

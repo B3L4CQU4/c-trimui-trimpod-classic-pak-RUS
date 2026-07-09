@@ -71,9 +71,20 @@ struct trimpod_page
                              * Static pages leave false: a per-frame list redraw
                              * runs scroll_stop each frame and kills the marquee.
                              * Static pages redraw on enter/change/child-return. */
+
+    /* OUTPUT: set by the run loop when the user held BACK (ACTION_TP_HOME).  A
+     * root-dispatched page checks this after trimpod_page_run() and returns
+     * GO_TO_ROOT so a long-press jumps straight home from any depth. */
+    bool home;
 };
 
 /* Run the page until its on_action returns DONE (or USB is connected). */
 void trimpod_page_run(struct trimpod_page *page);
+
+/* Set true when the user holds BACK (home) anywhere; every page/menu loop
+ * (trimpod_page_run AND do_menu) unwinds to the root while it is set, so a hold
+ * jumps home from any depth regardless of how screens are nested.  The root
+ * dispatcher clears it once it lands on the Main Menu. */
+extern bool trimpod_home_pending;
 
 #endif /* _TRIMPOD_PAGE_H */
