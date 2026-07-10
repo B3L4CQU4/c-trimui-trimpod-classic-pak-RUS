@@ -34,9 +34,10 @@
 #include "filetypes.h" /* filetype_get_attr, FILE_ATTR_AUDIO */
 #include "metadata.h"  /* get_metadata, struct mp3entry */
 #include "playlist.h"
+#include "settings.h"  /* TRIMPOD_MAX_FILES_IN_PLAYLIST */
 #include "trimpod_folders.h"
 
-#define SCHEMA_VERSION 2
+#define SCHEMA_VERSION 3
 
 static sqlite3 *db;
 
@@ -62,6 +63,7 @@ static const char *SCHEMA_SQL =
     "CREATE INDEX idx_tracks_artist ON tracks(category, sort_artist, album, discnum, tracknum);"
     "CREATE INDEX idx_tracks_album  ON tracks(category, album, discnum, tracknum);"
     "CREATE INDEX idx_tracks_browse ON tracks(category, browse_artist, album, discnum, tracknum);"
+    "CREATE INDEX idx_tracks_title  ON tracks(category, title, path);"
     "CREATE INDEX idx_tracks_genre  ON tracks(category, genre);";
 
 /* ---- small growable path set (no fixed cap) --------------------------- */
@@ -450,14 +452,60 @@ int trimpod_library_reconcile(bool force_full)
     return touched;
 }
 
+/* ---- fast play-queue materialization ---------------------------------- *
+ * Rockbox builds a dynamic playlist by writing ONE control-file line per track
+ * (an lseek + a few small write()s each -- ~8ms/track on the SD/exFAT layer), so
+ * a large "All Songs" queue takes seconds (174 tracks measured ~1.4s; 10k would
+ * be minutes).  Instead we bulk-write the paths to a reusable m3u and let
+ * playlist_create() index it in a single read pass (add_indices_to_playlist does
+ * NO per-track writes) -- the same fast path "Play Playlist" already uses.  The
+ * queue file is reused (overwritten) each start and lives on SD, so resume and
+ * next/prev/shuffle behave exactly like any played .m3u. */
+#define QUEUE_M3U ".trimpod_queue.m3u8"
+
+struct m3u_writer { int fd; int len; char buf[4096]; };
+
+static bool m3u_begin(struct m3u_writer *w)
+{
+    char path[MAX_PATH];
+    snprintf(path, sizeof path, "%s/%s", ROCKBOX_DIR, QUEUE_M3U);
+    w->fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    w->len = 0;
+    return w->fd >= 0;
+}
+static void m3u_put(struct m3u_writer *w, const char *p)
+{
+    int n = strlen(p);
+    if (w->len && w->len + n + 1 > (int)sizeof w->buf)   /* flush a full buffer */
+    { write(w->fd, w->buf, w->len); w->len = 0; }
+    if (n + 1 > (int)sizeof w->buf)                      /* path longer than buffer */
+    { write(w->fd, p, n); write(w->fd, "\n", 1); return; }
+    memcpy(w->buf + w->len, p, n); w->len += n; w->buf[w->len++] = '\n';
+}
+/* Flush + close, then open the queue as the current playlist (returns as
+ * playlist_create() does: -1 on failure). */
+static int m3u_end(struct m3u_writer *w)
+{
+    if (w->len) write(w->fd, w->buf, w->len);
+    close(w->fd);
+    return playlist_create(ROCKBOX_DIR, QUEUE_M3U);
+}
+
+int trimpod_library_stage_paths(char **paths, int n, int first)
+{
+    if (!paths || n <= 0) return 0;
+    int cap = n < TRIMPOD_MAX_FILES_IN_PLAYLIST ? n : TRIMPOD_MAX_FILES_IN_PLAYLIST;
+    struct m3u_writer w;
+    if (!m3u_begin(&w)) return 0;
+    for (int k = 0; k < cap; k++)
+        m3u_put(&w, paths[(first + k) % n]);   /* wrap so `first` leads the queue */
+    if (m3u_end(&w) == -1) return 0;
+    return cap;
+}
+
 int trimpod_library_build_playlist(int category, const char *ba, const char *album)
 {
     if (!db) return 0;
-    if (playlist_create("/", NULL) == -1) return 0;
-    struct playlist_info *pl = playlist_get_current();
-    struct playlist_insert_context ctx;
-    if (playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST, false, false) < 0)
-        return 0;
 
     /* Deterministic order so a row index in the matching browse list equals its
      * playlist index: an album -> disc/track; an artist's songs -> path (folder-
@@ -473,21 +521,25 @@ int trimpod_library_build_playlist(int category, const char *ba, const char *alb
         album ? " AND album=?" : "",
         order);
     sqlite3_stmt *st;
+    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) != SQLITE_OK)
+        return 0;
+    int bi = 1;
+    sqlite3_bind_int(st, bi++, category);
+    if (ba)    sqlite3_bind_text(st, bi++, ba,    -1, SQLITE_STATIC);
+    if (album) sqlite3_bind_text(st, bi++, album, -1, SQLITE_STATIC);
+
+    /* Stream rows straight to the queue m3u (no per-track control writes, and no
+     * need to hold the whole path list in RAM). */
+    struct m3u_writer w;
+    if (!m3u_begin(&w)) { sqlite3_finalize(st); return 0; }
     int inserted = 0;
-    if (sqlite3_prepare_v2(db, sql, -1, &st, NULL) == SQLITE_OK)
+    while (inserted < TRIMPOD_MAX_FILES_IN_PLAYLIST && sqlite3_step(st) == SQLITE_ROW)
     {
-        int bi = 1;
-        sqlite3_bind_int(st, bi++, category);
-        if (ba)    sqlite3_bind_text(st, bi++, ba,    -1, SQLITE_STATIC);
-        if (album) sqlite3_bind_text(st, bi++, album, -1, SQLITE_STATIC);
-        while (sqlite3_step(st) == SQLITE_ROW)
-        {
-            const char *p = (const char *)sqlite3_column_text(st, 0);
-            if (p && playlist_insert_context_add(&ctx, p) >= 0) inserted++;
-        }
-        sqlite3_finalize(st);
+        const char *p = (const char *)sqlite3_column_text(st, 0);
+        if (p) { m3u_put(&w, p); inserted++; }
     }
-    playlist_insert_context_release(&ctx);
+    sqlite3_finalize(st);
+    if (m3u_end(&w) == -1) return 0;
     return inserted;
 }
 
@@ -568,6 +620,11 @@ static bool db_migrate(int from)
     if (from < 2)                                /* v2: index the artist-filtered queries */
         if (db_exec("CREATE INDEX IF NOT EXISTS idx_tracks_browse"
                     " ON tracks(category, browse_artist, album, discnum, tracknum);")
+                != SQLITE_OK)
+            return false;
+    if (from < 3)                                /* v3: index the Songs facet (title order) */
+        if (db_exec("CREATE INDEX IF NOT EXISTS idx_tracks_title"
+                    " ON tracks(category, title, path);")
                 != SQLITE_OK)
             return false;
     return true;

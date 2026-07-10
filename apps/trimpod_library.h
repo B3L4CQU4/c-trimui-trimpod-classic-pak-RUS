@@ -26,6 +26,13 @@ int  trimpod_library_reconcile(bool force_full);
 int  trimpod_library_build_playlist(int category, const char *browse_artist,
                                     const char *album);
 
+/* Bulk-materialize `paths` (n entries) as the current playlist via a reusable
+ * m3u + one index scan -- avoids Rockbox's slow O(n) per-track control-file
+ * writes.  Stages up to TRIMPOD_MAX_FILES_IN_PLAYLIST entries beginning at
+ * paths[first], wrapping (so a tapped row can lead an over-cap queue).  Caller
+ * then calls playlist_start().  Returns entries staged, 0 on failure. */
+int  trimpod_library_stage_paths(char **paths, int n, int first);
+
 /* Browse enumerators: one callback per row, no size caps -- the caller owns
  * storage, so there is no arbitrary MAX to silently truncate against. */
 void trimpod_library_artists(int category,

@@ -956,8 +956,7 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
 
                     if (!ret_val)
                     {
-                        if (global_settings.playlist_shuffle)
-                            start_index = playlist_shuffle(current_tick, start_index);
+                        global_settings.playlist_shuffle = false;   /* normal play: file order */
                         playlist_start(start_index, 0, 0);
 
                         if (viewer.initial_selection)

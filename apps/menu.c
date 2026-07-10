@@ -352,26 +352,6 @@ void do_setting_screen(const struct settings_list *setting, const char * title,
                   setting->flags&F_TEMPVAR, (char*)title);
 }
 
-
-void do_setting_from_menu(const struct menu_item_ex *temp,
-                          struct viewport parent[NB_SCREENS])
-{
-    char *title;
-    if (!temp)
-    {
-        panicf("do_setting_from_menu, NULL pointer");
-        return;
-    }
-    const struct settings_list *setting = find_setting(temp->variable);
-
-    if ((temp->flags&MENU_TYPE_MASK) == MT_SETTING_W_TEXT)
-        title = temp->callback_and_desc->desc;
-    else
-        title = ID2P(setting->lang_id);
-
-    do_setting_screen(setting, title, parent);
-}
-
 /* display a menu */
 /* render callback for the shared page-slide transition: paint the menu list */
 static void menu_transition_render(void *ctx)
@@ -685,10 +665,14 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                 case MT_SETTING:
                 case MT_SETTING_W_TEXT:
                 {
-                    do_setting_from_menu(temp, vps);
+                    /* Trimpod: A cycles the value forward in place (wrapping),
+                     * exactly like RIGHT -- no sub-page.  Only chevron rows
+                     * (MT_MENU / MENU_SHOW_CHEVRON) open a new screen. */
+                    const struct settings_list *set = find_setting(temp->variable);
+                    if (set)
+                        option_select_next_val(set, false, true);
                     init_menu_lists(menu, &lists, selected, false, vps, buf, sizeof buf);
                     redraw_lists = true;
-
                     break;
                 }
                 case MT_RETURN_ID:

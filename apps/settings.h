@@ -100,7 +100,6 @@ enum
     REPEAT_OFF = 0,
     REPEAT_ALL,
     REPEAT_ONE,
-    REPEAT_SHUFFLE,
 #ifdef AB_REPEAT_ENABLE
     REPEAT_AB,
 #endif

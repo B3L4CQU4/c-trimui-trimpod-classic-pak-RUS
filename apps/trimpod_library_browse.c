@@ -21,11 +21,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>   /* intptr_t (the facet param) */
-#include <stdio.h>
 #include <stdlib.h>   /* realloc/free */
 #include <string.h>   /* strdup */
-#include <stdio.h>    /* TEMP: perf timing to stderr (trimpod.log) */
-#include "string-extra.h"   /* strlcpy */
 
 #include "kernel.h"    /* HZ (splash timeouts) */
 #include "lang.h"
@@ -45,7 +42,6 @@
 #include "trimpod_library_browse.h"
 #include "trimpod_playlists.h"      /* Hold-A = Add to Playlist */
 #include "filetypes.h"              /* FILE_ATTR_AUDIO */
-#include "file.h"                   /* MAX_PATH */
 
 /* ---- growable string list (rows collected from the enumerators) ------- */
 
@@ -87,38 +83,31 @@ static void album_cb(const char *album, int year, void *ctx)
     if (album && album[0])               /* skip untagged; reachable via All Songs */
         slist_add((struct slist *)ctx, album);
 }
+/* Tracks level fills two index-aligned lists: the display string (title, or the
+ * filename when untagged) and the matching file path -- so a tapped row plays or
+ * adds without re-querying the DB (its index is its playlist index). */
+struct track_fill { struct slist *rows, *paths; };
 static void track_cb(const char *title, const char *path, void *ctx)
 {
+    struct track_fill *t = ctx;
     if (title && title[0])               /* tagged: show the title */
+        slist_add(t->rows, title);
+    else                                 /* untagged: fall back to the filename */
     {
-        slist_add((struct slist *)ctx, title);
-        return;
+        const char *leaf = "";
+        if (path && path[0])
+            path_basename(path, &leaf);
+        slist_add(t->rows, leaf);
     }
-    const char *leaf = "";               /* untagged: fall back to the filename */
-    if (path && path[0])
-        path_basename(path, &leaf);
-    slist_add((struct slist *)ctx, leaf);
+    slist_add(t->paths, path ? path : "");
 }
 
-/* Hold-A "Add to Playlist" enumerators: collect the file paths of a whole
- * album/artist, or capture the nth track's path for a single-track add.  The
- * track rows enumerate in playlist order, so `nth.want` == the row index. */
+/* Hold-A "Add to Playlist" for a whole album/artist: collect their file paths. */
 static void path_collect_cb(const char *title, const char *path, void *ctx)
 {
     (void)title;
     if (path && path[0])
         slist_add((struct slist *)ctx, path);
-}
-struct nth_path { int want, seen; char path[MAX_PATH]; bool got; };
-static void nth_path_cb(const char *title, const char *path, void *ctx)
-{
-    (void)title;
-    struct nth_path *n = ctx;
-    if (n->seen++ == n->want && path && path[0])
-    {
-        strlcpy(n->path, path, sizeof n->path);
-        n->got = true;
-    }
 }
 
 /* ---- the page: Artists / Albums / Tracks, one gui_synclist ------------ */
@@ -137,6 +126,8 @@ struct lib_page
     bool   all_songs;            /* Tracks shows the album wildcard (whole artist,
                                   * or -- with artist NULL -- the whole library) */
     struct slist rows;           /* display strings for the current level */
+    struct slist paths;          /* Tracks level: file path per row (play/add
+                                  * without re-querying); empty at other levels */
     int    sel_at[LVL_COUNT];    /* per-level highlight, restored on ascent */
     int    result;               /* GO_TO_WPS once a track played, else GO_TO_ROOT */
 };
@@ -190,6 +181,7 @@ static const char *lib_get_name(int sel, void *data, char *buf, size_t len)
 static void lib_load(struct lib_page *p)
 {
     slist_free(&p->rows);
+    slist_free(&p->paths);
     const char *title;
     switch (p->level)
     {
@@ -199,12 +191,15 @@ static void lib_load(struct lib_page *p)
                               : (const char *)str(LANG_TRIMPOD_ALBUMS); /* flat */
             break;
         case LVL_TRACKS:
+        {
+            struct track_fill tf = { &p->rows, &p->paths };
             trimpod_library_tracks(TP_CAT_MUSIC, p->artist,
-                                   p->all_songs ? NULL : p->album, track_cb, &p->rows);
+                                   p->all_songs ? NULL : p->album, track_cb, &tf);
             title = !p->all_songs ? p->album                    /* an album */
                   : p->artist     ? (const char *)str(LANG_TRIMPOD_ALL_SONGS)
                   :                 (const char *)str(LANG_TRIMPOD_SONGS); /* whole library */
             break;
+        }
         case LVL_ARTISTS:
         default:
             trimpod_library_artists(TP_CAT_MUSIC, artist_cb, &p->rows);
@@ -245,66 +240,32 @@ static int lib_poll(struct trimpod_page *self, int timeout)
     return action;
 }
 
-/* Build the current playlist for the shown album/all-songs and start it at row
- * `sel`; the row order matches the query, so `sel` is the playlist index. */
+/* Start the shown Tracks list as one playlist at row `sel`.  p->paths was filled
+ * (index-aligned with the visible rows) when the level loaded, so no DB query
+ * runs here.  Materialize the queue via a single bulk m3u write + index scan
+ * (trimpod_library_stage_paths) rather than Rockbox's O(n) per-track control-file
+ * writes -- staging 174 tracks the old way measured ~1.4s on SD; this is one pass.
+ * Row order == playlist index, so `sel` is the start index and the Now-Playing
+ * return re-highlights the playing track. */
 static bool play_track(struct lib_page *p, int sel)
 {
+    if (sel < 0 || sel >= p->paths.n)
+        return false;
     if (!warn_on_pl_erase())
         return false;
 
-    /* SQLite is only our browse INDEX -- Rockbox still plays a *playlist* (its
-     * queue drives next/prev/shuffle/resume), so the tracks must be enqueued.
-     * Build it LAZILY: queue just the tapped track and start it now, then fill
-     * the rest of the facet around it while it plays from its buffer -- so
-     * click-to-audio doesn't wait on the whole library being written out.
-     * Keep title order (playlist index == library row, so the Now-Playing
-     * return re-highlights correctly): append the later tracks, then prepend
-     * the earlier ones -- each prepend shifts the playing index back up to sel. */
-    long tp_t0 = current_tick;   /* TEMP perf */
-    struct slist paths = {0};
-    trimpod_library_tracks(TP_CAT_MUSIC, p->artist,
-                           p->all_songs ? NULL : p->album,
-                           path_collect_cb, &paths);
-    long tp_t1 = current_tick;   /* TEMP perf: after enumerate */
-    if (sel < 0 || sel >= paths.n || playlist_create("/", NULL) == -1)
+    int n = p->paths.n;
+    /* Past the engine cap, lead the queue with the tapped track and start at 0
+     * (as ft_build_playlist does) so it is always the one that plays. */
+    bool exceeds = n > TRIMPOD_MAX_FILES_IN_PLAYLIST;
+    if (trimpod_library_stage_paths(p->paths.v, n, exceeds ? sel : 0) <= 0)
     {
-        slist_free(&paths);
         splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
         return false;
     }
-    struct playlist_info *pl = playlist_get_current();
-    struct playlist_insert_context ctx;
-    if (playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST,
-                                       false, false) >= 0)
-    {
-        playlist_insert_context_add(&ctx, paths.v[sel]);
-        playlist_insert_context_release(&ctx);
-    }
-    playlist_start(0, 0, 0);          /* audio begins on the tapped track now */
-    long tp_t2 = current_tick;   /* TEMP perf: after insert-1 + start */
+    global_settings.playlist_shuffle = false;  /* normal play: title order (transient shuffle) */
+    playlist_start(exceeds ? 0 : sel, 0, 0);   /* one buffer load on the tapped track */
 
-    if (sel + 1 < paths.n &&          /* fill the library after it (title order) */
-        playlist_insert_context_create(pl, &ctx, PLAYLIST_INSERT_LAST,
-                                       false, false) >= 0)
-    {
-        for (int i = sel + 1; i < paths.n; i++)
-            playlist_insert_context_add(&ctx, paths.v[i]);
-        playlist_insert_context_release(&ctx);
-    }
-    if (sel > 0 &&                    /* ...and before it (prepend, walking down) */
-        playlist_insert_context_create(pl, &ctx, PLAYLIST_PREPEND,
-                                       false, false) >= 0)
-    {
-        for (int i = sel - 1; i >= 0; i--)
-            playlist_insert_context_add(&ctx, paths.v[i]);
-        playlist_insert_context_release(&ctx);
-    }
-    int tp_n = paths.n;
-    slist_free(&paths);
-    long tp_t3 = current_tick;   /* TEMP perf: after fill */
-    fprintf(stderr, "[TPPERF] play n=%d sel=%d enum=%ldms start=%ldms fill=%ldms\n",
-            tp_n, sel, (tp_t1-tp_t0)*1000/HZ,
-            (tp_t2-tp_t1)*1000/HZ, (tp_t3-tp_t2)*1000/HZ);
     /* Stash the navigation position for the return from Now Playing. */
     free(lib_resume.artist);
     free(lib_resume.album);
@@ -413,15 +374,10 @@ static enum trimpod_page_result lib_on_action(struct trimpod_page *self, int act
             }
             case LVL_TRACKS:                        /* the highlighted track */
             {
-                if (sel < 0 || sel >= p->rows.n)
+                if (sel < 0 || sel >= p->paths.n || !p->paths.v[sel][0])
                     break;
-                struct nth_path n = { .want = sel };
-                trimpod_library_tracks(TP_CAT_MUSIC, p->artist,
-                                       p->all_songs ? NULL : p->album,
-                                       nth_path_cb, &n);
-                if (n.got)
-                    trimpod_add_to_playlist(p->rows.v[sel], n.path,
-                                            FILE_ATTR_AUDIO);
+                trimpod_add_to_playlist(p->rows.v[sel], p->paths.v[sel],
+                                        FILE_ATTR_AUDIO);
                 break;
             }
             default:
@@ -516,6 +472,7 @@ int trimpod_library_browse(void *param)
          * the menu's re-entry slide so it doesn't slide back to itself. */
         splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
         slist_free(&p.rows);
+        slist_free(&p.paths);
         free(p.artist);
         free(p.album);
         trimpod_transition_suppress_next();
@@ -527,6 +484,7 @@ int trimpod_library_browse(void *param)
     pop_current_activity();
 
     slist_free(&p.rows);
+    slist_free(&p.paths);
     free(p.artist);
     free(p.album);
     return p.base.home ? GO_TO_ROOT : p.result;

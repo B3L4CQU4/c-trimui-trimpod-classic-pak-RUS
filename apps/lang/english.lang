@@ -1255,20 +1255,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_REPEAT_AB
-  desc: repeat range from point A to B
-  user: core
-  <source>
-    *: "A-B"
-  </source>
-  <dest>
-    *: "A-B"
-  </dest>
-  <voice>
-    *: "A-B"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_PLAY_SELECTED
   desc: in settings_menu
   user: core

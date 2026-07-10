@@ -44,7 +44,6 @@
 #include "misc.h"
 #include "sound.h"
 #include "onplay.h"
-#include "abrepeat.h"
 #include "playback.h"
 #include "splash.h"
 #include "cuesheet.h"
@@ -300,19 +299,6 @@ static void gwps_caption_backlight(struct wps_state *state)
     }
 }
 
-static void change_dir(int direction)
-{
-    if (global_settings.prevent_skip)
-        return;
-
-    if (direction < 0)
-        audio_prev_dir();
-    else if (direction > 0)
-        audio_next_dir();
-    /* prevent the next dir to immediatly start being ffw'd */
-    action_wait_for_release();
-}
-
 static void prev_track(unsigned long skip_thresh)
 {
     struct wps_state *state = get_wps_state();
@@ -510,39 +496,11 @@ static long do_wps_exit(long action, bool bookmark)
         bookmark_autobookmark(true);
     audio_stop();
 
-    ab_reset_markers();
-
     gwps_leave_wps(true);
     (void)action;
     if (TP_BROWSE_CURRENT)
         return GO_TO_PREVIOUS_BROWSER;
     return GO_TO_PREVIOUS;
-}
-
-static inline int action_wpsab_single(long button)
-{
-/* The iPods/X5/M5 use a single button for the A-B mode markers,
-   defined as ACTION_WPSAB_SINGLE in their config files. */
-#ifdef ACTION_WPSAB_SINGLE
-        static int wps_ab_state = 0;
-        if (button == ACTION_WPSAB_SINGLE && ab_repeat_mode_enabled())
-        {
-            switch (wps_ab_state)
-            {
-                case 0: /* set the A spot */
-                    button = ACTION_WPS_ABSETA_PREVDIR;
-                    break;
-                case 1: /* set the B spot */
-                    button = ACTION_WPS_ABSETB_NEXTDIR;
-                    break;
-                case 2:
-                    button = ACTION_WPS_ABRESET;
-                    break;
-            }
-            wps_ab_state = (wps_ab_state+1) % 3;
-        }
-#endif /* def ACTION_WPSAB_SINGLE */
-    return button;
 }
 
 /* The WPS can be left in two ways:
@@ -639,7 +597,6 @@ static int wps_page_poll(struct trimpod_page *p, int timeout)
        playlist or if using the sleep timer. */
     if (!(audio_status() & AUDIO_STATUS_PLAY))
         w->exit = true;
-    button = action_wpsab_single(button); /* iPods/X5/M5 */
 
     w->button = button;
     return button;
@@ -834,56 +791,13 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 /* prev / restart */
             case ACTION_WPS_SKIPPREV:
                 w->last_left = current_tick;
-
-                /* if we're in A/B repeat mode and the current position
-                   is past the A marker, jump back to the A marker... */
-                if ( ab_repeat_mode_enabled() && ab_after_A_marker(state->id3->elapsed) )
-                {
-                    ab_jump_to_A_marker();
-                    break;
-                }
-                else /* ...otherwise, do it normally */
-                    play_hop(-1);
+                play_hop(-1);
                 break;
 
-                /* next
-                   OR if skip length set, hop by predetermined amount. */
+                /* next */
             case ACTION_WPS_SKIPNEXT:
                 w->last_right = current_tick;
-
-                /* if we're in A/B repeat mode and the current position is
-                   before the A marker, jump to the A marker... */
-                if ( ab_repeat_mode_enabled() )
-                {
-                    if ( ab_before_A_marker(state->id3->elapsed) )
-                    {
-                        ab_jump_to_A_marker();
-                        break;
-                    }
-                }
-                else /* ...otherwise, do it normally */
-                    play_hop(1);
-                break;
-                /* next / prev directories */
-                /* and set A-B markers if in a-b mode */
-            case ACTION_WPS_ABSETB_NEXTDIR:
-                if (ab_repeat_mode_enabled())
-                {
-                    ab_set_B_marker(state->id3->elapsed);
-                    ab_jump_to_A_marker();
-                }
-                else
-                {
-                    change_dir(1);
-                }
-                break;
-            case ACTION_WPS_ABSETA_PREVDIR:
-                if (ab_repeat_mode_enabled())
-                    ab_set_A_marker(state->id3->elapsed);
-                else
-                {
-                    change_dir(-1);
-                }
+                play_hop(1);
                 break;
             /* menu key functions */
             case ACTION_WPS_MENU:
@@ -894,16 +808,6 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
 
 
                 /* screen settings */
-
-
-            /* reset A&B markers */
-            case ACTION_WPS_ABRESET:
-                if (ab_repeat_mode_enabled())
-                {
-                    ab_reset_markers();
-                    w->update = true;
-                }
-                break;
 
                 /* stop and exit wps */
             case ACTION_WPS_STOP:
@@ -1019,7 +923,6 @@ long gui_wps_show(void)
         .theme_enabled = true,
     };
 
-    ab_reset_markers();
     wps_state_init();
 
     trimpod_page_run(&w.base);

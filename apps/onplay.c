@@ -291,10 +291,11 @@ static int add_to_playlist(void* arg)
 
     if (new_playlist && (playlist_amount() > 0))
     {
-        /* nothing is currently playing so begin playing what we just
-           inserted */
-        if (global_settings.playlist_shuffle)
-            playlist_shuffle(current_tick, -1);
+        /* A new normal playlist plays in file order -- shuffle is transient, not
+           a persisted default.  An explicit shuffled insert keeps its order. */
+        if (position != PLAYLIST_INSERT_SHUFFLED &&
+            position != PLAYLIST_INSERT_LAST_SHUFFLED)
+            global_settings.playlist_shuffle = false;
         playlist_start(0, 0, 0);
         onplay_result = ONPLAY_START_PLAY;
     }

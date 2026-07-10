@@ -53,8 +53,6 @@
 /* The number of bytes reserved for loadable plugins */
 #define PLUGIN_BUFFER_SIZE 0x800000
 
-#define AB_REPEAT_ENABLE
-
 /* Battery stuff */
 #define CONFIG_BATTERY_MEASURE PERCENTAGE_MEASURE
 #define CONFIG_CHARGING CHARGING_MONITOR

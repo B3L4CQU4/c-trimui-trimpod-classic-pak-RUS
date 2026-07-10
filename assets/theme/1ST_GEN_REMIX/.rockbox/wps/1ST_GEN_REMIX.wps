@@ -34,8 +34,8 @@
 
 # Status bar is the shared SBS (enabled via %we above).
 
-# Playlist Number
-%Vl(mainDisplay,8,46,72,20,2)
+# Playlist Number (wide enough for "999999 of 999999" without clipping)
+%Vl(mainDisplay,8,46,240,20,2)
 %?if(%pp, =, %pe)<%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe>
 
 # Track Title
