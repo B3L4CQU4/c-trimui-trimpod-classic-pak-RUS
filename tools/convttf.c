@@ -693,8 +693,16 @@ void convttf(char* path, char* destfile, FT_Long face_index)
     {
         charindex = getcharindex( face, code);
         if ( !(charindex) ) continue;
-        err = FT_Load_Glyph(face, charindex, ft_load_opts);
+        /* size EXACTLY what the write pass renders: an emboldened outline can
+         * rasterize wider (glyph_width uses bitmap.pitch), and sizing the plain
+         * glyph here would under-allocate chars_data -> heap overflow */
+        err = FT_Load_Glyph(face, charindex,
+                            embolden_strength ? (ft_load_opts & ~FT_LOAD_RENDER) : ft_load_opts);
         if ( err ) continue;
+        if (embolden_strength && face->glyph->format == FT_GLYPH_FORMAT_OUTLINE) {
+            FT_Outline_Embolden(&face->glyph->outline, embolden_strength);
+            FT_Render_Glyph(face->glyph, FT_RENDER_MODE_NORMAL);
+        }
 
         w = glyph_width( face, code, digit_width );
         if (w == 0) continue;

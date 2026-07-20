@@ -602,7 +602,7 @@ static int wps_page_poll(struct trimpod_page *p, int timeout)
     return button;
 }
 
-/* A on Now Playing opens this menu (do_menu returns NP_PAUSE / NP_ADD_TO_PLAYLIST /
+/* Hold-A on Now Playing opens this menu (do_menu returns NP_PAUSE / NP_ADD_TO_PLAYLIST /
  * NP_START_VIZ; GO_TO_PREVIOUS on cancel).  Sleep Timer is an inline knob: LEFT/RIGHT
  * (or A) cycle Off/5/10.../90 min and arm the timer live; the value shows minutes left.
  * Opened like the context menu (gwps_leave_wps -> menu -> restore) so it themes. */
@@ -738,10 +738,18 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 w->result = GO_TO_PREVIOUS;
                 return TRIMPOD_PAGE_DONE;
 
-                /* A: open the Now Playing menu (Pause + Add to Playlist).  Same
-                 * pattern as ACTION_WPS_CONTEXT: leave the skin so the menu themes
-                 * + tweens, act on the choice, then restore the WPS. */
+                /* A tap: play/pause (the tap/hold standard: tap executes).
+                 * Sync paused first in case another thread changed it. */
             case ACTION_WPS_PLAY:
+                state->paused = (audio_status() & AUDIO_STATUS_PAUSE) != 0;
+                wps_do_action(WPS_PLAYPAUSE, true);
+                break;
+
+                /* Hold A: the Now Playing menu (pause/shuffle/repeat/sleep/
+                 * add-to-playlist/visualizer).  Same pattern as ACTION_WPS_CONTEXT:
+                 * leave the skin so the menu themes + tweens, act on the choice,
+                 * then restore the WPS. */
+            case ACTION_STD_CONTEXT:
             {
                 gwps_leave_wps(true);
                 int sel = do_menu(&nowplaying_menu, NULL, NULL, false);

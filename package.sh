@@ -45,6 +45,7 @@ rm -f "$PAK/trimpod/fonts/"*.fnt "$PAK/trimpod/fonts/COPYING-fonts.txt" 2>/dev/n
 
 echo ">> Injecting ChicagoFLF fonts (see assets/fonts)"
 cp -a "$ROOT"/assets/fonts/*.fnt "$PAK/trimpod/fonts/"
+cp "$ROOT/assets/fonts/COPYING" "$PAK/trimpod/fonts/COPYING-fonts.txt"
 
 echo ">> Injecting Milkdrop visualizer presets (see assets/presets)"
 mkdir -p "$PAK/trimpod/presets"

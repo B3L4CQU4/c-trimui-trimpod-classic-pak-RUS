@@ -1005,9 +1005,9 @@ static int global_volume_action(int button, int action)
  * Doing it here (not with per-keymap BUTTON_REPEAT entries) makes every screen
  * behave identically.  BUTTON_B -> ACTION_TP_HOME (home); BUTTON_A ->
  * ACTION_STD_CONTEXT (that screen's context menu).  Context-gated: B stays plain
- * "abort" in the keyboard; A stays plain "select" only on the list-style screens
- * that actually have a context menu (elsewhere -- e.g. Now Playing's play/pause
- * -- a held A is left completely alone). */
+ * "abort" in the keyboard; A is rewritten only on screens that actually have a
+ * context menu -- the list-style screens, and Now Playing (tap = play/pause,
+ * hold = the Now Playing menu). */
 #define TP_HOLD_TICKS   HZ          /* a "hold" is one second */
 #define TP_CTX_BASE(c)  ((c) & 0x00ffffff)   /* context minus the flag bits */
 
@@ -1061,8 +1061,9 @@ static long ctx_tick;   static bool ctx_fired;
 static int global_context_action(int context, int button, int action)
 {
     int base = TP_CTX_BASE(context);
-    if (base != CONTEXT_LIST && base != CONTEXT_TREE && base != CONTEXT_MAINMENU)
-        return action;                           /* only list-style context menus */
+    if (base != CONTEXT_LIST && base != CONTEXT_TREE && base != CONTEXT_MAINMENU
+        && base != CONTEXT_WPS)
+        return action;                           /* only screens with a context menu */
     return tp_hold(button, action, BUTTON_A, ACTION_STD_CONTEXT, &ctx_tick,
                    &ctx_fired);
 }
