@@ -6,10 +6,10 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Trimpod: the Power (Device) settings menu -- CPU Frequency, Brightness,
- * Colour, Auto Screen Off, Idle Power Off -- on one do_menu page. CPU and
- * Colour are inline value knobs (LEFT/RIGHT cycle, applied live); the others
- * are plain settings rows.
+ * Trimpod: the Power (Device) settings menu -- Color, Brightness, Display
+ * Poweroff, Idle Poweroff, CPU Frequency, Charge Limit -- on one do_menu page.
+ * Color, CPU and Charge Limit are inline value knobs (LEFT/RIGHT cycle, applied
+ * live); the others are plain settings rows.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>          /* snprintf for the Charge Limit value label */
 #include "config.h"
 #include "lang.h"
 #include "settings.h"
@@ -87,6 +88,12 @@ extern void retrohh_cpu_set_dynamic(void);
 extern int  retrohh_cpu_get_freq(void);
 extern bool retrohh_cpu_is_dynamic(void);
 extern void retrohh_cpu_save_choice(int khz);   /* persistence lives in power-target.c */
+
+/* Charge Limit: caps charging at a % while Trimpod runs (power-target.c). The
+ * row is hidden entirely when the standalone Battery Care daemon owns charging. */
+extern bool retrohh_charge_limit_hidden(void);
+extern int  retrohh_charge_limit_get_target(void);
+extern void retrohh_charge_limit_cycle(int dir);
 
 static const int trimpod_cpu_freqs[] = {
     408000, 600000, 816000, 1008000, 1200000, 1416000, 1608000, 1800000, 2000000
@@ -166,19 +173,45 @@ static void tp_color_value_cycle(void *ctx, int dir)
 static const struct menu_value_cb trimpod_color_value =
     { tp_color_value_get, tp_color_value_cycle, NULL };
 
-/* The page: CPU Frequency, Brightness, Colour, Auto Screen Off, Idle Power Off.
- * Setting rows label from their setting lang_id. */
+/* Charge Limit: inline value 75/80/85/90/95/100% (100% = no cap), wrapping. The
+ * row is omitted from the menu entirely when the Battery Care daemon is running
+ * (see trimpod_power_page), so it's only shown when Trimpod manages. */
+static const char *tp_charge_value_get(void *ctx, char *buf, int len)
+{
+    (void)ctx;
+    snprintf(buf, len, "%d%%", retrohh_charge_limit_get_target());
+    return buf;
+}
+static void tp_charge_value_cycle(void *ctx, int dir)
+{
+    (void)ctx;
+    retrohh_charge_limit_cycle(dir);
+}
+static const struct menu_value_cb trimpod_charge_value =
+    { tp_charge_value_get, tp_charge_value_cycle, NULL };
+
+/* The page, in order: Color, Brightness, Display Poweroff, Idle Poweroff, CPU
+ * Frequency, Charge Limit.  Setting rows label from their setting lang_id. */
 MENUITEM_VALUE(tp_pw_cpu, ID2P(LANG_TRIMPOD_CPU), &trimpod_cpu_value, Icon_NOICON);
 MENUITEM_SETTING(tp_pw_brightness, &global_settings.brightness, NULL);
 MENUITEM_VALUE(tp_pw_colour, ID2P(LANG_TRIMPOD_COLOR), &trimpod_color_value, Icon_NOICON);
 MENUITEM_SETTING(tp_pw_screenoff, &global_settings.backlight_timeout, NULL);
 MENUITEM_SETTING(tp_pw_idlepoweroff, &global_settings.poweroff, NULL);
+MENUITEM_VALUE(tp_pw_charge, "Charge Limit", &trimpod_charge_value, Icon_NOICON);
+/* Two variants: the Charge Limit row is present only when Trimpod manages
+ * charging.  When the Battery Care daemon owns the bit the row is simply absent
+ * (the "_nobatt" menu) rather than shown disabled -- see trimpod_power_page. */
 MAKE_MENU(trimpod_power_menu, ID2P(LANG_TRIMPOD_DEVICE), NULL, Icon_Submenu_Entered,
-          &tp_pw_cpu, &tp_pw_brightness, &tp_pw_colour, &tp_pw_screenoff,
-          &tp_pw_idlepoweroff);
+          &tp_pw_colour, &tp_pw_brightness, &tp_pw_screenoff, &tp_pw_idlepoweroff,
+          &tp_pw_cpu, &tp_pw_charge);
+MAKE_MENU(trimpod_power_menu_nobatt, ID2P(LANG_TRIMPOD_DEVICE), NULL, Icon_Submenu_Entered,
+          &tp_pw_colour, &tp_pw_brightness, &tp_pw_screenoff, &tp_pw_idlepoweroff,
+          &tp_pw_cpu);
 
 int trimpod_power_page(void)
 {
-    do_menu(&trimpod_power_menu, NULL, NULL, false);
+    const struct menu_item_ex *m = retrohh_charge_limit_hidden()
+                                 ? &trimpod_power_menu_nobatt : &trimpod_power_menu;
+    do_menu(m, NULL, NULL, false);
     return 0;
 }

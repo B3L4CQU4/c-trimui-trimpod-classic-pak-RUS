@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Assemble dist/Trimpod.pak from the build (build-trimpod), the bundled theme
-# (assets/theme), and the static pak files (pak/ -- launch.sh, pak.json, the
-# input glue, config.cfg and the .sys device files).
+# (assets/theme), and the static pak files (pak/ -- launch.sh, pak.json,
+# config.cfg and the .sys device files).
 # Run ./build.sh first (it produces the runtime zip via 'make fullzip').
 # The app's data dir is /tmp/trimpod (NOT /tmp/rockbox) to avoid clashing with
 # other Rockbox installs; inside the pak it lives in trimpod/ and the binary is
@@ -45,18 +45,19 @@ rm -f "$PAK/trimpod/fonts/"*.fnt "$PAK/trimpod/fonts/COPYING-fonts.txt" 2>/dev/n
 
 echo ">> Injecting ChicagoFLF fonts (see assets/fonts)"
 cp -a "$ROOT"/assets/fonts/*.fnt "$PAK/trimpod/fonts/"
+cp "$ROOT/assets/fonts/COPYING" "$PAK/trimpod/fonts/COPYING-fonts.txt"
 
 echo ">> Injecting Milkdrop visualizer presets (see assets/presets)"
 mkdir -p "$PAK/trimpod/presets"
 # Ship the curated flat preset set (Settings -> Visualizers toggles them on/off).
 cp -r "$ROOT/assets/presets/." "$PAK/trimpod/presets/"
 
-echo ">> Overlaying the static pak files (pak/: launch.sh, pak.json, glue, config, .sys)"
+echo ">> Overlaying the static pak files (pak/: launch.sh, pak.json, config, .sys)"
 # pak/ mirrors the deployed pak skeleton; its trimpod/ merges onto the built one.
 # pak.json lives at the repo root (the Pak Store reads it there); copy it in too.
 cp -a "$ROOT/pak/." "$PAK/"
 cp -a "$ROOT/pak.json" "$PAK/pak.json"
-chmod +x "$PAK/launch.sh" "$PAK/gptokeyb2" "$PAK/trimpod/trimpod"
+chmod +x "$PAK/launch.sh" "$PAK/trimpod/trimpod"
 
 echo ">> Packaging the Pak Store release asset (dist/Trimpod.pak.zip)"
 # NextUI Pak Store: the zip's ROOT must be the contents of the .pak directory

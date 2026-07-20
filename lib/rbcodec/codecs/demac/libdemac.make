@@ -11,9 +11,6 @@ DEMACLIB := $(CODECDIR)/libdemac.a
 DEMACLIB_SRC := $(call preprocess, $(RBCODECLIB_DIR)/codecs/demac/libdemac/SOURCES)
 DEMACLIB_OBJ := $(call c2obj, $(DEMACLIB_SRC))
 OTHER_SRC += $(DEMACLIB_SRC)
-ifeq ($(ARCH),arch_arm)
-OTHER_SRC += $(RBCODECLIB_DIR)/codecs/demac/libdemac/udiv32_arm-pre.S
-endif
 DEMACLIB_PRE := $(subst .a,-pre.a,$(DEMACLIB))
 DEMACLIB_OBJ_PRE := $(subst udiv32_arm.o,udiv32_arm-pre.o,$(DEMACLIB_OBJ))
 

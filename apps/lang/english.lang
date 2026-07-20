@@ -1255,20 +1255,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_REPEAT_AB
-  desc: repeat range from point A to B
-  user: core
-  <source>
-    *: "A-B"
-  </source>
-  <dest>
-    *: "A-B"
-  </dest>
-  <voice>
-    *: "A-B"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_PLAY_SELECTED
   desc: in settings_menu
   user: core
@@ -11685,20 +11671,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TRIMPOD_AUDIO_FOLDERS
-  desc: Trimpod Settings > Audio Folders (nested: Music/Podcast/Audiobook folder lists)
-  user: core
-  <source>
-    *: "Folders"
-  </source>
-  <dest>
-    *: "Folders"
-  </dest>
-  <voice>
-    *: "Folders"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_TRIMPOD_DEVICE
   desc: Trimpod Settings > Power Settings (Brightness, Colour, Display Poweroff, CPU, Idle Power Off)
   user: core
@@ -11808,6 +11780,132 @@
   </dest>
   <voice>
     *: "Audiobook Folders"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_NO_MUSIC
+  desc: Trimpod splash when Shuffle Songs finds no playable tracks
+  user: core
+  <source>
+    *: "No music found"
+  </source>
+  <dest>
+    *: "No music found"
+  </dest>
+  <voice>
+    *: "No music found"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LIBRARY
+  desc: Trimpod Settings > Library submenu (folder lists + Rescan Library)
+  user: core
+  <source>
+    *: "Library"
+  </source>
+  <dest>
+    *: "Library"
+  </dest>
+  <voice>
+    *: "Library"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_ARTISTS
+  desc: Trimpod Library entry / screen title listing artists
+  user: core
+  <source>
+    *: "Artists"
+  </source>
+  <dest>
+    *: "Artists"
+  </dest>
+  <voice>
+    *: "Artists"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_ALL_SONGS
+  desc: Trimpod Library Albums screen row that plays every track by the artist
+  user: core
+  <source>
+    *: "All Songs"
+  </source>
+  <dest>
+    *: "All Songs"
+  </dest>
+  <voice>
+    *: "All Songs"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_ALBUMS
+  desc: Trimpod Library root entry / screen title listing all albums
+  user: core
+  <source>
+    *: "Albums"
+  </source>
+  <dest>
+    *: "Albums"
+  </dest>
+  <voice>
+    *: "Albums"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_SONGS
+  desc: Trimpod Library root entry / screen title listing all songs
+  user: core
+  <source>
+    *: "Songs"
+  </source>
+  <dest>
+    *: "Songs"
+  </dest>
+  <voice>
+    *: "Songs"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_SHUFFLE_ALL
+  desc: Trimpod root-menu action that shuffles and plays the whole Music library
+  user: core
+  <source>
+    *: "Shuffle All"
+  </source>
+  <dest>
+    *: "Shuffle All"
+  </dest>
+  <voice>
+    *: "Shuffle All"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_RESCAN
+  desc: Trimpod Library menu row that rebuilds the SQLite index from disk
+  user: core
+  <source>
+    *: "Rescan Library"
+  </source>
+  <dest>
+    *: "Rescan Library"
+  </dest>
+  <voice>
+    *: "Rescan Library"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_UNKNOWN_ARTIST
+  desc: Trimpod Library label for tracks with no artist tag
+  user: core
+  <source>
+    *: "Unknown Artist"
+  </source>
+  <dest>
+    *: "Unknown Artist"
+  </dest>
+  <voice>
+    *: "Unknown Artist"
   </voice>
 </phrase>
 <phrase>
@@ -17166,20 +17264,6 @@
   </dest>
   <voice>
     *: "File not found"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_SHOW_IN_FILES
-  desc: Reveal item in File Browser
-  user: core
-  <source>
-    *: "Show in Files"
-  </source>
-  <dest>
-    *: "Show in Files"
-  </dest>
-  <voice>
-    *: "Show in Files"
   </voice>
 </phrase>
 <phrase>

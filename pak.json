@@ -1,6 +1,6 @@
 {
   "name": "Trimpod Classic",
-  "version": "v1.0.1",
+  "version": "v1.0.2",
   "type": "TOOL",
   "description": "An iPod Classic-inspired, offline music player for the TrimUI Brick/Hammer with winamp-like visualizations.",
   "author": "tyrannotorus",
@@ -13,6 +13,7 @@
   ],
   "platforms": ["tg5040"],
   "changelog": {
+    "v1.0.2": "Maintenance: internal codebase cleanup.",
     "v1.0.1": "Initial release."
   }
 }

@@ -100,7 +100,6 @@ enum
     REPEAT_OFF = 0,
     REPEAT_ALL,
     REPEAT_ONE,
-    REPEAT_SHUFFLE,
 #ifdef AB_REPEAT_ENABLE
     REPEAT_AB,
 #endif
@@ -313,7 +312,7 @@ struct system_status
 
 #define TRIMPOD_MAX_FILES_IN_DIR      5000  /* file-browser dir cache size */
 #define TRIMPOD_MAX_FILES_IN_PLAYLIST 10000 /* max playlist entries */
-#define TRIMPOD_GLYPHS_TO_CACHE       250   /* font glyph allocation */
+#define TRIMPOD_GLYPHS_TO_CACHE       512   /* font glyph allocation (CJK lists thrash 250) */
 
 struct user_settings
 {

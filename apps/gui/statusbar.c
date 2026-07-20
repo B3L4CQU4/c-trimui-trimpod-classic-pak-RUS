@@ -471,7 +471,6 @@ static void gui_statusbar_icon_play_mode(struct screen * display, int mode)
             break;
 
         case REPEAT_ALL:
-        case REPEAT_SHUFFLE:
             display->mono_bitmap(bitmap_icons_7x8[Icon_Repeat],
                                  STATUSBAR_PLAY_MODE_X_POS,
                                  STATUSBAR_Y_POS, STATUSBAR_PLAY_MODE_WIDTH,

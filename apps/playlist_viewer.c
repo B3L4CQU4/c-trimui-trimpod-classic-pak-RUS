@@ -52,6 +52,8 @@
 #include "menus/exported_menus.h"
 #include "yesno.h"
 #include "playback.h"
+#include "trimpod_transition.h"   /* slide the viewer in/out like every other screen */
+#include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
 
 
 
@@ -802,6 +804,19 @@ static bool open_playlist_viewer(const char* filename,
     return true;
 }
 
+/* Slide-in plumbing: run the open (metadata load + first draw) inside the
+ * transition's off-screen render pass, exactly like the file browser
+ * (tree.c:browse_first_render).  open_playlist_viewer() draws to the screen, so
+ * it must happen during the tween's render -- otherwise the destination is
+ * already painted and there is nothing to slide over. */
+struct pv_open_ctx { const char *filename; struct gui_synclist *lists; int *recent; };
+static bool s_pv_open_ok;
+static void pv_open_render(void *ctx)
+{
+    struct pv_open_ctx *o = (struct pv_open_ctx *)ctx;
+    s_pv_open_ok = open_playlist_viewer(o->filename, o->lists, false, o->recent);
+}
+
 /* Main viewer function.  Filename identifies playlist to be viewed.  If NULL,
    view current playlist. */
 enum playlist_viewer_result playlist_viewer_ex(const char* filename,
@@ -812,7 +827,17 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
     int button;
     struct gui_synclist playlist_lists;
 
-    if (!open_playlist_viewer(filename, &playlist_lists, false, recent_selection))
+    /* Slide the viewer in like every other screen: BACK if a deeper screen
+     * backed out and armed it, else FORWARD.  The open (load + first draw)
+     * happens inside the tween's off-screen render pass. */
+    {
+        struct pv_open_ctx octx = { filename, &playlist_lists, recent_selection };
+        trimpod_transition_animate(
+            trimpod_transition_take_back() ? TRIMPOD_TRANS_BACK
+                                           : TRIMPOD_TRANS_FORWARD,
+            pv_open_render, &octx);
+    }
+    if (!s_pv_open_ok)
     {
         ret = PLAYLIST_VIEWER_CANCEL;
         goto exit;
@@ -821,6 +846,13 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
     while (!exit)
     {
         int track;
+
+        /* a nested screen requested home: unwind to the Main Menu */
+        if (trimpod_home_pending)
+        {
+            ret = PLAYLIST_VIEWER_MAINMENU;
+            break;
+        }
 
         if (global_status.resume_index != -1 && !viewer.playlist)
             playlist_get_resume_info(&track);
@@ -860,6 +892,11 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
         }
         switch (button)
         {
+            case ACTION_TP_HOME:        /* hold BACK: jump to the Main Menu */
+                trimpod_home_pending = true;
+                ret = PLAYLIST_VIEWER_MAINMENU;
+                exit = true;
+                break;
             case ACTION_TREE_WPS:
             case ACTION_STD_CANCEL:
             {
@@ -919,8 +956,7 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
 
                     if (!ret_val)
                     {
-                        if (global_settings.playlist_shuffle)
-                            start_index = playlist_shuffle(current_tick, start_index);
+                        global_settings.playlist_shuffle = false;   /* normal play: file order */
                         playlist_start(start_index, 0, 0);
 
                         if (viewer.initial_selection)
@@ -1009,6 +1045,11 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
     }
 
 exit:
+    /* Backing out (B) -> tell the screen we return to (the catalog/parent) to
+     * slide us away.  Other exits (OK->WPS, USB, main menu) own their own
+     * transitions, so only arm on cancel. */
+    if (ret == PLAYLIST_VIEWER_CANCEL)
+        trimpod_transition_arm_back();
     pop_current_activity_without_refresh();
     close_playlist_viewer();
     return ret;

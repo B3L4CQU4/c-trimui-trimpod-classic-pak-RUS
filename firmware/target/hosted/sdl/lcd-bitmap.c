@@ -97,6 +97,11 @@ void lcd_set_update_suppressed(bool suppress)
     lcd_update_suppressed = suppress;
 }
 
+bool lcd_is_update_suppressed(void)
+{
+    return lcd_update_suppressed;
+}
+
 void lcd_update(void)
 {
     /* update a full screen rect */

@@ -53,13 +53,18 @@
 #define POWEROFF_BUTTON BUTTON_POWER
 #define POWEROFF_COUNT 10
 
+/* Desktop-simulator keyboard keymap -> Rockbox button. */
 int key_to_button(int keyboard_key);
+
+/* SDL joystick button index (Brick gamepad) -> Rockbox button, BUTTON_NONE if
+ * unmapped.  Includes the volume rocker (indices 14/13). */
+int joybutton_to_button(int joybtn);
+
+/* SDL joystick axis index -> Rockbox trigger button (L2/R2), BUTTON_NONE if not
+ * a trigger axis. */
+int joyaxis_to_button(int axis);
 
 /* Hardware hold/lock switch (Brick side toggle): true => input is blocked. */
 bool retrohh_hold_switch(void);
-
-/* Hardware volume rocker (KEY_VOLUMEUP/DOWN on the gamepad evdev node, read
- * directly since gptokeyb2/SDL drop them): returns held BUTTON_VOL_UP/DOWN. */
-int retrohh_read_volume_rocker(void);
 
 #endif /* _BUTTON_TARGET_H_ */

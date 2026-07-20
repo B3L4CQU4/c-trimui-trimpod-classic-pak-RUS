@@ -1587,17 +1587,9 @@ static int get_next_index(const struct playlist_info* playlist, int steps,
     if (repeat_mode == -1)
         repeat_mode = global_settings.repeat_mode;
 
-    if (repeat_mode == REPEAT_SHUFFLE && playlist->amount <= 1)
-    {
-        repeat_mode = REPEAT_ALL;
-    }
-
     steps = calculate_step_count(playlist, steps);
     switch (repeat_mode)
     {
-        case REPEAT_SHUFFLE:
-            /* Treat repeat shuffle just like repeat off.  At end of playlist,
-               play will be resumed in playlist_next() */
         case REPEAT_OFF:
         {
             current_index = rotate_index(playlist, current_index);
@@ -1871,9 +1863,6 @@ bool playlist_check(int steps)
 
     int index = get_next_index(playlist, steps, -1);
 
-    if (index < 0 && steps >= 0 && global_settings.repeat_mode == REPEAT_SHUFFLE)
-        index = get_next_index(playlist, steps, REPEAT_ALL);
-
     return (index >= 0);
 }
 
@@ -2066,7 +2055,7 @@ unsigned int playlist_get_filename_crc32(struct playlist_info *playlist,
     if (get_track_filename(playlist, index, filename, sizeof(filename)) != 0)
         return -1;
 
-        basename = filename;
+    basename = filename;
     NOTEF("%s: %s", __func__, basename);
     return crc_32(basename, strlen(basename), -1);
 }
@@ -2688,20 +2677,7 @@ int playlist_next(int steps)
     if (index < 0)
     {
         /* end of playlist... or is it */
-        if (repeat_mode == REPEAT_SHUFFLE && playlist->amount > 1)
-        {
-            /* Repeat shuffle mode.  Re-shuffle playlist and resume play */
-            playlist->first_index = 0;
-            sort_playlist_unlocked(playlist, false, false);
-            randomise_playlist_unlocked(playlist, current_tick, false, true);
-            global_settings.playlist_shuffle = true;
-            iap_on_shuffle_state(global_settings.playlist_shuffle);
-
-            playlist->started = true;
-            playlist->index = 0;
-            index = 0;
-        }
-        else if (global_settings.next_folder && playlist_allow_dirplay(playlist))
+        if (global_settings.next_folder && playlist_allow_dirplay(playlist))
         {
             /* we switch playlists here */
             index = create_and_play_dir(steps, true);
@@ -3279,6 +3255,14 @@ int playlist_resume(void)
 
     if (global_status.resume_index != -1) {
         playlist->index = global_status.resume_index;
+    }
+
+    if (result == 0)
+    {
+        /* Shuffle is a property of the restored queue, not a persisted default:
+         * sync the setting (and the Now-Playing icon) to the resumed order.
+         * `sorted` is the reliable signal -- unshuffle doesn't clear the seed. */
+        global_settings.playlist_shuffle = !sorted;
     }
 
 out:

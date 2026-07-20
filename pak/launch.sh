@@ -4,7 +4,6 @@
 PAK_DIR="$(dirname "$0")"
 RBDIR="$PAK_DIR/trimpod"
 RBDIR_BIND="/tmp/trimpod"
-GPTOKEYB2="$PAK_DIR/gptokeyb2"
 cd "$PAK_DIR" || exit 1
 
 # Rockbox stores its config/playlists under HOME; keep it on the SD card.
@@ -49,10 +48,9 @@ fi
 
 unset SDL_HQ_SCALER SDL_ROTATION SDL_BLITTER_DISABLED
 
-# gptokeyb2 maps the gamepad to the keyboard keys Rockbox's key_to_button() reads.
-SDL_GAMECONTROLLERCONFIG=$(grep "$RBDEVICE" "$PAK_DIR/gamecontrollerdb.txt") \
-  "$GPTOKEYB2" "$RBDIR/trimpod" -c "$PAK_DIR/trimpod.gptk" &
-sleep 1
+# Input: the app reads the gamepad (and volume rocker) directly through SDL's
+# joystick layer and the power key as an SDL keyboard scancode -- the same way
+# NextUI does -- so there is no gptokeyb2 shim to start here.
 
 # Side switch = input lock only. Freeze NextUI's keymon (it buzzes/dims/mutes on
 # that switch) while we run; thaw on exit. Fallback: blank MutedVolume @ byte 56.
@@ -85,7 +83,6 @@ TRIMPOD_DAC="$(amixer sget 'DAC volume' 2>/dev/null | sed -n 's/.*Front Left: \(
 # that, but it's the only gap now.)
 cleanup() {
   kill -9 "$(pidof trimpod)"   2>/dev/null
-  kill -9 "$(pidof gptokeyb2)" 2>/dev/null
   [ -n "$KEYMON_PIDS" ] && kill -CONT $KEYMON_PIDS 2>/dev/null
   [ -f /tmp/trimpod_muted_vol ] && dd if=/tmp/trimpod_muted_vol of=/dev/shm/SharedSettings bs=1 seek=56 count=4 conv=notrunc 2>/dev/null
   [ -n "$TRIMPOD_DV" ] && amixer -q sset "digital volume" "$TRIMPOD_DV" 2>/dev/null
@@ -96,7 +93,18 @@ cleanup() {
     echo "$TRIMPOD_OLD_MIN" > "$CPUP/scaling_min_freq"
     echo "$TRIMPOD_OLD_GOV" > "$CPUP/scaling_governor"
   fi
+  # Re-enable the battery charger (AXP2202 reg 0x19 bit 1) on exit, in case the
+  # in-app Charge Limit had disabled it -- guaranteed even on SIGKILL of the
+  # binary, which the in-app code can't catch.  Skipped when the standalone
+  # Battery Care daemon is running, since it owns the bit (the two never fight).
+  BC_REGS=/sys/kernel/debug/regmap/6-0034/registers
+  BC_PID=$(cat /tmp/battery-care-daemon.pid 2>/dev/null)
+  if [ -f "$BC_REGS" ] && ! { [ -n "$BC_PID" ] && tr -d '\0' < "/proc/$BC_PID/cmdline" 2>/dev/null | grep -q battery-care-daemon; }; then
+    bcval=$(grep '^19:' "$BC_REGS" 2>/dev/null | awk '{print $2}')
+    [ -n "$bcval" ] && printf '19 %02x\n' "$(( 0x$bcval | 2 ))" > "$BC_REGS" 2>/dev/null
+  fi
   while mount 2>/dev/null | grep -q "$RBDIR_BIND"; do umount -l "$RBDIR_BIND" 2>/dev/null; done
+  rmdir "$RBDIR_BIND" 2>/dev/null   # drop the empty mountpoint dir, not just the mount
 }
 trap cleanup EXIT
 trap 'exit' INT TERM HUP

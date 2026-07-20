@@ -67,6 +67,9 @@ long button_last_activity_tick(void);
 /* Trimpod: stamp activity "now" (e.g. on visualizer exit, whose own input path
  * bypasses the button thread, so it wouldn't otherwise reset the idle timer). */
 void button_touch_activity(void);
+/* Trimpod: true while a power-button short press has blanked the display in-app
+ * (music keeps playing).  Consumers gate idle timers / stop the visualizer. */
+bool power_display_off(void);
 long button_get_w_tmo(int ticks);
 intptr_t button_get_data(void);
 

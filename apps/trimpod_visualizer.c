@@ -242,16 +242,30 @@ static void load_enabled_state(void)
 
 static void save_enabled_state(void)
 {
-    int fd = open(VIZ_STATE_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if (fd < 0)
-        return;
+    /* Build the whole file in memory and flush it in ONE write().  This runs on
+     * every toggle; the previous code issued two tiny write() syscalls per
+     * disabled preset, so toggling got slower the more presets were off -- on the
+     * SD card those unbuffered per-entry writes dominate.  A single write keeps the
+     * cost flat regardless of how many are disabled.  viz_state_buf is reused here
+     * (load + save never overlap). */
+    int used = 0;
     for (int i = 0; i < preset_count; i++)
         if (!preset_enabled[i])
         {
             const char *nm = name_buf + name_off[i];
-            write(fd, nm, strlen(nm));
-            write(fd, "\n", 1);
+            int L = strlen(nm);
+            if (used + L + 1 > (int)sizeof(viz_state_buf))
+                break;                          /* never overflow the buffer */
+            memcpy(viz_state_buf + used, nm, L);
+            used += L;
+            viz_state_buf[used++] = '\n';
         }
+
+    int fd = open(VIZ_STATE_FILE, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+    if (fd < 0)
+        return;
+    if (used)
+        write(fd, viz_state_buf, used);
     close(fd);
 }
 
@@ -545,7 +559,9 @@ static void visualizer_session(const char *locked_path)
     SDL_Thread *rt = SDL_CreateThread(viz_render_thread, "trimpod_viz", NULL);
     if (rt)
     {
-        while (get_action(CONTEXT_STD, HZ/20) == ACTION_NONE)
+        /* Exit also when a power-button short press blanks the display, so the
+         * visualizer doesn't keep rendering to a dark screen (music plays on). */
+        while (get_action(CONTEXT_STD, HZ/20) == ACTION_NONE && !power_display_off())
             ;
         viz_thread_stop = true;
         SDL_WaitThread(rt, NULL);
@@ -554,7 +570,13 @@ static void visualizer_session(const char *locked_path)
 
     projectm_set_preset_locked(pm, false);
     trimpod_viz_active = false;
-    backlight_set_timeout(global_settings.backlight_timeout);  /* restore Auto Screen Off */
+    /* Restore Auto Screen Off.  If a power short press blanked us, restore it
+     * silently -- the normal setter's backlight-on would flash Now Playing before
+     * we re-blank.  Stay dark; the repaint below lands behind it. */
+    if (power_display_off())
+        backlight_set_timeout_quiet(global_settings.backlight_timeout);
+    else
+        backlight_set_timeout(global_settings.backlight_timeout);
     button_clear_queue();
     /* The user was just interacting (they pressed B to exit); stamp activity so
      * the WPS idle->auto-start timer restarts instead of immediately re-firing. */
@@ -653,11 +675,8 @@ static void vm_preview(int sel)
     visualizer_session(path);
 }
 
-static const char *vm_legend(struct trimpod_page *self)
-{
-    (void)self;
-    return "A Toggle   Y Preview   B Back";
-}
+/* No legend: the [x]/[ ] checkboxes make A=toggle self-evident, B=back is the
+ * universal convention, and Preview lives in the Hold-A context submenu. */
 
 static void vm_draw(struct trimpod_page *self)
 {
@@ -689,10 +708,14 @@ static enum trimpod_page_result vm_on_action(struct trimpod_page *self, int acti
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_MENU:        /* Y: preview the highlighted preset */
+        case ACTION_STD_CONTEXT:     /* Hold A: context submenu for this preset */
             if (have)
             {
-                vm_preview(sel);
+                static const char *const opts[] = { "Preview" };
+                char title[64];
+                if (trimpod_context_menu(vm_get_name(sel, NULL, title,
+                                                     sizeof title), opts, 1) == 0)
+                    vm_preview(sel);
                 gui_synclist_draw(&p->lists);   /* repaint on return */
             }
             return TRIMPOD_PAGE_STAY;
@@ -705,15 +728,15 @@ static enum trimpod_page_result vm_on_action(struct trimpod_page *self, int acti
 
 static const struct trimpod_page_vtable vm_vtable =
 {
-    .legend    = vm_legend,
+    .legend    = NULL,
     .draw      = vm_draw,
     .poll      = vm_poll,
     .on_action = vm_on_action,
 };
 
-/* A (toggle), Y (preview), B (back) */
+/* A (toggle), Hold-A (context: Preview), B (back) */
 static const int vm_allowed[] =
-    { ACTION_STD_OK, ACTION_STD_MENU, ACTION_STD_CANCEL, -1 };
+    { ACTION_STD_OK, ACTION_STD_CONTEXT, ACTION_STD_CANCEL, -1 };
 
 int trimpod_visualizer_menu(void)
 {

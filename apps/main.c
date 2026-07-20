@@ -57,6 +57,8 @@
 #include "power.h"
 #include "misc.h"
 #include "trimpod_hold.h"
+#include "trimpod_ui.h"
+#include "trimpod_library.h"
 #include "rbunicode.h"
 #include "dsp_core.h"
 #include "dircache.h"
@@ -159,9 +161,15 @@ int main(void)
 
     global_status.last_volume_change = 0;
     validate_start_directory_init();
+    /* Build/refresh the SQLite library index (stat-gated: a blink when nothing
+     * changed) so Shuffle Songs and the library browse are ready. */
+    trimpod_library_init();
     /* no calls INIT_ATTR functions after this point anymore!
      * see definition of INIT_ATTR in config.h */
     CHART(">root_menu");
+    /* Warm the About glyph cache now, before playback resumes, so the first
+     * About open doesn't fault glyphs off disk and stall the codec. */
+    trimpod_about_prewarm();
     /* Launched with the HOLD switch engaged: show the lock page instead of the
      * menu until it's released (no-op when the switch is off). */
     trimpod_hold_run();
@@ -217,6 +225,10 @@ static void init(void)
     {
         extern void retrohh_cpu_apply_saved(void);
         retrohh_cpu_apply_saved();
+        /* Charge Limit (Settings -> Power): probe + start the in-app poll, or
+         * defer to the standalone Battery Care daemon if it's already running. */
+        extern void retrohh_charge_limit_init(void);
+        retrohh_charge_limit_init();
     }
 #endif
     init_battery_tables();

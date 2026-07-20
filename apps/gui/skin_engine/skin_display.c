@@ -94,17 +94,37 @@ void skin_update(enum skinnable_screens skin, enum screen_type screen,
         skin_request_full_update(skin);
 
     bool full = skin_do_full_update(skin, screen);
-    skin_render(gwps, full ? SKIN_REFRESH_ALL : update_type);
-    skin_mark_dirty(screen);
 
-    /* A full WPS render clears the entire framebuffer, including the region the
-     * shared status bar occupies.  Re-composite the SBS into the SAME framebuffer
-     * before returning -- with no present in between -- so a present can never
-     * catch the bar half-drawn.  This makes a track-change (or any full) repaint
-     * atomic, exactly like entering the WPS does, instead of flashing the bar.
-     * (skin != WPS here for the recursive SBS render, so this never recurses.) */
     if (skin == WPS && full)
+    {
+        /* A full WPS render clears the entire framebuffer -- including the strip
+         * the shared status bar occupies -- then redraws the body and finally
+         * re-composites the SBS.  On this target every present pushes the whole
+         * window, and a changed scrolling body line fires an immediate present
+         * MID-render (scroll_now -> update_viewport_rect), catching the header
+         * after the clear but before the SBS recomposite -> the track-change
+         * flash.  Make clear -> body -> SBS atomic w.r.t. presentation: suppress
+         * presents across all three, then push exactly one frame.  If presents
+         * are already suppressed (the spectrum loop owns a per-frame present),
+         * leave that owner in charge and don't toggle/present here.  (skin != WPS
+         * for the recursive SBS render, so this never recurses.) */
+        bool already = lcd_is_update_suppressed();
+        if (!already)
+            lcd_set_update_suppressed(true);
+        skin_render(gwps, SKIN_REFRESH_ALL);
+        skin_mark_dirty(screen);
         sb_skin_update(screen, true);
+        if (!already)
+        {
+            lcd_set_update_suppressed(false);
+            lcd_update();
+        }
+    }
+    else
+    {
+        skin_render(gwps, full ? SKIN_REFRESH_ALL : update_type);
+        skin_mark_dirty(screen);
+    }
 }
 
 #ifdef AB_REPEAT_ENABLE

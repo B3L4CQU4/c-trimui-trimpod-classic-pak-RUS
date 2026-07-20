@@ -17,24 +17,34 @@ const char *trimpod_get_header_legend(void);
  * their own draw loop need this; the run loop (trimpod_page_run) calls it. */
 void        trimpod_header_refresh(void);
 
-/* Draw `detail` (optional, NULL to omit) centered above `question` inside the
- * content viewport -- the themed background and skin-owned header are left
- * intact.  The shared renderer behind trimpod_confirm/_message/_message2; a page
- * with its own draw loop (e.g. the HOLD screen) can call it directly. */
-void trimpod_centered_message(const char *question, const char *detail);
+/* Draw `detail` (optional) centered above `question`, and `footer` (optional)
+ * centered below it, inside the content viewport -- the themed background and
+ * skin-owned header are left intact.  Pass NULL to omit detail/footer.  The
+ * shared renderer behind trimpod_confirm; a page with its own draw loop (e.g.
+ * the HOLD screen) can call it directly. */
+void trimpod_centered_message(const char *question, const char *detail,
+                              const char *footer);
 
-/* Centered yes/no confirmation drawn ONLY inside the content viewport (the
- * skin-owned header is left intact).  The button legend (B Cancel / A OK) is
- * shown in the header via the legend standard above, not in the body.
+/* Centered yes/no confirmation drawn inside the content viewport (a Page, not a
+ * popup).  The button choices "Cancel (B) / OK (A)" are drawn in the page body.
  *   question : the prompt, e.g. "Remove this folder?"
  *   detail   : optional line drawn just above the question (NULL to omit) --
  *              used to show the subject, e.g. the full folder path.
  *   A = OK -> true, B = Cancel -> false.  Blocking. */
 bool trimpod_confirm(const char *question, const char *detail);
 
+/* Context submenu (opened by holding A on a context-aware entry): a small
+ * sliding list Page of `count` option strings titled `title`.  Returns the
+ * chosen row index, or -1 if the user backed out with B.  Blocking. */
+int trimpod_context_menu(const char *title, const char *const *items, int count);
+
 /* The About screen: a scrollable credits list (up/down scroll, B leaves).
  * Blocking. */
 void trimpod_about(void);
+
+/* Pre-fault the About reel's glyphs into the font cache at startup, so the first
+ * (possibly mid-playback) About open doesn't stall the codec on disk reads. */
+void trimpod_about_prewarm(void);
 
 /* The shared on/off toggle glyph ("[x]"/"[ ]") for list indicator callbacks.
  * One convention for every toggle list (Menu Settings, Visualizers, ...). */

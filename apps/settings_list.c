@@ -364,9 +364,8 @@ struct eq_band_setting eq_defaults[EQ_NUM_BANDS] = {
 static const int wps_context_menu_default =
     HK_CTX_SET(0, HOTKEY_VIEW_PLAYLIST) /* hotkey*/
   | HK_CTX_SET(1, HOTKEY_SHOW_TRACK_INFO)
-  | HK_CTX_SET(2, HOTKEY_SHOW_IN_FILES)
-  | HK_CTX_SET(3, HOTKEY_DELETE)
-  | HK_CTX_SET(4, HOTKEY_ALBUMART);
+  | HK_CTX_SET(2, HOTKEY_DELETE)
+  | HK_CTX_SET(3, HOTKEY_ALBUMART);
 
 #ifdef HAVE_HOTKEY
 static const int tree_hotkey_default = HOTKEY_OFF;
@@ -572,22 +571,24 @@ const struct settings_list settings[] = {
 #endif
 
     /* playback */
-    OFFON_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
-                  LANG_SHUFFLE, false, "shuffle", shuffle_playlist_callback),
+    /* Shuffle shows On/Off (not the OFFON_SETTING default "Yes"/"No"); config
+     * still stores off_on for compatibility. */
+    BOOL_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, playlist_shuffle,
+                 LANG_SHUFFLE, false, "shuffle", off_on,
+                 LANG_ON, LANG_OFF, shuffle_playlist_callback),
 
     CHOICE_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, repeat_mode,
-                   LANG_REPEAT, REPEAT_OFF, "repeat", "off,all,one,shuffle"
+                   LANG_REPEAT, REPEAT_OFF, "repeat", "off,all,one"
 #ifdef AB_REPEAT_ENABLE
                    ",ab"
 #endif
                    , repeat_mode_callback,
 #ifdef AB_REPEAT_ENABLE
-                   5,
-#else
                    4,
+#else
+                   3,
 #endif
-                   ID2P(LANG_OFF), ID2P(LANG_ALL), ID2P(LANG_REPEAT_ONE),
-                   ID2P(LANG_SHUFFLE)
+                   ID2P(LANG_OFF), ID2P(LANG_ALL), ID2P(LANG_REPEAT_ONE)
 #ifdef AB_REPEAT_ENABLE
                    ,ID2P(LANG_REPEAT_AB)
 #endif

@@ -291,10 +291,11 @@ static int add_to_playlist(void* arg)
 
     if (new_playlist && (playlist_amount() > 0))
     {
-        /* nothing is currently playing so begin playing what we just
-           inserted */
-        if (global_settings.playlist_shuffle)
-            playlist_shuffle(current_tick, -1);
+        /* A new normal playlist plays in file order -- shuffle is transient, not
+           a persisted default.  An explicit shuffled insert keeps its order. */
+        if (position != PLAYLIST_INSERT_SHUFFLED &&
+            position != PLAYLIST_INSERT_LAST_SHUFFLED)
+            global_settings.playlist_shuffle = false;
         playlist_start(0, 0, 0);
         onplay_result = ONPLAY_START_PLAY;
     }
@@ -763,22 +764,6 @@ MENUITEM_FUNCTION(create_dir_item, 0, ID2P(LANG_CREATE_DIR),
                   clipboard_create_dir, clipboard_callback, Icon_NOICON);
 
 /* other items */
-static int reveal(void)
-{
-    if (!file_exists(selected_file.path))
-    {
-        splash(HZ*2, ID2P(LANG_FILE_NOT_FOUND));
-        return 0;
-    }
-
-    strmemccpy(global_status.browse_last_folder, selected_file.path,
-               sizeof global_status.browse_last_folder);
-    onplay_result = ONPLAY_REVEAL_FILE;
-    return GO_TO_FILEBROWSER;
-}
-
-MENUITEM_FUNCTION(reveal_item, 0, ID2P(LANG_SHOW_IN_FILES),
-                  reveal, clipboard_callback, Icon_file_view_menu);
 static bool onplay_add_to_shortcuts(void)
 {
     shortcuts_add(SHORTCUT_BROWSER, selected_file.path);
@@ -891,9 +876,7 @@ static int clipboard_callback(int action,
                         return action;
                 }
                     /* only for files */
-                else if (this_item == &delete_file_item ||
-                         (this_item == &reveal_item &&
-                          selected_file.context == CONTEXT_WPS))
+                else if (this_item == &delete_file_item)
                     return action;
 #if LCD_DEPTH > 1
                 else if (this_item == &set_backdrop_item)
@@ -947,7 +930,6 @@ MAKE_ONPLAYMENU( tree_onplay_menu, ID2P(LANG_ONPLAY_MENU_TITLE),
            &rename_file_item, &clipboard_cut_item, &clipboard_copy_item,
            &clipboard_paste_item, &delete_file_item, &delete_dir_item,
            &create_dir_item,
-           &reveal_item,
 #if LCD_DEPTH > 1
            &set_backdrop_item,
 #endif
@@ -1069,12 +1051,6 @@ static const struct hotkey_assignment hotkey_items[] = {
       .return_code = ONPLAY_START_PLAY,
       .flags = HOTKEY_FLAG_WPS,
       .icon = Icon_Bookmark},
-   { .action = HOTKEY_SHOW_IN_FILES,
-      .lang_id = LANG_SHOW_IN_FILES,
-      .func = HOTKEY_FUNC(reveal, NULL),
-      .return_code = ONPLAY_REVEAL_FILE,
-      .flags = HOTKEY_FLAG_WPS,
-      .icon = Icon_file_view_menu},
    { .action = HOTKEY_CONTEXT_MENU,
       .lang_id = LANG_ONPLAY_MENU_TITLE,
       .func = HOTKEY_FUNC(hotkey_execute_menu, NULL),

@@ -35,6 +35,7 @@
 #include <string.h>
 #include "string-extra.h"
 #include "strnatcmp.h"   /* natural alphabetical sort (2 before 10) */
+#include "kernel.h"      /* current_tick (shuffle seed) */
 #include "file.h"
 #include "dir.h"
 #include "pathfuncs.h"
@@ -54,7 +55,8 @@
 #include "trimpod_ui.h"
 #include "trimpod_page.h"
 #include "trimpod_transition.h"   /* slide on folder descend/ascend */
-#include "trimpod_playlists.h"    /* Y = add highlighted file/folder to a playlist */
+#include "trimpod_playlists.h"    /* Hold-A = add highlighted file/folder to a playlist */
+#include "trimpod_library.h"      /* Shuffle Songs builds from the SQLite index */
 
 #define PICKER_ROOT     "/mnt/SDCARD"
 #define MAX_FOLDERS     24
@@ -178,6 +180,40 @@ static void folders_remove(struct folder_category *cat, int idx)
     folders_save(cat);
 }
 
+/* ---- library access (trimpod_library.c) ------------------------------- */
+
+static struct folder_category *cat_by_index(int cat)
+{
+    switch (cat)
+    {
+        case TP_CAT_MUSIC:     return &cat_music;
+        case TP_CAT_PODCAST:   return &cat_podcast;
+        case TP_CAT_AUDIOBOOK: return &cat_audiobook;
+        default:               return NULL;
+    }
+}
+
+void trimpod_folders_load_all(void)
+{
+    folders_load(&cat_music);
+    folders_load(&cat_podcast);
+    folders_load(&cat_audiobook);
+}
+
+int trimpod_folders_root_count(int cat)
+{
+    struct folder_category *c = cat_by_index(cat);
+    return c ? c->n_folders : 0;
+}
+
+const char *trimpod_folders_root_path(int cat, int idx)
+{
+    struct folder_category *c = cat_by_index(cat);
+    if (!c || idx < 0 || idx >= c->n_folders)
+        return NULL;
+    return c->folders[idx];
+}
+
 /* ---- "+ Add Folder" picker: a native directory-picker page --------------
  * A trimpod_page that lists the sub-directories of the current directory:
  *   A = descend into the highlighted folder
@@ -203,7 +239,7 @@ struct picker_page
     struct gui_synclist lists;
     char   curdir[FPATH_LEN];
     char   root[FPATH_LEN];
-    /* folder-picker mode (out!=NULL): Y picks a folder into out[] */
+    /* folder-picker mode (out!=NULL): Hold A picks a folder into out[] */
     char  *out;
     size_t out_len;
     bool   picked;
@@ -387,8 +423,11 @@ static const char *pick_get_name(int sel, void *data, char *buf, size_t buf_len)
 
 static const char *picker_legend(struct trimpod_page *self)
 {
-    return ((struct picker_page *)self)->music ? "A Play   Y Playlist   B Back"
-                                               : "A Open   Y Add   B Back";
+    /* music: no legend (A plays / opens, Hold-A adds to a playlist, B backs out).
+     * folder-picker (Settings): A opens and B backs (universal), but Hold-A to add
+     * is the one non-obvious gesture, so publicize just that. */
+    return ((struct picker_page *)self)->music ? NULL
+                                               : "Hold A to add";
 }
 
 static void picker_draw(struct trimpod_page *self)
@@ -436,19 +475,19 @@ static enum trimpod_page_result picker_on_action(struct trimpod_page *self,
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_MENU:        /* Y */
-            if (p->music)            /* add highlighted file/folder to a playlist */
+        case ACTION_STD_CONTEXT:     /* Hold A: add-to-playlist (music) / pick folder */
+            if (p->music)
             {
                 if (have_sel)
                 {
                     char path[FPATH_LEN];
                     path_append(path, p->curdir, item_name(p, sel), sizeof(path));
-                    trimpod_playlists_pick(path,
+                    trimpod_add_to_playlist(item_name(p, sel), path,
                         item_isdir(p, sel) ? ATTR_DIRECTORY : FILE_ATTR_AUDIO);
                 }
                 return TRIMPOD_PAGE_STAY;
             }
-            /* folder-picker mode: Y picks a folder into out[] */
+            /* folder-picker: pick the highlighted folder (or curdir if empty) */
             if (have_sel)
                 path_append(p->out, p->curdir, item_name(p, sel), p->out_len);
             else
@@ -496,9 +535,9 @@ static const struct trimpod_page_vtable picker_vtable =
     .on_action = picker_on_action,
 };
 
-/* only A (descend), B (up/leave) and Y (add) act */
+/* A (descend/play), B (up/leave), Hold-A (music: add-to-playlist / picker: add folder) */
 static const int picker_allowed[] =
-    { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_MENU, -1 };
+    { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_CONTEXT, -1 };
 
 /* Returns true and fills out[] with the chosen folder if the user picked one. */
 static bool folder_pick(char *out, size_t out_len)
@@ -678,21 +717,30 @@ static int farm_build(struct folder_category *cat)
     return created;
 }
 
-static int folder_browse(struct folder_category *cat)
+/* Resolve a category's flattened root the same way for browsing and shuffle:
+ * a single existing source folder is used directly; several are merged into the
+ * symlink farm.  Returns NULL if no source folder currently exists.  The folder
+ * list must already be loaded; the returned pointer is owned by `cat`. */
+static const char *folder_resolve_root(struct folder_category *cat)
 {
-    folders_load(cat);
-
     /* Only existing source folders matter; a missing folder (the seeded default
      * included) is fine -- it's simply not part of the view. */
     int n_exist = 0, only = -1;
     for (int i = 0; i < cat->n_folders; i++)
         if (dir_exists(cat->folders[i])) { n_exist++; only = i; }
 
-    const char *root = NULL;
     if (n_exist == 1)
-        root = cat->folders[only];          /* single source: browse it directly */
-    else if (n_exist > 1 && farm_build(cat) > 0)
-        root = cat->farm_path;              /* several: a merged symlink farm */
+        return cat->folders[only];          /* single source: use it directly */
+    if (n_exist > 1 && farm_build(cat) > 0)
+        return cat->farm_path;              /* several: a merged symlink farm */
+    return NULL;
+}
+
+static int folder_browse(struct folder_category *cat)
+{
+    folders_load(cat);
+
+    const char *root = folder_resolve_root(cat);
 
     if (root)
     {
@@ -773,7 +821,7 @@ static int folder_browse(struct folder_category *cat)
         memcpy(global_status.browse_last_folder, saved_last, sizeof(saved_last));
 
         if (browsed)
-            return p.result;
+            return p.base.home ? GO_TO_ROOT : p.result;
     }
 
     /* No usable source folder yet: instead of a dead-end "(empty)", drop the user
@@ -794,3 +842,44 @@ int trimpod_audiobook_settings(void) { return folders_settings(&cat_audiobook); 
 int trimpod_music_browse(void *param)     { (void)param; return folder_browse(&cat_music); }
 int trimpod_podcast_browse(void *param)   { (void)param; return folder_browse(&cat_podcast); }
 int trimpod_audiobook_browse(void *param) { (void)param; return folder_browse(&cat_audiobook); }
+
+/* ---- root "Shuffle": shuffle + play the whole Music folder ----------------
+ * Builds ONE dynamic playlist of every track in the Music library, shuffles it
+ * and starts playback.  Music only -- podcasts/audiobooks are never shuffled.
+ * The track list comes from the SQLite index (trimpod_library), so this is a
+ * query + batched insert rather than a recursive filesystem walk; we slide
+ * straight to the WPS with no per-batch "inserting" splash.  Tracks beyond
+ * TRIMPOD_MAX_FILES_IN_PLAYLIST (10000) are still capped by the playlist engine. */
+int trimpod_shuffle_all(void *param)
+{
+    (void)param;
+    folders_load(&cat_music);
+
+    if (!folder_resolve_root(&cat_music))
+    {
+        /* No music configured yet: drop into the Music folder setup, exactly as
+         * browsing an empty Music entry does, rather than a dead-end splash. */
+        folders_settings(&cat_music);
+        return GO_TO_ROOT;
+    }
+
+    /* about to replace the current playlist -- let the user cancel */
+    if (!warn_on_pl_erase())
+        return GO_TO_ROOT;
+
+    /* Reflect any source-folder edits since launch (stat-gated -> a blink when
+     * nothing changed), then build the shuffle set from the index -- a query +
+     * batched insert, not a recursive filesystem walk. */
+    trimpod_library_reconcile(false);
+    if (trimpod_library_build_playlist(TP_CAT_MUSIC, NULL, NULL) <= 0)
+    {
+        splash(HZ, ID2P(LANG_TRIMPOD_NO_MUSIC));
+        trimpod_transition_suppress_next();   /* only a splash: don't re-slide the menu */
+        return GO_TO_ROOT;
+    }
+
+    global_settings.playlist_shuffle = true;   /* Now Playing shows Shuffle: On */
+    playlist_shuffle(current_tick, -1);
+    playlist_start(0, 0, 0);
+    return GO_TO_WPS;
+}

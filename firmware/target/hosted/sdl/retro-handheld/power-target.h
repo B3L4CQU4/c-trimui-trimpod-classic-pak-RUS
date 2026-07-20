@@ -33,4 +33,13 @@ int  retrohh_cpu_get_freq(void);      /* current scaling_cur_freq in khz */
 bool retrohh_cpu_is_dynamic(void);    /* true unless pinned (performance) */
 void retrohh_cpu_save_choice(int khz);/* persist choice (khz<=0 -> dynamic) */
 void retrohh_cpu_apply_saved(void);   /* apply persisted choice (call at startup) */
+
+/* Trimpod Charge Limit (Settings -> Power). Caps charging at a target % while
+ * Trimpod runs, by toggling the AXP2202 charger bit -- in-process, no daemon.
+ * Defers entirely (read-only row, loop never started) if the standalone Battery
+ * Care daemon is already running. launch.sh re-enables charging on exit. */
+void retrohh_charge_limit_init(void);     /* startup: probe + maybe start the loop */
+bool retrohh_charge_limit_hidden(void);   /* true -> hide the menu row entirely     */
+int  retrohh_charge_limit_get_target(void); /* current cap % (100 = Off)           */
+void retrohh_charge_limit_cycle(int dir); /* step the cap                           */
 #endif /* _POWER_RHH_H_ */

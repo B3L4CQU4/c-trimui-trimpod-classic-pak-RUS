@@ -130,9 +130,7 @@ bool ft_play_playlist(char* pathname, char* dirname, char* filename)
 
     if (playlist_create(dirname, filename) != -1)
     {
-        if (global_settings.playlist_shuffle)
-            playlist_shuffle(current_tick, -1);
-
+        global_settings.playlist_shuffle = false;   /* normal play: file order */
         playlist_start(0, 0, 0);
         return true;
     }
@@ -408,15 +406,14 @@ int ft_assemble_path(char *buf, size_t bufsz, const char* currdir, const char* f
 }
 
 /* Build the current directory of `c` into a fresh playlist and start playback
- * at entry `sel`, honoring bookmark autoload, playlist-erase warning, shuffle
- * and play_selected, plus the resume bookkeeping.  Shared by the stock browser
- * (ft_enter) and the Trimpod virtual-folder browser so there is exactly one
- * folder->playlist->play path.  Returns true if playback started (caller should
- * go to the WPS). */
+ * at entry `sel`, honoring bookmark autoload and the playlist-erase warning,
+ * plus the resume bookkeeping.  Plays in file order -- shuffle is transient, so
+ * a normal folder play resets it (explicit Shuffle entries set it).  Shared by
+ * the stock browser (ft_enter) and the Trimpod virtual-folder browser so there
+ * is exactly one folder->playlist->play path.  Returns true if playback
+ * started (caller should go to the WPS). */
 bool ft_play_from_context(struct tree_context* c, int sel)
 {
-    int seed = current_tick;
-
     /* A file tap plays that file and goes to Now Playing. Resume-where-you-
      * left-off is the Resume Playback root entry, not folder browsing. */
 
@@ -428,18 +425,11 @@ bool ft_play_from_context(struct tree_context* c, int sel)
         return false;
 
     int start_index = ft_build_playlist(c, sel);
-    if (global_settings.playlist_shuffle)
-    {
-        start_index = playlist_shuffle(seed, start_index);
-        /* when shuffling dir.: play all files even if the file selected by the
-           user is not the first one */
-        if (!global_settings.play_selected)
-            start_index = 0;
-    }
+    /* Normal play is in file order -- shuffle is transient, not a persisted
+       default (Shuffle Songs / Shuffle Playlist set it explicitly). */
+    global_settings.playlist_shuffle = false;
     playlist_start(start_index, 0, 0);
 
-    /* the resume_index must always be the index in the shuffled list in case
-       shuffle is enabled */
     global_status.resume_index = start_index;
     global_status.resume_crc32 = playlist_get_filename_crc32(NULL, start_index);
     global_status.resume_elapsed = 0;

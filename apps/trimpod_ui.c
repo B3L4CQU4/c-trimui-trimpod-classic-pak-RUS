@@ -15,6 +15,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+#include "string-extra.h"       /* strlcpy (context-menu title copy) */
+#include "file.h"               /* MAX_PATH */
 #include <stdio.h>
 #include "kernel.h"
 #include "system.h"
@@ -25,6 +27,8 @@
 #include "rbpaths.h"             /* FONT_DIR */
 #include "settings.h"            /* global_settings: theme fg/bg colours */
 #include "gui/viewport.h"
+#include "gui/list.h"
+#include "icon.h"
 #include "statusbar-skinned.h"
 #include "misc.h"
 #include "trimpod_ui.h"
@@ -63,16 +67,16 @@ void trimpod_header_refresh(void)
 
 /* ---- confirm page ----------------------------------------------------- */
 
-/* Draw `detail` (optional) above `question`, centered in the content viewport.
- * The header (with the B/A legend) is left to the skin. */
-void trimpod_centered_message(const char *question, const char *detail)
+/* Draw `detail` (optional) above `question` and `footer` (optional) below it,
+ * centered as a block in the content viewport.  The header is left to the skin. */
+void trimpod_centered_message(const char *question, const char *detail,
+                              const char *footer)
 {
     FOR_NB_SCREENS(i)
     {
         struct screen *s = &screens[i];
         struct viewport vp = {0};
-        int dw = 0, dh = 0, qw = 0, qh = 0;
-        int gap;
+        int dw = 0, dh = 0, qw = 0, qh = 0, fw = 0, fh = 0;
 
         viewport_set_defaults(&vp, s->screen_type);  /* content area, not header */
         s->set_viewport(&vp);
@@ -81,9 +85,11 @@ void trimpod_centered_message(const char *question, const char *detail)
         s->getstringsize((const unsigned char *)question, &qw, &qh);
         if (detail)
             s->getstringsize((const unsigned char *)detail, &dw, &dh);
+        if (footer)
+            s->getstringsize((const unsigned char *)footer, &fw, &fh);
 
-        gap = detail ? (qh / 2 + 2) : 0;         /* a little air between the lines */
-        int total = (detail ? dh + gap : 0) + qh;
+        int gap = qh / 2 + 2;                     /* a little air between lines */
+        int total = (detail ? dh + gap : 0) + qh + (footer ? gap + fh : 0);
         int y = (vp.height - total) / 2;
         if (y < 0)
             y = 0;
@@ -94,6 +100,12 @@ void trimpod_centered_message(const char *question, const char *detail)
             y += dh + gap;
         }
         s->putsxy((vp.width - qw) / 2, y, (const unsigned char *)question);
+        y += qh;
+        if (footer)
+        {
+            y += gap;
+            s->putsxy((vp.width - fw) / 2, y, (const unsigned char *)footer);
+        }
 
         s->update_viewport();
         s->set_viewport(NULL);
@@ -111,16 +123,11 @@ struct confirm_page
     bool result;
 };
 
-static const char *confirm_legend(struct trimpod_page *self)
-{
-    (void)self;
-    return "B Cancel   A OK";
-}
-
 static void confirm_page_draw(struct trimpod_page *self)
 {
     struct confirm_page *p = (struct confirm_page *)self;
-    trimpod_centered_message(p->question, p->detail);
+    /* the choices live in the page body, not a header legend */
+    trimpod_centered_message(p->question, p->detail, "Cancel (B)      OK (A)");
 }
 
 static enum trimpod_page_result confirm_on_action(struct trimpod_page *self,
@@ -134,7 +141,7 @@ static enum trimpod_page_result confirm_on_action(struct trimpod_page *self,
 
 static const struct trimpod_page_vtable confirm_vtable =
 {
-    .legend    = confirm_legend,
+    .legend    = NULL,                 /* choices are drawn in the page body */
     .draw      = confirm_page_draw,
     .poll      = NULL,                 /* default: get_action(CONTEXT_STD) */
     .on_action = confirm_on_action,
@@ -157,6 +164,82 @@ bool trimpod_confirm(const char *question, const char *detail)
     return p.result;
 }
 
+/* ---- context submenu (Hold-A) ----------------------------------------- */
+
+/* A small sliding list Page (not a popup): holding A on a context-aware entry
+ * opens it, A picks a row (index returned to the caller), B backs out (-1). */
+struct ctxmenu_page
+{
+    struct trimpod_page base;
+    struct gui_synclist lists;
+    const char *const  *items;
+    int                 result;        /* chosen row, or -1 if cancelled */
+    char                title[MAX_PATH];  /* owned copy: callers pass volatile
+                                           * pointers (e.g. a tree_context entry
+                                           * name) that the run can invalidate */
+};
+
+static const char *ctxmenu_get_name(int sel, void *data, char *buf, size_t len)
+{
+    (void)buf; (void)len;
+    return ((struct ctxmenu_page *)data)->items[sel];
+}
+
+static void ctxmenu_draw(struct trimpod_page *self)
+{
+    gui_synclist_draw(&((struct ctxmenu_page *)self)->lists);
+}
+
+static int ctxmenu_poll(struct trimpod_page *self, int timeout)
+{
+    int action;
+    list_do_action(self->context, timeout,
+                   &((struct ctxmenu_page *)self)->lists, &action);
+    return action;
+}
+
+static enum trimpod_page_result ctxmenu_on_action(struct trimpod_page *self,
+                                                  int action)
+{
+    struct ctxmenu_page *p = (struct ctxmenu_page *)self;
+    if (action == ACTION_STD_OK)
+    {
+        p->result = gui_synclist_get_sel_pos(&p->lists);
+        return TRIMPOD_PAGE_DONE;
+    }
+    if (action == ACTION_STD_CANCEL)
+        return TRIMPOD_PAGE_DONE;           /* result stays -1 */
+    return TRIMPOD_PAGE_STAY;
+}
+
+static const struct trimpod_page_vtable ctxmenu_vtable =
+{
+    .legend    = NULL,
+    .draw      = ctxmenu_draw,
+    .poll      = ctxmenu_poll,
+    .on_action = ctxmenu_on_action,
+};
+
+static const int ctxmenu_allowed[] = { ACTION_STD_OK, ACTION_STD_CANCEL, -1 };
+
+int trimpod_context_menu(const char *title, const char *const *items, int count)
+{
+    struct ctxmenu_page p =
+    {
+        .base = { .vt = &ctxmenu_vtable, .context = CONTEXT_LIST,
+                  .allowed = ctxmenu_allowed },
+        .items  = items,
+        .result = -1,
+    };
+    strlcpy(p.title, title ? title : "", sizeof p.title);
+    gui_synclist_init(&p.lists, ctxmenu_get_name, &p, false, 1, NULL);
+    gui_synclist_set_title(&p.lists, p.title, Icon_NOICON);
+    gui_synclist_set_nb_items(&p.lists, count);
+    gui_synclist_select_item(&p.lists, 0);
+    trimpod_page_run(&p.base);
+    return p.result;
+}
+
 
 /* ---- About: an auto-scrolling iPod-style credit reel.  Same chrome as every
  * other page (themed "About" title + slide transition); the body is a centred
@@ -175,7 +258,7 @@ struct about_line { const char *text; enum about_kind kind; };
 
 static const struct about_line about_lines[] = {
     { "Trimpod Classic",     AB_TITLE },
-    { "v1.0.1",              AB_SUB   },
+    { "v1.0.2",              AB_SUB   },
     { NULL,                  AB_GAP   },
     { "MADE BY",             AB_CAP   },
     { "Werewolf Camp",       AB_NAME  },
@@ -419,5 +502,26 @@ void trimpod_about(void)
      * not left pointing at the font we unload. */
     s->setfont(FONT_UI);
     if (fid != FONT_UI)
+        font_unload(fid);
+}
+
+/* Measure every reel line once to fault its glyphs into the cache now (startup),
+ * sparing the first About open the synchronous .fnt reads.  font_load refcounts
+ * the .sbs-resident 18pt font, so the warmed cache survives the unload. */
+void trimpod_about_prewarm(void)
+{
+    struct screen *s = &screens[SCREEN_MAIN];
+    int fid = font_load(ABOUT_URL_FONT);
+    for (int i = 0; i < ABOUT_NLINES; i++)
+    {
+        const struct about_line *l = &about_lines[i];
+        if (!l->text)
+            continue;
+        s->setfont(l->kind == AB_URL && fid >= 0 ? fid : FONT_UI);
+        int w, h;
+        s->getstringsize((const unsigned char *)l->text, &w, &h);
+    }
+    s->setfont(FONT_UI);
+    if (fid >= 0 && fid != FONT_UI)
         font_unload(fid);
 }

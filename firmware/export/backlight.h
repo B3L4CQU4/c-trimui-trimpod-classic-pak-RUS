@@ -32,6 +32,9 @@ void backlight_on_ignore(bool value, int timeout);
 void backlight_on(void);
 void backlight_off(void);
 void backlight_set_timeout(int value);
+/* Trimpod: set the Auto Screen Off timeout WITHOUT waking the backlight (the
+ * normal setter posts BACKLIGHT_TMO_CHANGED, which turns the screen on). */
+void backlight_set_timeout_quiet(int value);
 
 void backlight_init(void) INIT_ATTR;
 void backlight_close(void);

@@ -67,6 +67,7 @@
 
 #include "root_menu.h"
 #include "trimpod_transition.h"   /* slide the browser in/out */
+#include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
 
 static struct gui_synclist tree_lists;
 
@@ -535,6 +536,11 @@ static int dirbrowse(void)
 
     while(tc.browse && tc.is_browsing) {
         bool restore = false;
+
+        /* hold BACK anywhere: unwind this browser too and land on the Main Menu */
+        if (trimpod_home_pending)
+            return exit_to_new_screen(GO_TO_ROOT);
+
         if (tc.dirlevel < 0)
             tc.dirlevel = 0; /* shouldnt be needed.. this code needs work! */
 
@@ -576,6 +582,10 @@ static int dirbrowse(void)
                 }
                 restore = do_restore_display;
                 break;
+
+            case ACTION_TP_HOME:        /* hold BACK: jump to the Main Menu */
+                trimpod_home_pending = true;
+                return exit_to_new_screen(GO_TO_ROOT);
 
             case ACTION_STD_CANCEL:
                 exit_to_new_screen(0);
@@ -646,10 +656,6 @@ static int dirbrowse(void)
                 {
                     case ONPLAY_MAINMENU:
                         return exit_to_new_screen(GO_TO_ROOT);
-                        break;
-
-                    case ONPLAY_REVEAL_FILE:
-                        return exit_to_new_screen(GO_TO_FILEBROWSER);
                         break;
 
                     case ONPLAY_OK:

@@ -35,6 +35,13 @@ void trimpod_transition_animate(enum trimpod_transition_dir dir,
 void trimpod_transition_arm_back(void);
 bool trimpod_transition_take_back(void);
 
+/* Suppress the next screen-entry slide entirely (one-shot).  Used when a screen
+ * aborts before it ever renders -- e.g. an empty facet that only shows a splash
+ * over the current menu -- so returning to that menu doesn't slide it back in.
+ * Consumed inside trimpod_transition_animate: it presents the destination with
+ * no motion (and still commits the frame, so the splash is cleared). */
+void trimpod_transition_suppress_next(void);
+
 /* True exactly once -- for the very FIRST screen shown at app launch, which must
  * render with no slide (there is no prior frame to slide from).  Whichever
  * screen comes up first (root menu, or Now Playing via auto-resume) consumes it;

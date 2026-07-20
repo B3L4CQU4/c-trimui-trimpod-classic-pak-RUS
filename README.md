@@ -54,19 +54,26 @@ Cross-compiled in the NextUI `tg5040` Docker toolchain. Needs `docker` (and `adb
 ```sh
 ./build.sh      # cross-compile Rockbox -> build-trimpod/trimpod (+ the runtime zip)
 ./package.sh    # assemble dist/Trimpod.pak (+ dist/Trimpod.pak.zip)
-adb push dist/Trimpod.pak "/mnt/SDCARD/Tools/tg5040/Trimpod Classic.pak"
+
+# Deploy: clear the destination FIRST. `adb push <dir> <existing-dir>` nests the
+# source inside it (you'd get "Trimpod Classic.pak/Trimpod.pak/...") and leaves
+# stale files behind; removing it first makes the push land at the pak root.
+PAK="/mnt/SDCARD/Tools/tg5040/Trimpod Classic.pak"
+adb shell "rm -rf \"$PAK\"" && adb push dist/Trimpod.pak "$PAK"
 ```
 
-`./build.sh clean` forces a fresh reconfigure. For code-only changes, push just the rebuilt binary
-instead of the whole pak — a full deploy resets on-device settings.
+`./build.sh clean` forces a fresh reconfigure. A full pak deploy resets on-device settings — the live
+config (`trimpod/config.cfg`) is bind-mounted from inside the pak, so replacing it restores defaults.
+For code-only changes, push just the rebuilt binary (`trimpod/trimpod`) instead of the whole pak.
 
 ### Architecture
 
 Trimpod Classic is a custom Rockbox **SDL-application target** (`retro-handheld`) that renders at a
 logical 320×240 and is hardware-upscaled 3.2× to the Brick's 1024×768 display. It runs hosted under
 NextUI rather than on bare metal: `launch.sh` sources per-device sysfs paths, bind-mounts the pak's
-data dir to `/tmp/trimpod`, applies the CPU governor, starts gptokeyb2 (gamepad → keys), and runs the
-binary — then tears all of that down on exit.
+data dir to `/tmp/trimpod`, applies the CPU governor, and runs the binary — then tears all of that
+down on exit. Input is read natively through SDL like NextUI: the gamepad and volume rocker come in
+as SDL joystick events and the power key as an SDL keyboard scancode (no gptokeyb2 shim).
 
 ### Layout
 
@@ -74,7 +81,7 @@ binary — then tears all of that down on exit.
 |---|---|
 | `build.sh`, `package.sh` | build, then assemble the pak |
 | `Dockerfile.trimpod` | the toolchain image (NextUI tg5040 + `zip` + an `sdl2-config` shim) |
-| `pak/` | the pak skeleton: `launch.sh`, `pak.json`, `gptokeyb2` + controller config, `config.cfg`, `.sys` files |
+| `pak/` | the pak skeleton: `launch.sh`, `pak.json`, `config.cfg`, `.sys` files |
 | `assets/` | product assets — the theme, ChicagoFLF fonts, icons, Milkdrop presets, the skin build |
 | `apps/`, `firmware/`, `lib/`, `tools/` | the Rockbox source tree + the Trimpod target |
 
@@ -93,6 +100,7 @@ licensed under the **GNU General Public License v2.0**.
 - **Cream of the Crop** — the bundled Milkdrop preset pack ([presets-cream-of-the-crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop)).
 - **1ST_GEN_REMIX** theme by Monica G. — [themes.rockbox.org #3958](https://themes.rockbox.org/index.php?themeid=3958).
 - **ChicagoFLF** — an openly-licensed Chicago typeface reproduction (bundled, anti-aliased).
-- **gptokeyb2** — the gamepad-to-keyboard mapper.
+- **PixelMplus** by Itou Hiroki — the Japanese glyphs merged into the UI fonts
+  ([itouhiro/PixelMplus](https://github.com/itouhiro/PixelMplus)). M+ FONT LICENSE.
 - **NextUI** by LoveRetro — the launcher and toolchain this builds against.
 - Hardware-enablement files adapted from IncognitoMan's GPL work.

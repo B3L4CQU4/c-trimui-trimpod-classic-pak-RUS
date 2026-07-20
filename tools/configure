@@ -1009,8 +1009,8 @@ whichadvanced () {
     interact=1
     echo ""
     printf "Enter your developer options (press only enter when done)\n\
-(D)EBUG, (L)ogf, Boot(c)hart, (S)imulator, (B)ootloader, (P)rofiling, (V)oice, (U)SB Serial,\n\
-(W)in32 crosscompile, Win(6)4 crosscompile, (T)est plugins, (O)mit plugins, \n\
+(D)EBUG, (L)ogf, Boot(c)hart, (S)imulator, (B)ootloader, (P)rofiling, (U)SB Serial,\n\
+(W)in32 crosscompile, Win(6)4 crosscompile, \n\
 S(m)all C lib, Logf to Ser(i)al port, LTO Build(X), (E)rror on warnings"
     if [ "$modelname" = "iaudiom5" ]; then
       printf ", (F)M radio MOD"
@@ -1048,14 +1048,6 @@ S(m)all C lib, Logf to Ser(i)al port, LTO Build(X), (E)rror on warnings"
         echo "Using Rockbox' small C library"
         extradefines="$extradefines -DHAVE_ROCKBOX_C_LIBRARY"
         ;;
-      [Tt])
-        echo "Including test plugins"
-        extradefines="$extradefines -DHAVE_TEST_PLUGINS"
-        ;;
-      [Oo])
-        echo "Disabling building of plugins"
-        plugins="no"
-        ;;
       [Cc])
         echo "bootchart enabled (logf also enabled)"
         bootchart="yes"
@@ -1081,10 +1073,6 @@ S(m)all C lib, Logf to Ser(i)al port, LTO Build(X), (E)rror on warnings"
           echo "Profiling support is enabled"
           profile="yes"
         fi
-        ;;
-      [Vv])
-        echo "Voice build selected"
-        voice="yes"
         ;;
       [Ff])
         if [ "$modelname" = "iaudiom5" ]; then
@@ -1142,20 +1130,6 @@ S(m)all C lib, Logf to Ser(i)al port, LTO Build(X), (E)rror on warnings"
   done
   echo "done"
 
-  if [ "yes" = "$voice" ]; then
-    # Ask about languages to build
-    picklang
-    voicelanguage=`whichlang`
-    echo "Voice language set to $voicelanguage"
-
-    # Configure encoder and TTS engine for each language
-    for thislang in `echo $voicelanguage | sed 's/,/ /g'`; do
-      voiceconfig "$thislang"
-    done
-    if [ -z "$POOL" ] ; then
-	echo " \$POOL is not set, will use <builddir>/voice-pool by default"
-    fi
-  fi
   if [ "yes" = "$use_debug" ]; then
     debug="-DDEBUG"
     GCCOPTS="$GCCOPTS -g -DDEBUG"
@@ -1180,307 +1154,6 @@ S(m)all C lib, Logf to Ser(i)al port, LTO Build(X), (E)rror on warnings"
   fi
 }
 
-# Configure voice settings
-voiceconfig () {
-    thislang=$1
-    if [ ! "$ARG_TTS" ]; then
-        echo "Building $thislang voice for $modelname. Select options"
-        echo ""
-    fi
-
-    if [ -n "`findtool flite`" ]; then
-        FLITE="F(l)ite "
-        FLITE_OPTS=""
-        DEFAULT_TTS="flite"
-        DEFAULT_TTS_OPTS=$FLITE_OPTS
-        DEFAULT_CHOICE="l"
-    fi
-    if [ -n "`findtool espeak`" ]; then
-        ESPEAK="(e)Speak "
-        ESPEAK_OPTS=""
-        DEFAULT_TTS="espeak"
-        DEFAULT_TTS_OPTS=$ESPEAK_OPTS
-        DEFAULT_CHOICE="e"
-    fi
-    if [ -n "`findtool espeak-ng`" ]; then
-        ESPEAK="(e)Speak-ng "
-        ESPEAK_OPTS=""
-        DEFAULT_TTS="espeak-ng"
-        DEFAULT_TTS_OPTS=$ESPEAK_OPTS
-        DEFAULT_CHOICE="e"
-    fi
-    if [ -n "`findtool festival`" ]; then
-        FESTIVAL="(F)estival "
-        FESTIVAL_OPTS=""
-        DEFAULT_TTS="festival"
-        DEFAULT_TTS_OPTS=$FESTIVAL_OPTS
-        DEFAULT_CHOICE="f"
-    fi
-    if [ -n "`findtool mimic`" ]; then
-        MIMIC="(M)imic "
-        MIMIC_OPTS=""
-        DEFAULT_TTS="mimic"
-        DEFAULT_TTS_OPTS=$MIMIC_OPTS
-        DEFAULT_CHOICE="M"
-    fi
-    if [ -n "`findtool swift`" ]; then
-        SWIFT="S(w)ift "
-        SWIFT_OPTS=""
-        DEFAULT_TTS="swift"
-        DEFAULT_TTS_OPTS=$SWIFT_OPTS
-        DEFAULT_CHOICE="w"
-    fi
-    # Allow SAPI if Windows is in use
-    if [ -n "`findtool winver`" ]; then
-        SAPI="(S)API "
-        SAPI_OPTS=""
-        DEFAULT_TTS="sapi"
-        DEFAULT_TTS_OPTS=$SAPI_OPTS
-        DEFAULT_CHOICE="S"
-    fi
-    if [ -n "`findtool gtts-cli`" ]; then
-        GTTS="(g)tts "
-        GTTS_OPTS=""
-        DEFAULT_TTS="gtts"
-        DEFAULT_TTS_OPTS=$GTTS_OPTS
-        DEFAULT_CHOICE="g"
-    fi
-    if [ -n "`findtool piper`" ]; then
-        PIPER="(p)iper "
-        PIPER_OPTS=""
-        DEFAULT_TTS="piper"
-        DEFAULT_TTS_OPTS=$PIPER_OPTS
-        DEFAULT_CHOICE="p"
-    fi
-    if [ -n "`findtool rbspeak`" ]; then
-        RBSPEAK="(O)ther "
-        RBSPEAK_OPTS=""
-        DEFAULT_TTS="rbspeak"
-        DEFAULT_TTS_OPTS=$RBSPEAK_OPTS
-        DEFAULT_CHOICE="O"
-    fi
-
-    if [ "$FESTIVAL" = "$FLITE" ] && [ "$FLITE" = "$ESPEAK" ] && [ "$ESPEAK" = "$SAPI" ] && [ "$SAPI" = "$MIMIC" ] && [ "$MIMIC" = "$SWIFT" ] && [ "$SWIFT" = "$GTTS" ] && [ "$GTTS" = "$PIPER" ] && [ "$PIPER" = "$RBSPEAK" ] ; then
-        echo "You need Festival, eSpeak, Mimic, Flite, piper, gtts, or rbspeak in your path, or SAPI available to build voice files"
-        exit 3
-    fi
-
-    if [ "$ARG_TTS" ]; then
-        option=$ARG_TTS
-    else
-        echo "TTS engine to use: ${FLITE}${FESTIVAL}${ESPEAK}${MIMIC}${SAPI}${SWIFT}${GTTS}${RBSPEAK}${PIPER}(${DEFAULT_CHOICE})?"
-        option=`input`
-        if [ -z "$option" ]; then option=${DEFAULT_CHOICE}; fi
-        advopts="$advopts --tts=$option"
-    fi
-    case "$option" in
-        [Ll]|flite)
-        TTS_ENGINE="flite"
-        TTS_OPTS=$FLITE_OPTS
-        ;;
-        [Ee]|espeak)
-        TTS_ENGINE="espeak"
-        TTS_OPTS=$ESPEAK_OPTS
-        ;;
-        [Ff]|festival)
-        TTS_ENGINE="festival"
-        TTS_OPTS=$FESTIVAL_OPTS
-        ;;
-        [Mm]|mimic)
-        TTS_ENGINE="mimic"
-        TTS_OPTS=$MIMIC_OPTS
-        ;;
-        [Ss]|sapi)
-        TTS_ENGINE="sapi"
-        TTS_OPTS=$SAPI_OPTS
-        ;;
-	[Ww]|swift)
-        TTS_ENGINE="swift"
-        TTS_OPTS=$SWIFT_OPTS
-	;;
-	[Gg]|gtts)
-        TTS_ENGINE="gtts"
-        TTS_OPTS=$GTTS_OPTS
-	;;
-	[Pp]|piper)
-        TTS_ENGINE="piper"
-        TTS_OPTS=$PIPER_OPTS
-	;;
-	[Oo]|rbspeak)
-        TTS_ENGINE="rbspeak"
-        TTS_OPTS=$RBSPEAK_OPTS
-	;;
-        *)
-        TTS_ENGINE=$DEFAULT_TTS
-        TTS_OPTS=$DEFAULT_TTS_OPTS
-    esac
-    echo "Using $TTS_ENGINE for TTS"
-
-    # Select which voice to use for Festival
-    if [ "$TTS_ENGINE" = "festival" ]; then
-        voicelist=`echo "(voice.list)"|festival -i 2>/dev/null |tr "\n" " "|sed -e 's/.*festival> (\(.*\)) festival>/\1/'|sort`
-        for voice in $voicelist; do
-            TTS_FESTIVAL_VOICE="$voice" # Default choice
-            break
-        done
-        if [ "$ARG_VOICE" ]; then
-            CHOICE=$ARG_VOICE
-        else
-            i=1
-            for voice in $voicelist; do
-                printf "%3d. %s\n" "$i" "$voice"
-                i=`expr $i + 1`
-            done
-            printf "Please select which Festival voice to use (default is $TTS_FESTIVAL_VOICE): "
-            CHOICE=`input`
-        fi
-        i=1
-        for voice in $voicelist; do
-            if [ "$i" = "$CHOICE" -o "$voice" = "$CHOICE" ]; then
-                TTS_FESTIVAL_VOICE="$voice"
-            fi
-            i=`expr $i + 1`
-        done
-        advopts="$advopts --voice=$CHOICE"
-        echo "Festival voice set to $TTS_FESTIVAL_VOICE"
-        echo "(voice_$TTS_FESTIVAL_VOICE)" > festival-prolog.scm
-    elif [ "$TTS_ENGINE" = "piper" ]; then
-	if [ -z "$PIPER_MODEL_DIR" ]; then
-	    echo "Please set PIPER_MODEL_DIR!";
-	    exit 1
-	fi
-	models=`(cd $PIPER_MODEL_DIR ; ls -1 *onnx)`
-	for model in $models; do
-	    PIPER_MODEL="$model"  # Default
-	    break;
-        done
-        if [ "$ARG_VOICE" ]; then
-            CHOICE=$ARG_VOICE
-        else
-	    i=1
-	    for model in $models; do
-		printf "%3d. %s\n" "$i" "$model"
-                i=`expr $i + 1`
-            done
-            printf "Please select which piper model to use (default is $PIPER_MODEL): "
-            CHOICE=`input`
-	fi
-        i=1
-        for model in $models; do
-            if [ "$i" = "$CHOICE" -o "$model" = "$CHOICE" ]; then
-                PIPER_MODEL="$model"
-		break;
-            fi
-            i=`expr $i + 1`
-        done
-
-	TTS_OPTS="$TTS_OPTS --model $PIPER_MODEL_DIR/$PIPER_MODEL"
-        advopts="$advopts --voice=$PIPER_MODEL"
-        echo "Piper model set to $PIPER_MODEL"
-    elif [ "$TTS_ENGINE" = "mimic" ]; then
-	voicelist=`mimic -lv | cut -d':' -f2`
-        for voice in $voicelist; do
-            TTS_MIMIC_VOICE="$voice" # Default choice
-            break
-        done
-        if [ "$ARG_VOICE" ]; then
-            CHOICE=$ARG_VOICE
-        else
-            i=1
-            for voice in $voicelist; do
-                printf "%3d. %s\n" "$i" "$voice"
-                i=`expr $i + 1`
-            done
-            printf "Please select which Mimic voice to use (default is $TTS_MIMIC_VOICE): "
-            CHOICE=`input`
-        fi
-        i=1
-        for voice in $voicelist; do
-            if [ "$i" = "$CHOICE" -o "$voice" = "$CHOICE" ]; then
-                TTS_MIMIC_VOICE="$voice"
-		break
-            fi
-            i=`expr $i + 1`
-        done
-        advopts="$advopts --voice=$CHOICE"
-        echo "Mimic voice set to $TTS_MIMIC_VOICE"
-	TTS_OPTS="$TTS_OPTS -voice $TTS_MIMIC_VOICE"
-    elif [ "$TTS_ENGINE" = "espeak" ] ; then
-	if [ -n "`findtool espeak-ng`" ] ; then
-	    TTS_ENGINE="espeak-ng"
-	fi
-    fi
-
-    # Read custom tts options from command line
-    if [ "$ARG_TTSOPTS" ]; then
-        TTS_OPTS="$ARG_TTSOPTS"
-        echo "$TTS_ENGINE options set to $TTS_OPTS"
-    fi
-
-    ENCODER="rbspeexenc"
-    ENC_OPTS="-q 7 -c 10"
-
-    echo "Using $ENCODER for encoding voice clips"
-
-    # Read custom encoder options from command line
-    if [ "$ARG_ENCOPTS" ]; then
-        ENC_OPTS="$ARG_ENCOPTS"
-        echo "$ENCODER options set to $ENC_OPTS"
-    fi
-
-    TEMPDIR="${pwd}"
-    if [ -n "`findtool cygpath`" ]; then
-        TEMPDIR=`cygpath . -a -w`
-    fi
-}
-
-picklang() {
-    # figure out which languages that are around
-    for file in $rootdir/apps/lang/*.lang; do
-        clean=`basename $file .lang`
-        langs="$langs $clean"
-    done
-
-    if [ "$ARG_LANG" ]; then
-        pick=$ARG_LANG
-    else
-        echo "Select a number for the language to use (default is english)"
-        # FIXME The multiple-language feature is currently broken
-        # echo "You may enter a comma-separated list of languages to build"
-
-        num=1
-        for one in $langs; do
-            echo "$num. $one"
-            num=`expr $num + 1`
-        done
-        pick=`input`
-        advopts="$advopts --language=$pick"
-    fi
-}
-
-whichlang() {
-    output=""
-    # Allow the user to pass a comma-separated list of langauges
-    for thispick in `echo $pick | sed 's/,/ /g'`; do
-        num=1
-        for one in $langs; do
-            # Accept both the language number and name
-            if [ "$num" = "$thispick" ] || [ "$thispick" = "$one" ]; then
-                if [ "$output" = "" ]; then
-                    output=$one
-                else
-                    output=$output,$one
-                fi
-            fi
-            num=`expr $num + 1`
-        done
-    done
-    if [ -z "$output" ]; then
-      # pick a default
-      output="english"
-    fi
-    echo $output
-}
 
 help() {
   echo "Rockbox configure script."
@@ -1513,18 +1186,6 @@ help() {
     --lcdheight=Y     Sets the height of the LCD. Used only for application
                       targets.
 
-    --language=LANG   Set the language used for voice generation (used only if
-                      TYPE is AV).
-
-    --tts=ENGINE      Set the TTS engine used for voice generation (used only
-                      if TYPE is AV).
-
-    --voice=VOICE     Set voice to use with selected TTS (used only if TYPE is
-                      AV).
-
-    --ttsopts=OPTS    Set TTS engine manual options (used only if TYPE is AV).
-
-    --encopts=OPTS    Set encoder manual options (used only if ATYPE is AV).
 
     --rbdir=dir       Use alternative rockbox directory (default: ${rbdir}).
                       This is useful for having multiple alternate builds on
@@ -1560,15 +1221,10 @@ EOF
 }
 
 ARG_CCACHE=
-ARG_ENCOPTS=
-ARG_LANG=
 ARG_RAM=
 ARG_RBDIR=
 ARG_TARGET=
-ARG_TTS=
-ARG_TTSOPTS=
 ARG_TYPE=
-ARG_VOICE=
 ARG_ARM_THUMB=
 ARG_PREFIX="$PREFIX"
 ARG_THREAD_SUPPORT=
@@ -1576,24 +1232,17 @@ ARG_32BIT=
 ARG_ADDR_SAN=
 ARG_UBSAN=
 ARG_STACK_PROTECTOR=
-ARG_PLUGINS=
 err=
 for arg in "$@"; do
 	case "$arg" in
 		--ccache)     ARG_CCACHE=1;;
 		--no-ccache)  ARG_CCACHE=0;;
-		--encopts=*)  ARG_ENCOPTS=`echo "$arg" | cut -d = -f 2`;;
-		--language=*) ARG_LANG=`echo "$arg" | cut -d = -f 2`;;
 		--lcdwidth=*) ARG_LCDWIDTH=`echo "$arg" | cut -d = -f 2`;;
 		--lcdheight=*) ARG_LCDHEIGHT=`echo "$arg" | cut -d = -f 2`;;
 		--ram=*)      ARG_RAM=`echo "$arg" | cut -d = -f 2`;;
 		--rbdir=*)    ARG_RBDIR=`echo "$arg" | cut -d = -f 2`;;
 		--target=*)   ARG_TARGET=`echo "$arg" | cut -d = -f 2`;;
-		--tts=*)      ARG_TTS=`echo "$arg" | cut -d = -f 2`;;
-		--ttsopts=*)  ARG_TTSOPTS=`echo "$arg" | cut -d = -f 2`;;
 		--type=*)     ARG_TYPE=`echo "$arg" | cut -d = -f 2`;;
-		--voice=*)    ARG_VOICE=`echo "$arg" | cut -d = -f 2`;;
-		--plugins=*)  ARG_PLUGINS=`echo "$arg" | cut -d = -f 2`;;
 		--thumb)      ARG_ARM_THUMB=1;;
 		--no-thumb)   ARG_ARM_THUMB=0;;
 		--32-bit)     ARG_32BIT=1;;
@@ -1805,9 +1454,6 @@ fi
   #            TODO: add proper explanation
   # flash:     name of output for flashing, for targets where there's a special
   #            file output for this.
-  # plugins:   set to 'yes' to build the plugins. Early development builds can
-  #            set this to no in the early stages to have an easier life for a
-  #            while
   # toolset:   lists what particular tools in the tools/ directory that this
   #            target needs to have built prior to building Rockbox
   #
@@ -1833,7 +1479,6 @@ fi
     bootoutput="bootloader.iriver"
     appextra="recorder:gui:radio"
     flash="$pwd/rombox.iriver"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset=$iriverbitmaptools
@@ -1857,7 +1502,6 @@ fi
     bootoutput="bootloader.iriver"
     appextra="recorder:gui:radio"
     flash="$pwd/rombox.iriver"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset=$iriverbitmaptools
@@ -1881,7 +1525,6 @@ fi
     bootoutput="bootloader.iriver"
     appextra="recorder:gui:radio"
     flash="$pwd/rombox.iriver"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset=$iriverbitmaptools
@@ -1901,7 +1544,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=h10 -type=RBBL"
     bootoutput="H10_20GC.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -1925,7 +1567,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v2 -model=h105 -type=RBBL"
     bootoutput="H10.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -1949,7 +1590,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -1972,7 +1612,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -1995,7 +1634,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2018,7 +1656,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 6"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2041,7 +1678,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 6"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2064,7 +1700,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 6"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2087,7 +1722,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 6"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2110,7 +1744,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 6"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2133,7 +1766,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2155,7 +1787,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2181,7 +1812,6 @@ fi
     output="rockbox.iaudio"
     bootoutput="x5_fw.bin"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$iaudiobitmaptools"
@@ -2206,7 +1836,6 @@ fi
     output="rockbox.iaudio"
     bootoutput="m5_fw.bin"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$iaudiobitmaptools"
@@ -2229,7 +1858,6 @@ fi
     output="rockbox.d2"
     bootoutput="bootloader-cowond2.bin"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset="$tccbitmaptools"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="arm"
@@ -2250,7 +1878,6 @@ fi
     output="rockbox.iaudio"
     bootoutput="cowon_m3.bin"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$iaudiobitmaptools"
@@ -2271,7 +1898,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.gigabeat"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$gigabeatbitmaptools
     boottool="$rootdir/tools/scramble -gigabeat"
     bootoutput="FWIMG01.DAT"
@@ -2292,7 +1918,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.gigabeat"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset="$gigabeatbitmaptools"
     boottool="$rootdir/tools/scramble -gigabeats"
     bootoutput="nk.bin"
@@ -2313,7 +1938,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=e200 -type=RBBL"
     bootoutput="PP5022.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -2340,7 +1964,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4r -model=e20r -type=RBBL"
     bootoutput="pp5022.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -2364,7 +1987,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=c200 -type=RBBL"
     bootoutput="firmware.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -2388,7 +2010,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-clip.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2409,7 +2030,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-e200v2.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     arm_thumb_boot=1
     t_cpu="arm"
@@ -2429,7 +2049,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-m200v4.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2450,7 +2069,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-fuze.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2469,7 +2087,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-c200v2.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset=$scramblebitmaptools
@@ -2492,7 +2109,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-clipv2.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2512,7 +2128,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-clipplus.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2532,7 +2147,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-fuzev2.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2551,7 +2165,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-fuzeplus.sansa"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2570,7 +2183,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-clipzip.sansa"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="as3525"
@@ -2589,7 +2201,6 @@ fi
     output="rockbox.sansa"
     bootoutput="bootloader-connect.sansa"
     appextra="recorder:gui"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="tms320dm320"
@@ -2610,7 +2221,6 @@ fi
     bmp2rb_remotenative="$rootdir/tools/bmp2rb -f 0"
     output="rockbox.mrobe500"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$gigabeatbitmaptools
     boottool="cp "
     bootoutput="rockbox.mrboot"
@@ -2633,7 +2243,6 @@ fi
     bmp2rb_remotenative="$rootdir/tools/bmp2rb -f 0"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v2 -model=m100 -type=RBBL"
     bootoutput="pp5020.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -2658,7 +2267,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2681,7 +2289,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.ipod"
     appextra="recorder:gui:radio"
-    plugins="yes"
     bootoutput="bootloader-$modelname.ipod"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
@@ -2703,7 +2310,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenxfistyle.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2722,7 +2328,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenxfi2.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2741,7 +2346,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenxfi3.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2760,7 +2364,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenv.creative"
     appextra="radio:gui:recorder"
-    plugins=""
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2779,7 +2382,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenxfi.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2798,7 +2400,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zenmozaic.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2817,7 +2418,6 @@ fi
     output="rockbox.creative"
     bootoutput="bootloader-zen.creative"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -2836,7 +2436,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=9200 -type=RBBL"
     bootoutput="FWImage.ebn"
     # toolset is the tools within the tools directory that we build for
@@ -2860,7 +2459,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=1630 -type=RBBL"
     bootoutput="FWImage.ebn"
     # toolset is the tools within the tools directory that we build for
@@ -2884,7 +2482,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=6330 -type=RBBL"
     bootoutput="FWImage.ebn"
     # toolset is the tools within the tools directory that we build for
@@ -2908,7 +2505,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.vx747"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     boottool="$rootdir/tools/scramble -ccpmp"
     bootoutput="ccpmp.bin"
@@ -2929,7 +2525,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.vx767"
     appextra="recorder:gui:radio"
-    plugins="" #FIXME
     toolset=$genericbitmaptools
     boottool="$rootdir/tools/scramble -ccpmp"
     bootoutput="ccpmp.bin"
@@ -2950,7 +2545,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.vx747p"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     boottool="$rootdir/tools/scramble -ccpmp"
     bootoutput="ccpmp.bin"
@@ -2971,7 +2565,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.vx777"
     appextra="recorder:gui:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     boottool="$rootdir/tools/scramble -ccpmp"
     bootoutput="ccpmp.bin"
@@ -2992,7 +2585,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v2 -model=y820 -type=RBBL"
     bootoutput="FW_YH820.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -3016,7 +2608,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 2"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v2 -model=y920 -type=RBBL"
     bootoutput="PP5020.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -3040,7 +2631,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 4"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v2 -model=y925 -type=RBBL"
     bootoutput="FW_YH925.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -3064,7 +2654,6 @@ fi
     bmp2rb_native="$rootdir/tools/bmp2rb -f 5"
     output="rockbox.mi4"
     appextra="recorder:gui:radio"
-    plugins="yes"
     boottool="$rootdir/tools/scramble -mi4v3 -model=v500 -type=RBBL"
     bootoutput="jukebox.mi4"
     # toolset is the tools within the tools directory that we build for
@@ -3089,7 +2678,6 @@ fi
     output="rockbox.mpio"
     bootoutput="bootloader.mpio"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3111,7 +2699,6 @@ fi
     output="rockbox.mpio"
     bootoutput="bootloader.mpio"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3133,7 +2720,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui:radio"
-    plugins=""
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3155,7 +2741,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3177,7 +2762,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3204,7 +2788,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="sdl"
@@ -3231,7 +2814,6 @@ fi
     output="librockbox.so"
     bootoutput="librockbox.so"
     appextra="recorder:gui:radio:hosted/android"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="android"
@@ -3253,7 +2835,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="samsungypr"
@@ -3280,7 +2861,6 @@ fi
     output="librockbox.so"
     bootoutput="librockbox.so"
     appextra="recorder:gui:radio:hosted/android"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="android"
@@ -3307,7 +2887,6 @@ fi
     output="librockbox.so"
     bootoutput="librockbox.so"
     appextra="recorder:gui:radio:hosted/android"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="android"
@@ -3330,7 +2909,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui:radio"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="samsungypr"
@@ -3353,7 +2931,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui"
-    plugins="yes"
     t_cpu="hosted"
     t_manufacturer="anbernic"
     t_model="rgnano"
@@ -3377,7 +2954,6 @@ fi
     output="trimpod"
     bootoutput="trimpod"
     appextra="recorder:gui"
-    plugins="no"
     t_cpu="hosted"
     t_manufacturer="sdl"
     t_model="retro-handheld"
@@ -3395,7 +2971,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3417,7 +2992,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3439,7 +3013,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3461,7 +3034,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3484,7 +3056,6 @@ fi
     boottool="$rootdir/tools/scramble -add=e350"
     bootoutput="bootloader-nwze350.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3504,7 +3075,6 @@ fi
     output="rockbox.sony"
     bootoutput="bootloader-nwze370.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -3523,7 +3093,6 @@ fi
     output="rockbox.sony"
     bootoutput="bootloader-nwze360.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$scramblebitmaptools
     t_cpu="arm"
     t_manufacturer="imx233"
@@ -3544,7 +3113,6 @@ fi
     boottool="$rootdir/tools/scramble -add=e450"
     bootoutput="bootloader-nwze450.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3566,7 +3134,6 @@ fi
     boottool="$rootdir/tools/scramble -add=e460"
     bootoutput="bootloader-nwze460.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3588,7 +3155,6 @@ fi
     boottool="$rootdir/tools/scramble -add=e470"
     bootoutput="bootloader-nwze470.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3610,7 +3176,6 @@ fi
     boottool="$rootdir/tools/scramble -add=e580"
     bootoutput="bootloader-nwze580.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3632,7 +3197,6 @@ fi
     boottool="$rootdir/tools/scramble -add=a10"
     bootoutput="bootloader-nwza10.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3654,7 +3218,6 @@ fi
     boottool="$rootdir/tools/scramble -add=a20"
     bootoutput="bootloader-nwa20.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3676,7 +3239,6 @@ fi
     boottool="$rootdir/tools/scramble -add=a860"
     bootoutput="bootloader-nwza860.sony"
     appextra="gui:recorder:radio"
-    plugins=""
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3698,7 +3260,6 @@ fi
     boottool="$rootdir/tools/scramble -add=s750"
     bootoutput="bootloader-nwzs750.sony"
     appextra="gui:recorder:radio"
-    plugins="yes"
     toolset=$genericbitmaptools
     t_cpu="hosted"
     t_manufacturer="sonynwz"
@@ -3719,7 +3280,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins=""
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3741,7 +3301,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins=""
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -3769,7 +3328,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     tinyalsa="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
@@ -3794,7 +3352,6 @@ fi
     output="rockbox"
     bootoutput="rockbox"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     tinyalsa="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
@@ -3816,7 +3373,6 @@ fi
     output="rockbox.rocker"
     bootoutput="bootloader.rocker"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="agptek"
@@ -3835,7 +3391,6 @@ fi
     bmp2rb_native="$bmp2rb_mono"
     output="rockbox.x3"
     appextra="recorder:gui"
-    plugins="yes"
     toolset=$genericbitmaptools
     boottool="cp"
     bootoutput="bootloader-x3.bin"
@@ -3861,7 +3416,6 @@ fi
     output="rockbox.x3ii"
     bootoutput="bootloader.x3ii"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="xduoo"
@@ -3884,7 +3438,6 @@ fi
     output="rockbox.x20"
     bootoutput="bootloader.x20"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="xduoo"
@@ -3906,7 +3459,6 @@ fi
     output="rockbox.m3k"
     bootoutput="bootloader.m3k"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="fiio"
@@ -3930,7 +3482,6 @@ fi
     output="rockbox.erosq"
     bootoutput="bootloader.erosq"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="aigo"
@@ -3945,7 +3496,6 @@ fi
     memory=64
     mipsr2elcc
     appextra="recorder:gui"
-    plugins="yes"
     tool="$rootdir/tools/scramble -add=fiiom3k "
     boottool="$rootdir/tools/mkspl-x1000 -type=nand -ppb=2 -bpp=2 "
     output="rockbox.m3k"
@@ -3969,7 +3519,6 @@ fi
     memory=32
     mipsr2elcc
     appextra="recorder:gui"
-    plugins="yes"
     tool="$rootdir/tools/scramble -add=erosqnative "
     boottool="$rootdir/tools/mkspl-x1000 -type=nand -ppb=2 -bpp=2 "
     output="rockbox.erosq"
@@ -3997,7 +3546,6 @@ fi
     memory=32
     mipsr2elcc
     appextra="recorder:gui"
-    plugins="yes"
     tool="$rootdir/tools/scramble -add=erosqnative "
     boottool="$rootdir/tools/mkspl-x1000 -type=nand -ppb=2 -bpp=2 "
     output="rockbox.erosq"
@@ -4026,7 +3574,6 @@ fi
     memory=32
     mipsr2elcc
     appextra="recorder:gui"
-    plugins="yes"
     tool="$rootdir/tools/scramble -add=erosqnative "
     boottool="$rootdir/tools/mkspl-x1000 -type=nand -ppb=2 -bpp=2 "
     output="rockbox.erosq"
@@ -4059,7 +3606,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -4081,7 +3627,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -4103,7 +3648,6 @@ fi
     output="rockbox.rkw"
     bootoutput="bootloader.rkw"
     appextra="recorder:gui"
-    plugins="yes"
     # toolset is the tools within the tools directory that we build for
     # this particular target.
     toolset="$genericbitmaptools"
@@ -4120,7 +3664,6 @@ fi
     memory=64
     mipsr2elcc
     appextra="recorder:gui"
-    plugins="yes"
     tool="$rootdir/tools/scramble -add=shq1 "
     boottool="$rootdir/tools/mkspl-x1000 -type=nand -ppb=2 -bpp=2 "
     output="rockbox.q1"
@@ -4144,7 +3687,6 @@ fi
     memory=32
     armcortexm7cc
     appextra="recorder:gui"
-    plugins="no"
     tool="cp "
     boottool="cp "
     output="rockbox.echo"
@@ -4185,7 +3727,6 @@ fi
     output="rockbox.f28"
     bootoutput="bootloader.f28"
     appextra="recorder:gui:hosted"
-    plugins="no"
     # architecture, manufacturer and model for the target-tree build
     t_cpu="hosted"
     t_manufacturer="surfans"
@@ -4209,7 +3750,6 @@ fi
     output="rockbox.elf"
     bootoutput="rockbox"
     appextra="recorder:gui"
-    plugins="yes"
     t_cpu="hosted"
     t_manufacturer="ctru"
     t_model="app"
@@ -4230,7 +3770,6 @@ fi
     output="rockbox.r3proii"
     bootoutput="bootloader.r3proii"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     # These align with
     t_cpu="hosted"
@@ -4255,7 +3794,6 @@ fi
     output="rockbox.r1"
     bootoutput="bootloader.r1"
     appextra="recorder:gui:hosted"
-    plugins="yes"
     # architecture, manufacturer and model for the target-tree build
     # These align with
     t_cpu="hosted"
@@ -4870,8 +4408,6 @@ if test -n "$t_cpu"; then
   GCCOPTS="$GCCOPTS"
 fi
 
-voicetoolset="rbspeexenc voicefont wavtrim"
-
 if test "$apps" = "apps"; then
   # only when we build "real" apps we build the .lng files
   buildlangs="langs"
@@ -4893,37 +4429,12 @@ cmdline=`echo $cmdline | sed -e s,--target=[a-zA-Z_0-9]\*,,g \
                             -e s,--type=[a-zA-Z0-9]\*,,g`
 cmdline="$cmdline --target=\$(MODELNAME) --ram=\$(MEMORYSIZE) --rbdir=\$(RBDIR) --type=$btype$advopts"
 
-if [ -n "$ARG_PLUGINS" ]; then
-    echo "Selected plugins: $ARG_PLUGINS"
-    plugins="yes"
-
-    selected_src=""
-    selected_subdirs=""
-    chk_plugin_dir="${rootdir}/apps/plugins"
-
-    IFS=":"
-    for p in $ARG_PLUGINS; do
-        if [ -d "$chk_plugin_dir/$p" ]; then
-             selected_subdirs="$selected_subdirs \$(ROOTDIR)/apps/plugins/$p"
-        elif [ -f "$chk_plugin_dir/$p" ]; then
-             selected_src="$selected_src \$(ROOTDIR)/apps/plugins/$p"
-        else
-             echo "Warning: Plugin '$p' found neither as file nor directory in $chk_plugin_dir. Use ':' as the separator."
-        fi
-    done
-else
-    # Build the default set of plugins
-    selected_src="DEFAULT"
-    selected_subdirs="DEFAULT"
-fi
 
 ### end of cmdline
 
 cat > Makefile <<EOF
 ## Automatically generated. http://www.rockbox.org/
 
-export SELECTED_PLUGINS_SRC=${selected_src}
-export SELECTED_PLUGINS_SUBDIRS=${selected_subdirs}
 
 export ROOTDIR=${rootdir}
 export FIRMDIR=\$(ROOTDIR)/firmware
@@ -4945,7 +4456,6 @@ export MANUFACTURER=${t_manufacturer}
 export OBJDIR=${pwd}
 export BUILDDIR=${pwd}
 export RBCODEC_BLD=${pwd}/lib/rbcodec
-export VOICELANGUAGE=${voicelanguage}
 export MEMORYSIZE=${memory}
 export BUILDDATE:=\$(shell date -u +'-DYEAR=%Y -DMONTH=%m -DDAY=%d')
 export MKFIRMWARE=${tool}
@@ -4955,7 +4465,6 @@ export BMP2RB_REMOTEMONO=${bmp2rb_remotemono}
 export BMP2RB_REMOTENATIVE=${bmp2rb_remotenative}
 export BINARY=${output}
 export APPEXTRA=${appextra}
-export ENABLEDPLUGINS=${plugins}
 export EXTRA_DEFINES=${extradefines}
 export HOSTCC=${HOSTCC}
 export HOSTAR=${HOSTAR}
@@ -4984,10 +4493,6 @@ export GCCVER=${gccver}
 export GCCNUM=${gccnum}
 export UNAME=${uname}
 export MANUALDEV=${manualdev}
-export TTS_OPTS=${TTS_OPTS}
-export TTS_ENGINE=${TTS_ENGINE}
-export ENC_OPTS=${ENC_OPTS}
-export ENCODER=${ENCODER}
 export USE_ELF=${USE_ELF}
 export PLUGIN_USE_ELF=${PLUGIN_USE_ELF}
 export RBDIR=${rbdir}
