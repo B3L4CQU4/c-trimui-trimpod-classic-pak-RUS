@@ -70,8 +70,9 @@
 %dr(0,0,310,2)
 
 # Now Playing (bottom scroller on menu screens; hidden on the WPS, which draws
-# its own track info/times there)
-%Vl(mainMenu,5,218,310,15,2)
+# its own track info/times there).  18px tall: fullwidth CJK glyphs fill the
+# 18px font's whole em -- a shorter band clips them.
+%Vl(mainMenu,5,218,310,18,2)
 %?if(%cs, =, 2)<|%ac%?mp<|%s%?it<%it|%fn>%?ia< - %ia>|>>
 
 ## Header Button-Legend (overlay, displayed via %Vd when a page sets %Tl) ##

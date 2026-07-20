@@ -1,16 +1,16 @@
 Licenses for the fonts Trimpod ships.  Three faces are distributed: ChicagoFLF
 (the UI font, as 18/20/24px Rockbox .fnt rasterizations), the PixelMplus
-Japanese glyphs merged into the 24px .fnt, and Schumacher Clean (the fallback
-system font, compiled into the binary from 08-Schumacher-Clean.bdf).
+Japanese glyphs merged into all three .fnt sizes, and Schumacher Clean (the
+fallback system font, compiled into the binary from 08-Schumacher-Clean.bdf).
 
 ----- ChicagoFLF (18/20/24-ChicagoFLF.fnt) ----
 
 ChicagoFLF by Robin Casady, a reproduction of Susan Kare's Chicago.
 Released by the author into the public domain.
 
------ PixelMplus (Japanese glyphs merged into 24-ChicagoFLF.fnt) ----
+----- PixelMplus (Japanese glyphs merged into the ChicagoFLF .fnt files) ----
 
-The Japanese (kana/kanji/fullwidth) glyphs in 24-ChicagoFLF.fnt are rasterized
+The Japanese (kana/kanji/fullwidth) glyphs in the .fnt files are rasterized
 from PixelMplus12-Regular by Itou Hiroki (https://github.com/itouhiro/PixelMplus),
 a pixel-style outline conversion of the M+ bitmap fonts.
 Copyright (C) 2013 M+ Font Project.  Distributed under the M+ FONT LICENSE:

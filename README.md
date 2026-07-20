@@ -100,7 +100,7 @@ licensed under the **GNU General Public License v2.0**.
 - **Cream of the Crop** — the bundled Milkdrop preset pack ([presets-cream-of-the-crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop)).
 - **1ST_GEN_REMIX** theme by Monica G. — [themes.rockbox.org #3958](https://themes.rockbox.org/index.php?themeid=3958).
 - **ChicagoFLF** — an openly-licensed Chicago typeface reproduction (bundled, anti-aliased).
-- **PixelMplus** by Itou Hiroki — the Japanese glyphs merged into the 24px UI font
+- **PixelMplus** by Itou Hiroki — the Japanese glyphs merged into the UI fonts
   ([itouhiro/PixelMplus](https://github.com/itouhiro/PixelMplus)). M+ FONT LICENSE.
 - **NextUI** by LoveRetro — the launcher and toolchain this builds against.
 - Hardware-enablement files adapted from IncognitoMan's GPL work.
