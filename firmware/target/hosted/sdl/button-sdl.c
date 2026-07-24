@@ -207,7 +207,7 @@ static bool event_handler(SDL_Event *event)
         else if(event->window.event == SDL_WINDOWEVENT_RESIZED)
         {
             SDL_LockMutex(window_mutex);
-            sdl_window_adjustment_needed(false);
+            sdl_window_adjustment_needed();
             SDL_UnlockMutex(window_mutex);
             static unsigned long last_tick;
             if (TIME_AFTER(current_tick, last_tick + HZ/20) && !button_queue_full())

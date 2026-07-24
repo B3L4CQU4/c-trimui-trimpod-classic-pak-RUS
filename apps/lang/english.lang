@@ -11517,6 +11517,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_TRIMPOD_CONTROLS
+  desc: Trimpod Controls submenu (in Settings)
+  user: core
+  <source>
+    *: "Controls"
+  </source>
+  <dest>
+    *: "Controls"
+  </dest>
+  <voice>
+    *: "Controls"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_TRIMPOD_ABOUT
   desc: Trimpod About submenu (in Settings)
   user: core

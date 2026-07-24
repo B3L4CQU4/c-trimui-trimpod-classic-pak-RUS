@@ -22,6 +22,7 @@
 #include "window-sdl.h"
 #include "lcd-sdl.h"
 #include "misc.h"
+#include "lcd.h"        /* lcd_panel_is_dark: no presents while the panel is off */
 #include "panic.h"
 
 /* Trimpod renders through an OpenGL ES 2/3 context (not an SDL_Renderer) so the
@@ -32,16 +33,12 @@
 
 extern SDL_Surface *lcd_surface;
 
-SDL_Texture  *gui_texture;
 SDL_Surface  *sim_lcd_surface;
 
 SDL_mutex *window_mutex;
 
 SDL_Window   *sdlWindow;
-static SDL_Renderer *sdlRenderer;
-static SDL_Surface  *picture_surface;
 
-static bool new_gui_texture_needed = true;
 static bool window_adjustment_needed;
 double display_zoom = 1;
 
@@ -49,10 +46,11 @@ double display_zoom = 1;
  * suppress the normal LCD presentation so other Rockbox threads' lcd_update()
  * calls don't fight for the context. */
 volatile bool trimpod_viz_active = false;
+
 static SDL_GLContext gl_ctx = NULL;
 static GLuint gl_lcd_tex = 0, gl_prog = 0, gl_vbo = 0;
 static GLint  gl_u_fade = -1;
-static SDL_Surface *gl_conv = NULL;   /* RGBA8888 conversion of the LCD surface */
+static int gl_tex_w = 0, gl_tex_h = 0; /* size gl_lcd_tex is currently allocated for */
 
 static const char *gl_vs_src =
     "attribute vec2 a_pos;\n"
@@ -64,7 +62,10 @@ static const char *gl_fs_src =
     "varying vec2 v_uv;\n"
     "uniform sampler2D u_tex;\n"
     "uniform float u_fade;\n"   /* 1 = normal, 0 = black (visualizer entry fade) */
-    "void main(){ gl_FragColor = vec4(texture2D(u_tex, v_uv).rgb * u_fade, 1.0); }\n";
+    /* .bgr, not .rgb: the 24-bit Rockbox framebuffer stores blue first (lcd.h:
+     * fb_data is {b, g, r}) and it is uploaded verbatim as GL_RGB, so the swizzle
+     * here puts the channels back in order -- free, vs. a per-frame conversion. */
+    "void main(){ gl_FragColor = vec4(texture2D(u_tex, v_uv).bgr * u_fade, 1.0); }\n";
 
 static GLuint gl_compile(GLenum type, const char *src)
 {
@@ -106,6 +107,7 @@ static void gl_init_present(void)
     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
 
     glGenTextures(1, &gl_lcd_tex);
+    gl_tex_w = gl_tex_h = 0;   /* fresh texture: next present must allocate it */
     glBindTexture(GL_TEXTURE_2D, gl_lcd_tex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -133,15 +135,6 @@ static void gl_present_lcd_fade(SDL_Surface *src, float fade)
 {
     int w, h;
 
-    if (!gl_conv || gl_conv->w != src->w || gl_conv->h != src->h)
-    {
-        if (gl_conv)
-            SDL_FreeSurface(gl_conv);
-        gl_conv = SDL_CreateRGBSurfaceWithFormat(0, src->w, src->h, 32,
-                                                 SDL_PIXELFORMAT_ABGR8888);
-    }
-    SDL_BlitSurface(src, NULL, gl_conv, NULL);
-
     SDL_GL_GetDrawableSize(sdlWindow, &w, &h);
     glViewport(0, 0, w, h);
     glDisable(GL_DEPTH_TEST);   /* projectM may leave these on */
@@ -153,8 +146,23 @@ static void gl_present_lcd_fade(SDL_Surface *src, float fade)
     glUniform1f(gl_u_fade, fade);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, gl_lcd_tex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, gl_conv->w, gl_conv->h, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, gl_conv->pixels);
+    /* The LCD surface is 24bpp RGB888 -- byte order R,G,B, exactly what
+     * GL_RGB/GL_UNSIGNED_BYTE expects -- so it uploads verbatim: no conversion
+     * pass, and a quarter less data than RGBA.  SDL pads surface rows to 4 bytes
+     * and GL's default unpack alignment is 4, so the strides agree for any width
+     * (the alignment is left alone -- it is global state projectM shares).
+     * Re-specifying the texture every frame made the driver reallocate it; only
+     * a size change needs that, otherwise update in place. */
+    if (src->w != gl_tex_w || src->h != gl_tex_h)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, src->w, src->h, 0,
+                     GL_RGB, GL_UNSIGNED_BYTE, src->pixels);
+        gl_tex_w = src->w;
+        gl_tex_h = src->h;
+    }
+    else
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, src->w, src->h,
+                        GL_RGB, GL_UNSIGNED_BYTE, src->pixels);
 
     glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
     glEnableVertexAttribArray(0);
@@ -193,79 +201,14 @@ static void get_window_dimensions(int *w, int *h)
 }
 
 
-static void rebuild_gui_texture(void)
-{
-    SDL_Surface *gui_surface;
-    int prev_w, prev_h, x, y,
-        w, h, depth = LCD_DEPTH < 8 ? 16 : LCD_DEPTH;
-    Uint32 flags = SDL_GetWindowFlags(sdlWindow);
-
-    get_window_dimensions(&w, &h);
-    SDL_RenderGetLogicalSize(sdlRenderer, &prev_w, &prev_h);
-    SDL_RenderSetLogicalSize(sdlRenderer, w, h);
-    if ((gui_texture = SDL_CreateTexture(sdlRenderer, SDL_MasksToPixelFormatEnum(depth,
-                                         0, 0, 0, 0), SDL_TEXTUREACCESS_STREAMING, w, h)) == NULL)
-        panicf("%s", SDL_GetError());
-
-    /* Did background change? */
-    if ((flags & SDL_WINDOW_RESIZABLE) &&
-        !(flags & (SDL_WINDOW_MAXIMIZED | SDL_WINDOW_FULLSCREEN)) &&
-        prev_w && prev_w != w)
-    {
-        SDL_GetWindowSize(sdlWindow, &x, NULL);
-
-        /* Maintain LCD's size */
-        float ratio = (float) x / prev_w;
-        SDL_SetWindowSize(sdlWindow, w * ratio, h * ratio);
-
-        /* move LCD back into previous position */
-        SDL_GetWindowPosition(sdlWindow, &x, &y);
-        if (background)
-        {
-            x -= (UI_LCD_POSX * ratio);
-            y -= (UI_LCD_POSY * ratio);
-        }
-        else
-        {
-            x += (UI_LCD_POSX * ratio);
-            y += (UI_LCD_POSY * ratio);
-        }
-        SDL_SetWindowPosition(sdlWindow, x > 0 ? x : 0, y > 0 ? y : 0);
-    }
-
-    if (background && picture_surface &&
-        (gui_surface = SDL_ConvertSurface(picture_surface, sim_lcd_surface->format, 0)))
-    {
-        SDL_UpdateTexture(gui_texture, NULL, gui_surface->pixels, gui_surface->pitch);
-        SDL_FreeSurface(gui_surface);
-    }
-
-    sdl_gui_update(lcd_surface, 0, 0, SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
-                   SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
-                   background ? UI_LCD_POSX : 0, background? UI_LCD_POSY : 0);
-
-}
-
 void sdl_window_render(void)
 {
     if (trimpod_viz_active)
         return;   /* visualizer owns the GL context/window right now */
+    if (lcd_panel_is_dark())
+        return;   /* panel off: the surfaces stay current, the present is waste */
     sdl_gl_make_current();
     gl_present_lcd_fade(sim_lcd_surface, 1.0f);
-    return;
-    if (new_gui_texture_needed)
-    {
-        new_gui_texture_needed = false;
-        if (gui_texture)
-            SDL_DestroyTexture(gui_texture);
-        rebuild_gui_texture();
-    }
-    else
-    {
-        SDL_RenderClear(sdlRenderer);
-        SDL_RenderCopy(sdlRenderer, gui_texture, NULL, NULL);
-        SDL_RenderPresent(sdlRenderer);
-    }
 }
 
 bool sdl_window_adjust(void)
@@ -288,10 +231,9 @@ bool sdl_window_adjust(void)
     return true;
 }
 
-void sdl_window_adjustment_needed(bool destroy_texture)
+void sdl_window_adjustment_needed(void)
 {
     window_adjustment_needed = true;
-    new_gui_texture_needed = destroy_texture;
 
     /* For MacOS and Windows, we're on a main or
     display thread already, and can immediately
@@ -309,8 +251,9 @@ void sdl_window_setup(void)
     if (display_zoom == 1)
         flags |= SDL_WINDOW_RESIZABLE;
 
-    if (!(picture_surface = SDL_LoadBMP("UI256.bmp")))
-        background = false;
+    /* No window-background bitmap on this target: the LCD fills the window.
+     * (`background` defaults to true, so it must be cleared here.) */
+    background = false;
 
     get_window_dimensions(&width, &height);
 
@@ -337,7 +280,6 @@ void sdl_window_setup(void)
                                                 depth, 0, 0, 0, 0)) == NULL)
         panicf("%s", SDL_GetError());
 
-    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, display_zoom == 1 ? "best" : "nearest");
     display_zoom = 0; /* reset to 0 unless/until user requests a scale level change */
     window_mutex = SDL_CreateMutex();
 }

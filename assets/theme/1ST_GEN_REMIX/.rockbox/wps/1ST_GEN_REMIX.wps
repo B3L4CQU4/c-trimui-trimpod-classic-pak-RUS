@@ -75,7 +75,7 @@
 %ar-%pr
 
 # Panel: VOLUME -- shown ~1s after a volume change (%mv).  Perceptual 0..10 dial
-# (20 even loudness steps): empty = 0 (silence), full = 10 (max), default = 5.
+# (40 even loudness steps): empty = 0 (silence), full = 10 (max), default = 5.
 # End labels are plain "0"/"10"; no dB (the scale isn't user-facing).
 %Vl(npVolume,20,190,280,14,-)%Vf(-)%Vb(-)
 %pv(0,0,-,14,PBB,backdrop,PB)

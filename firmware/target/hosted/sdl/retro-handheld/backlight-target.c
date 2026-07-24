@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "config.h"
+#include "lcd.h"                /* lcd_set_panel_dark: stop presenting while dark */
 #include "backlight-target.h"
 #include "sysfs.h"
 #include "panic.h"
@@ -88,8 +89,13 @@ void backlight_hw_on(void)
 {
     if (last_bl != 1) {
     
+    /* Present BEFORE lighting the panel: the surfaces were kept current while
+     * dark, so the panel comes up already showing them.  Lighting first would
+     * flash the frame from when it went dark until this present landed. */
+    lcd_set_panel_dark(false);
+
     switch (get_type()) {
-        case BL_TYPE1: set_type1_brightness(15); break;        
+        case BL_TYPE1: set_type1_brightness(15); break;
         case BL_TYPE2: sysfs_set_int(get_bl_env("SYSFS_BL_POWER"), 0); break;
     }
 
@@ -102,11 +108,12 @@ void backlight_hw_off(void)
     if (last_bl != 0) {
 
     switch (get_type()) {
-        case BL_TYPE1: set_type1_brightness(0); break;        
+        case BL_TYPE1: set_type1_brightness(0); break;
         case BL_TYPE2: sysfs_set_int(get_bl_env("SYSFS_BL_POWER"), 1); break;
     }
 
 	last_bl = 0;
+    lcd_set_panel_dark(true);    /* dark: stop presenting to a panel that is off */
     }
 }
 

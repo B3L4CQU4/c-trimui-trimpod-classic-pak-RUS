@@ -22,7 +22,6 @@
 
 #include "SDL.h"
 
-extern SDL_Texture *gui_texture; /* Window content, including background */
 extern SDL_Surface *sim_lcd_surface; /* LCD content */
 
 extern SDL_mutex *window_mutex;  /* prevent concurrent drawing from event thread &
@@ -34,10 +33,10 @@ void sdl_window_render(void);
 /* Updates size, aspect ratio, and re-renders window content */
 bool sdl_window_adjust(void);
 
-/* Needs to be called when window size, scale quality, or background should change */
-void sdl_window_adjustment_needed(bool destroy_texture);
+/* Needs to be called when the window size should change */
+void sdl_window_adjustment_needed(void);
 
-/* Creates window, renderer, and LCD surface when app launches */
+/* Creates window, GL context, and LCD surface when app launches */
 void sdl_window_setup(void);
 
 extern SDL_Window *sdlWindow;       /* the app window (GL-enabled on this target) */

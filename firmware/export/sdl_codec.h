@@ -20,7 +20,15 @@
 #ifndef _SDL_CODEC_H
 #define _SDL_CODEC_H
 
-// This is pretty generic and probably needs adjusting
-AUDIOHW_SETTING(VOLUME,      "dB",   0,  1, -80,   0,   0)
+/* Trimpod: 0.1 dB resolution (numdecimals=1, step=1) so the perceptual notch
+ * table lands on evenly-spaced perceived-loudness steps instead of snapping to
+ * coarse whole-dB values (the old "dB",0,1 quantized every notch to 1 dB, which
+ * made the rocker steps -- and the volume bar -- visibly/audibly uneven).  Range
+ * -80.0..-3.0 dB: the -3 dB ceiling trims the top of the shipped range (nobody
+ * runs max) so the notches pack into the usable band.  Default -22.0 dB.
+ * NOTE: min/max/default are in 0.1 dB units; the storage unit changed, so any
+ * saved whole-dB "volume:" value must be migrated (x10) or reset -- see the pak
+ * config.cfg and the clean-deploy requirement. */
+AUDIOHW_SETTING(VOLUME,      "dB",   1,  1, -800, -30, -220)
 
 #endif /* _SDL_CODEC_H */

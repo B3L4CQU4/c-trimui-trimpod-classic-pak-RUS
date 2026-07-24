@@ -17,6 +17,7 @@
 #include "misc.h"
 #include "screens.h"          /* FOR_NB_SCREENS */
 #include "gui/viewport.h"     /* viewportmanager_theme_enable / _undo */
+#include "statusbar-skinned.h" /* sb_get_title / sb_set_title_text (%Lt) */
 #include "trimpod_ui.h"
 #include "trimpod_page.h"
 #include "trimpod_transition.h"
@@ -53,6 +54,20 @@ static void page_render_cb(void *ctx)
 void trimpod_page_run(struct trimpod_page *page)
 {
     const char *prev = trimpod_get_header_legend();
+    const char *prev_title[NB_SCREENS] = { NULL };
+    enum themable_icons prev_icon[NB_SCREENS] = { Icon_NOICON };
+
+    /* Publish the page's own header title, remembering the one underneath (the
+     * parent list's) so it is back in place before the parent redraws.  The
+     * stored icon is biased by +2 for the skin engine -- undo that on the way
+     * out and it round-trips. */
+    if (page->title)
+        FOR_NB_SCREENS(i)
+        {
+            prev_title[i] = sb_get_title(i);
+            prev_icon[i]  = (enum themable_icons)(sb_get_icon(i) - 2);
+            sb_set_title_text(page->title, Icon_NOICON, i);
+        }
 
     /* swallow the keypress that opened this page */
     action_wait_for_release();
@@ -154,6 +169,11 @@ void trimpod_page_run(struct trimpod_page *page)
     if (page->no_theme)
         FOR_NB_SCREENS(i)
             viewportmanager_theme_undo(i, false);
+
+    /* put the parent's title back */
+    if (page->title)
+        FOR_NB_SCREENS(i)
+            sb_set_title_text(prev_title[i], prev_icon[i], i);
 
     /* restore the header the parent page had, then (unless told not to) arm a
      * back slide so the screen we return to slides us away and itself back in.

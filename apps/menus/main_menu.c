@@ -107,10 +107,17 @@ MAKE_MENU(manage_settings, ID2P(LANG_MANAGE_MENU), NULL, Icon_Config,
 /**********************************/
 
 
-/* About: a scrollable credits list (title from %Lt; scroll with up/down, B exits). */
+/* About: a self-scrolling credits reel (B exits). */
 static int trimpod_about_page(void)
 {
     trimpod_about();
+    return 0;
+}
+
+/* Controls: a static list of the app's inputs (B exits). */
+static int trimpod_controls_page(void)
+{
+    trimpod_controls();
     return 0;
 }
 
@@ -127,11 +134,13 @@ MENUITEM_FUNCTION(tp_set_viz, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_AUDIO_VISUALI
                   trimpod_av_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_power, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_DEVICE),
                   trimpod_power_page, NULL, Icon_NOICON);
+MENUITEM_FUNCTION(tp_set_controls, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_CONTROLS),
+                  trimpod_controls_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_about, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_ABOUT),
                   trimpod_about_page, NULL, Icon_NOICON);
 MAKE_MENU(trimpod_settings_menu, ID2P(LANG_SETTINGS), NULL, Icon_Submenu_Entered,
           &tp_set_mainmenu, &tp_set_audio, &tp_set_viz, &sound_settings, &tp_set_power,
-          &tp_set_about);
+          &tp_set_controls, &tp_set_about);
 int trimpod_settings_page(void)
 {
     do_menu(&trimpod_settings_menu, NULL, NULL, false);

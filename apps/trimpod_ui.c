@@ -21,6 +21,7 @@
 #include "kernel.h"
 #include "system.h"
 #include "action.h"
+#include "lang.h"                /* str(): the page titles are localised */
 #include "screens.h"
 #include "lcd.h"
 #include "font.h"
@@ -485,6 +486,7 @@ void trimpod_about(void)
     {
         .base = { .vt = &about_vtable, .context = CONTEXT_STD,
                   .allowed = about_allowed,
+                  .title = (const char *)str(LANG_TRIMPOD_ABOUT),
                   .animated = true, .no_header_refresh = true },
         .start_tick  = current_tick,
         .header_done = false,
@@ -503,6 +505,74 @@ void trimpod_about(void)
     s->setfont(FONT_UI);
     if (fid != FONT_UI)
         font_unload(fid);
+}
+
+/* ---- Controls: a static reference card for the four inputs.  Same chrome as
+ * every other page; the body is a left-aligned list, the block itself centred
+ * on the widest row.  B leaves. --------------------------------------------- */
+
+static const char *const controls_rows[] = {
+    "B - Back/Cancel",
+    "A - Play/Enter",
+    "Hold A - Context Menus",
+    "Side Switch - Lock Buttons",
+};
+#define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))
+
+static void controls_draw(struct trimpod_page *self)
+{
+    (void)self;
+    struct screen *s = &screens[SCREEN_MAIN];
+    struct viewport vp = {0};
+
+    viewport_set_defaults(&vp, s->screen_type);   /* content area, not header */
+    s->set_viewport(&vp);
+    s->clear_viewport();
+
+    int w, fh = 0, block = 0;
+    for (int i = 0; i < CONTROLS_NROWS; i++)
+    {
+        s->getstringsize((const unsigned char *)controls_rows[i], &w, &fh);
+        if (w > block) block = w;                 /* the widest row sets the left edge */
+    }
+
+    const int line = fh + 8;
+    int x = (vp.width - block) / 2;
+    int y = (vp.height - CONTROLS_NROWS * line) / 2;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+
+    for (int i = 0; i < CONTROLS_NROWS; i++, y += line)
+        s->putsxy(x, y, (const unsigned char *)controls_rows[i]);
+
+    s->update_viewport();
+    s->set_viewport(NULL);
+}
+
+static enum trimpod_page_result controls_on_action(struct trimpod_page *self,
+                                                   int action)
+{
+    (void)self;
+    return (action == ACTION_STD_CANCEL) ? TRIMPOD_PAGE_DONE : TRIMPOD_PAGE_STAY;
+}
+
+static const struct trimpod_page_vtable controls_vtable =
+{
+    .legend    = NULL,            /* just the title, no status-bar legend */
+    .draw      = controls_draw,
+    .poll      = NULL,            /* default: get_action(CONTEXT_STD) */
+    .on_action = controls_on_action,
+};
+
+/* only B leaves */
+static const int controls_allowed[] = { ACTION_STD_CANCEL, -1 };
+
+void trimpod_controls(void)
+{
+    struct trimpod_page p = { .vt = &controls_vtable, .context = CONTEXT_STD,
+                              .allowed = controls_allowed,
+                              .title = (const char *)str(LANG_TRIMPOD_CONTROLS) };
+    trimpod_page_run(&p);
 }
 
 /* Measure every reel line once to fault its glyphs into the cache now (startup),

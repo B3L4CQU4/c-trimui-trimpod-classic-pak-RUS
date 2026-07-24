@@ -591,7 +591,12 @@ static int wps_page_poll(struct trimpod_page *p, int timeout)
     if (w->button && !IS_SYSEVENT(w->button) )
         storage_spin();
 
-    long button = skin_wait_for_action(WPS, CONTEXT_WPS|ALLOW_SOFTLOCK, HZ/5);
+    /* 5Hz keeps the counters/progress bar live on screen; while the panel is
+     * dark drop to 1Hz -- each pass redraws the whole WPS (art, spectrum, text)
+     * into the framebuffer, and nobody is looking.  A button still returns
+     * immediately, and 1s-stale content on wake is imperceptible. */
+    long button = skin_wait_for_action(WPS, CONTEXT_WPS|ALLOW_SOFTLOCK,
+                                       lcd_panel_is_dark() ? HZ : HZ/5);
 
     /* Exit if audio has stopped playing. This happens e.g. at end of
        playlist or if using the sleep timer. */
