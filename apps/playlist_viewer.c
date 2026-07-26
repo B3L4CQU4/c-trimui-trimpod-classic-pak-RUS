@@ -54,6 +54,7 @@
 #include "playback.h"
 #include "trimpod_transition.h"   /* slide the viewer in/out like every other screen */
 #include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
+#include "trimpod_visualizer.h"   /* idle auto-start while music plays */
 
 
 
@@ -1034,6 +1035,10 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
                 break;
             }
 #endif /* HAVE_HOTKEY */
+            case ACTION_NONE:   /* idle tick */
+                if (trimpod_visualizer_maybe_autostart())
+                    gui_synclist_draw(&playlist_lists);
+                break;
             default:
                 if(default_event_handler(button) == SYS_USB_CONNECTED)
                 {

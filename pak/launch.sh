@@ -73,6 +73,13 @@ TRIMPOD_DV="$(amixer sget 'digital volume' 2>/dev/null | sed -n 's/.*Mono: \([0-
 TRIMPOD_DAC="$(amixer sget 'DAC volume' 2>/dev/null | sed -n 's/.*Front Left: \([0-9][0-9]*\).*/\1/p')"
 [ -n "$TRIMPOD_DV" ]  && amixer -q sset 'digital volume' 0   2>/dev/null
 [ -n "$TRIMPOD_DAC" ] && amixer -q sset 'DAC volume'     160 2>/dev/null
+# NextUI at volume 0 (or side-switch mute) ALSO latches the speaker driver's
+# hard mute (/sys/class/speaker/mute), which survives into our session and
+# silences Trimpod regardless of its own volume.  Unmute for the session and
+# restore the user's NextUI state on exit.
+SPK_MUTE=/sys/class/speaker/mute
+TRIMPOD_SPK_MUTE="$(cat "$SPK_MUTE" 2>/dev/null)"
+[ -n "$TRIMPOD_SPK_MUTE" ] && echo 0 > "$SPK_MUTE" 2>/dev/null
 
 # ALL teardown lives here so it runs on every catchable exit path -- a clean
 # binary return, or INT/TERM/HUP (e.g. NextUI stopping the pak) -- not just the
@@ -87,6 +94,7 @@ cleanup() {
   [ -f /tmp/trimpod_muted_vol ] && dd if=/tmp/trimpod_muted_vol of=/dev/shm/SharedSettings bs=1 seek=56 count=4 conv=notrunc 2>/dev/null
   [ -n "$TRIMPOD_DV" ] && amixer -q sset "digital volume" "$TRIMPOD_DV" 2>/dev/null
   [ -n "$TRIMPOD_DAC" ] && amixer -q sset "DAC volume" "$TRIMPOD_DAC" 2>/dev/null
+  [ -n "$TRIMPOD_SPK_MUTE" ] && echo "$TRIMPOD_SPK_MUTE" > "$SPK_MUTE" 2>/dev/null
   if [ -d "$CPUP" ] && [ -n "$TRIMPOD_OLD_GOV" ]; then
     echo 408000 > "$CPUP/scaling_min_freq"
     echo "$TRIMPOD_OLD_MAX" > "$CPUP/scaling_max_freq"
