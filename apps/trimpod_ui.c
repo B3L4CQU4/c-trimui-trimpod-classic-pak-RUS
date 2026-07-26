@@ -507,21 +507,21 @@ void trimpod_about(void)
         font_unload(fid);
 }
 
-/* ---- Controls: a static reference card for the four inputs.  Same chrome as
- * every other page; the body is a left-aligned list, the block itself centred
- * on the widest row.  B leaves. --------------------------------------------- */
+/* ---- Message page: a static block of text rows.  Same chrome as every other
+ * page (title header + slide); the body is a left-aligned list, the block
+ * itself centred on the widest row.  B leaves.  The Controls reference card
+ * and the empty-playlist hint are both this page with different rows. ------- */
 
-static const char *const controls_rows[] = {
-    "B - Back/Cancel",
-    "A - Play/Enter",
-    "Hold A - Context Menus",
-    "Side Switch - Lock Buttons",
-};
-#define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))
-
-static void controls_draw(struct trimpod_page *self)
+struct message_page
 {
-    (void)self;
+    struct trimpod_page base;
+    const char *const *rows;
+    int nrows;
+};
+
+static void message_draw(struct trimpod_page *self)
+{
+    struct message_page *p = (struct message_page *)self;
     struct screen *s = &screens[SCREEN_MAIN];
     struct viewport vp = {0};
 
@@ -530,49 +530,67 @@ static void controls_draw(struct trimpod_page *self)
     s->clear_viewport();
 
     int w, fh = 0, block = 0;
-    for (int i = 0; i < CONTROLS_NROWS; i++)
+    for (int i = 0; i < p->nrows; i++)
     {
-        s->getstringsize((const unsigned char *)controls_rows[i], &w, &fh);
+        s->getstringsize((const unsigned char *)p->rows[i], &w, &fh);
         if (w > block) block = w;                 /* the widest row sets the left edge */
     }
 
     const int line = fh + 8;
     int x = (vp.width - block) / 2;
-    int y = (vp.height - CONTROLS_NROWS * line) / 2;
+    int y = (vp.height - p->nrows * line) / 2;
     if (x < 0) x = 0;
     if (y < 0) y = 0;
 
-    for (int i = 0; i < CONTROLS_NROWS; i++, y += line)
-        s->putsxy(x, y, (const unsigned char *)controls_rows[i]);
+    for (int i = 0; i < p->nrows; i++, y += line)
+        s->putsxy(x, y, (const unsigned char *)p->rows[i]);
 
     s->update_viewport();
     s->set_viewport(NULL);
 }
 
-static enum trimpod_page_result controls_on_action(struct trimpod_page *self,
-                                                   int action)
+static enum trimpod_page_result message_on_action(struct trimpod_page *self,
+                                                  int action)
 {
     (void)self;
     return (action == ACTION_STD_CANCEL) ? TRIMPOD_PAGE_DONE : TRIMPOD_PAGE_STAY;
 }
 
-static const struct trimpod_page_vtable controls_vtable =
+static const struct trimpod_page_vtable message_vtable =
 {
     .legend    = NULL,            /* just the title, no status-bar legend */
-    .draw      = controls_draw,
+    .draw      = message_draw,
     .poll      = NULL,            /* default: get_action(CONTEXT_STD) */
-    .on_action = controls_on_action,
+    .on_action = message_on_action,
 };
 
 /* only B leaves */
-static const int controls_allowed[] = { ACTION_STD_CANCEL, -1 };
+static const int message_allowed[] = { ACTION_STD_CANCEL, -1 };
+
+void trimpod_message_page(const char *title, const char *const *rows, int nrows)
+{
+    struct message_page p =
+    {
+        .base = { .vt = &message_vtable, .context = CONTEXT_STD,
+                  .allowed = message_allowed, .title = title },
+        .rows = rows, .nrows = nrows,
+    };
+    trimpod_page_run(&p.base);
+}
+
+/* Controls: a static reference card for the four inputs. */
+static const char *const controls_rows[] = {
+    "B - Back/Cancel",
+    "A - Play/Enter",
+    "Hold A - Context Menus",
+    "Side Switch - Lock Buttons",
+};
+#define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))
 
 void trimpod_controls(void)
 {
-    struct trimpod_page p = { .vt = &controls_vtable, .context = CONTEXT_STD,
-                              .allowed = controls_allowed,
-                              .title = (const char *)str(LANG_TRIMPOD_CONTROLS) };
-    trimpod_page_run(&p);
+    trimpod_message_page((const char *)str(LANG_TRIMPOD_CONTROLS),
+                         controls_rows, CONTROLS_NROWS);
 }
 
 /* Measure every reel line once to fault its glyphs into the cache now (startup),

@@ -46,6 +46,10 @@ void trimpod_about(void);
  * (possibly mid-playback) About open doesn't stall the codec on disk reads. */
 void trimpod_about_prewarm(void);
 
+/* A static text page: `rows` rendered as a centred block under a `title`
+ * header (B leaves).  Blocking. */
+void trimpod_message_page(const char *title, const char *const *rows, int nrows);
+
 /* The Controls screen: a static list of the app's inputs (B leaves).  Blocking. */
 void trimpod_controls(void);
 
