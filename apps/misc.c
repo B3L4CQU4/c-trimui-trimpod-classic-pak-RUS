@@ -578,7 +578,11 @@ static void update_norm_tab(void)
     norm_tab[0] = min;
     norm_tab_size = 1;
 
-    for (int i = 1; i < lim - 1; ++i)
+    /* Trimpod: iterate to lim-1, not lim-2.  The upstream bound skipped the
+     * next-to-top normalized index, leaving a double-width gap so the final step
+     * before max was ~2x -- the main source of the uneven bar/loudness at the
+     * top of the dial. */
+    for (int i = 1; i < lim; ++i)
     {
         int vol = from_normalized_volume(i, min, max, lim);
         int rem = vol % step;

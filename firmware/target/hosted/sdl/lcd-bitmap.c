@@ -108,6 +108,28 @@ void lcd_update(void)
     lcd_update_rect(0, 0, LCD_WIDTH, LCD_HEIGHT);
 }
 
+/* Trimpod: the panel is dark (Auto Screen Off timeout or a manual power blank).
+ * Nothing drawn can be seen, and on this target every present is a full-window
+ * 3.2x upscale + swap -- the single most expensive thing the app does.  Drawing
+ * still lands in the surfaces (so they stay current); only the push to the panel
+ * is skipped, and waking pushes once.  Driven by backlight_hw_on/off, which is
+ * where the panel physically changes state. */
+static bool lcd_panel_dark = false;
+
+void lcd_set_panel_dark(bool dark)
+{
+    if (lcd_panel_dark == dark)
+        return;
+    lcd_panel_dark = dark;
+    if (!dark)
+        lcd_update();   /* wake: present what the surfaces already hold */
+}
+
+bool lcd_panel_is_dark(void)
+{
+    return lcd_panel_dark;
+}
+
 void lcd_update_rect(int x_start, int y_start, int width, int height)
 {
     if (lcd_update_suppressed)
@@ -119,27 +141,6 @@ void lcd_update_rect(int x_start, int y_start, int width, int height)
                    background ? UI_LCD_POSX : 0, background? UI_LCD_POSY : 0);
 }
 
-#if (SDL_MAJOR_VERSION > 1)
-void sim_backlight(int value)
-{
-#if LCD_DEPTH <= 8
-    if (value > 0) {
-        sdl_set_gradient(lcd_surface, &lcd_bl_color_dark,
-                         &lcd_bl_color_bright, 0, NUM_SHADES);
-    } else {
-        sdl_set_gradient(lcd_surface, &lcd_color_dark,
-                         &lcd_color_bright, 0, NUM_SHADES);
-    }
-#else /* LCD_DEPTH > 8 */
-    SDL_SetSurfaceAlphaMod(lcd_surface, (value * 255) / 100);
-#endif /* LCD_DEPTH */
-
-    sdl_gui_update(lcd_surface, 0, 0, SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
-                   SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
-                   background ? UI_LCD_POSX : 0, background? UI_LCD_POSY : 0);
-}
-#endif /* SDL_MAJOR_VERSION > 1 */
-
 /* initialise simulator lcd driver */
 void lcd_init_device(void)
 {
@@ -147,7 +148,13 @@ void lcd_init_device(void)
     lcd_surface = SDL_CreateRGBSurface(SDL_SWSURFACE, SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
                                        LCD_DEPTH, 0, 0, 0, 0);
 #if SDL_MAJOR_VERSION > 1
-    SDL_SetSurfaceBlendMode(lcd_surface, SDL_BLENDMODE_BLEND);
+    /* BLENDMODE_NONE, not BLEND: the surface has no alpha channel (masks are 0)
+     * and this target has a real hardware backlight, so nothing ever sets an
+     * alpha mod -- BLEND only forced every frame's copy into sim_lcd_surface
+     * through SDL's per-pixel software blender (15ms/frame vs 0.3ms for a plain
+     * copy).  Blending only ever served the simulator's fake backlight dimming,
+     * which this target does not use -- it has a real one. */
+    SDL_SetSurfaceBlendMode(lcd_surface, SDL_BLENDMODE_NONE);
 #endif
 #elif LCD_DEPTH <= 8
     lcd_surface = SDL_CreateRGBSurface(SDL_SWSURFACE, SIM_LCD_WIDTH, SIM_LCD_HEIGHT,

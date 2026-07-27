@@ -481,7 +481,12 @@ static void volume_limit_set_default(void* setting, void* defaultval)
 
 const struct settings_list settings[] = {
 /* system_status settings .resume.cfg */
-    SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume", SOUND_VOLUME),
+    /* Trimpod: cfg key is "volume_ddb" (deci-dB), NOT "volume".  The storage
+     * unit changed from whole dB to 0.1 dB; keeping the old key would make a
+     * pre-update .resume.cfg "volume: -30" (-30 dB) load as -3.0 dB = near max.
+     * Versioning the key makes stale old-unit values unrecognized, so volume
+     * falls back to sound_default() (-22 dB) on update instead of blasting. */
+    SYSTEM_STATUS_SOUND(F_NO_WRAP, volume, LANG_VOLUME, "volume_ddb", SOUND_VOLUME),
     SYSTEM_STATUS(0, resume_index,   -1,     "IDX"),
     SYSTEM_STATUS(0, resume_crc32,   -1,     "CRC"),
     SYSTEM_STATUS(0, resume_elapsed, -1,     "ELA"),
@@ -492,8 +497,11 @@ const struct settings_list settings[] = {
     SYSTEM_STATUS(0, last_screen,    -1,     "PVS"),
     SYSTEM_STATUS(0, last_browser,    0,     "BRS"),
 /* sound settings */
+    /* Trimpod: key versioned to "volume_limit_ddb" for the same unit change as
+     * volume_ddb above -- a stale old-unit "volume limit" is ignored (falls back
+     * to no cap) rather than misread. */
     CUSTOM_SETTING(F_NO_WRAP, volume_limit, LANG_VOLUME_LIMIT,
-                  NULL, "volume limit",
+                  NULL, "volume_limit_ddb",
                   volume_limit_load_from_cfg, volume_limit_write_to_cfg,
                   volume_limit_is_changed, volume_limit_set_default),
     SOUND_SETTING(0, balance, LANG_BALANCE, "balance", SOUND_BALANCE),
@@ -668,14 +676,14 @@ const struct settings_list settings[] = {
                 off_on, UNIT_SEC, formatter_seconds_0_is_never,
                 NULL, 10, viz_transition_values),
 #ifdef HAVE_PERCEPTUAL_VOLUME
-    /* Trimpod: perceptual by default with 20 even loudness increments (a 0..10
+    /* Trimpod: perceptual by default with 40 even loudness increments (a 0..10
      * dial); not exposed in the menu (see settings_menu.c). */
     CHOICE_SETTING(0, volume_adjust_mode, LANG_VOLUME_ADJUST_MODE,
                    VOLUME_ADJUST_PERCEPTUAL, "volume adjustment mode",
                    "direct,perceptual", NULL, 2,
                    ID2P(LANG_DIRECT), ID2P(LANG_PERCEPTUAL)),
     INT_SETTING_NOWRAP(0, volume_adjust_norm_steps, LANG_VOLUME_ADJUST_NORM_STEPS,
-                       20, "perceptual volume step count", UNIT_INT,
+                       40, "perceptual volume step count", UNIT_INT,
                        MIN_NORM_VOLUME_STEPS, MAX_NORM_VOLUME_STEPS, 5,
                        NULL, NULL),
 #endif

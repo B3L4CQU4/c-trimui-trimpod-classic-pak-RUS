@@ -207,7 +207,7 @@ static bool event_handler(SDL_Event *event)
         else if(event->window.event == SDL_WINDOWEVENT_RESIZED)
         {
             SDL_LockMutex(window_mutex);
-            sdl_window_adjustment_needed(false);
+            sdl_window_adjustment_needed();
             SDL_UnlockMutex(window_mutex);
             static unsigned long last_tick;
             if (TIME_AFTER(current_tick, last_tick + HZ/20) && !button_queue_full())
@@ -392,6 +392,10 @@ int button_read_device(void)
                  * button (is_backlight_on() is the real state; power_blanked
                  * covers the always-on cases where it can't tell, e.g. viz).
                  * Otherwise blank it. */
+                /* The power key never reaches button_tick's stamp, so mark the
+                 * activity here -- a wake must restart the idle timers (viz
+                 * auto-start), not leave them expired. */
+                button_touch_activity();
                 if (power_blanked || !is_backlight_on(true))
                 {
                     backlight_on();

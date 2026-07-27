@@ -21,6 +21,7 @@
 #include "kernel.h"
 #include "system.h"
 #include "action.h"
+#include "lang.h"                /* str(): the page titles are localised */
 #include "screens.h"
 #include "lcd.h"
 #include "font.h"
@@ -258,7 +259,7 @@ struct about_line { const char *text; enum about_kind kind; };
 
 static const struct about_line about_lines[] = {
     { "Trimpod Classic",     AB_TITLE },
-    { "v1.0.2",              AB_SUB   },
+    { "v1.0.3",              AB_SUB   },
     { NULL,                  AB_GAP   },
     { "MADE BY",             AB_CAP   },
     { "Werewolf Camp",       AB_NAME  },
@@ -485,6 +486,7 @@ void trimpod_about(void)
     {
         .base = { .vt = &about_vtable, .context = CONTEXT_STD,
                   .allowed = about_allowed,
+                  .title = (const char *)str(LANG_TRIMPOD_ABOUT),
                   .animated = true, .no_header_refresh = true },
         .start_tick  = current_tick,
         .header_done = false,
@@ -503,6 +505,92 @@ void trimpod_about(void)
     s->setfont(FONT_UI);
     if (fid != FONT_UI)
         font_unload(fid);
+}
+
+/* ---- Message page: a static block of text rows.  Same chrome as every other
+ * page (title header + slide); the body is a left-aligned list, the block
+ * itself centred on the widest row.  B leaves.  The Controls reference card
+ * and the empty-playlist hint are both this page with different rows. ------- */
+
+struct message_page
+{
+    struct trimpod_page base;
+    const char *const *rows;
+    int nrows;
+};
+
+static void message_draw(struct trimpod_page *self)
+{
+    struct message_page *p = (struct message_page *)self;
+    struct screen *s = &screens[SCREEN_MAIN];
+    struct viewport vp = {0};
+
+    viewport_set_defaults(&vp, s->screen_type);   /* content area, not header */
+    s->set_viewport(&vp);
+    s->clear_viewport();
+
+    int w, fh = 0, block = 0;
+    for (int i = 0; i < p->nrows; i++)
+    {
+        s->getstringsize((const unsigned char *)p->rows[i], &w, &fh);
+        if (w > block) block = w;                 /* the widest row sets the left edge */
+    }
+
+    const int line = fh + 8;
+    int x = (vp.width - block) / 2;
+    int y = (vp.height - p->nrows * line) / 2;
+    if (x < 0) x = 0;
+    if (y < 0) y = 0;
+
+    for (int i = 0; i < p->nrows; i++, y += line)
+        s->putsxy(x, y, (const unsigned char *)p->rows[i]);
+
+    s->update_viewport();
+    s->set_viewport(NULL);
+}
+
+static enum trimpod_page_result message_on_action(struct trimpod_page *self,
+                                                  int action)
+{
+    (void)self;
+    return (action == ACTION_STD_CANCEL) ? TRIMPOD_PAGE_DONE : TRIMPOD_PAGE_STAY;
+}
+
+static const struct trimpod_page_vtable message_vtable =
+{
+    .legend    = NULL,            /* just the title, no status-bar legend */
+    .draw      = message_draw,
+    .poll      = NULL,            /* default: get_action(CONTEXT_STD) */
+    .on_action = message_on_action,
+};
+
+/* only B leaves */
+static const int message_allowed[] = { ACTION_STD_CANCEL, -1 };
+
+void trimpod_message_page(const char *title, const char *const *rows, int nrows)
+{
+    struct message_page p =
+    {
+        .base = { .vt = &message_vtable, .context = CONTEXT_STD,
+                  .allowed = message_allowed, .title = title },
+        .rows = rows, .nrows = nrows,
+    };
+    trimpod_page_run(&p.base);
+}
+
+/* Controls: a static reference card for the four inputs. */
+static const char *const controls_rows[] = {
+    "B - Back/Cancel",
+    "A - Play/Enter",
+    "Hold A - Context Menus",
+    "Side Switch - Lock Buttons",
+};
+#define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))
+
+void trimpod_controls(void)
+{
+    trimpod_message_page((const char *)str(LANG_TRIMPOD_CONTROLS),
+                         controls_rows, CONTROLS_NROWS);
 }
 
 /* Measure every reel line once to fault its glyphs into the cache now (startup),

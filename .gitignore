@@ -331,5 +331,6 @@ __pycache__
 # Claude Code / AI-assistant working files -- never ship to the public repo.
 /.claude/
 /PICKUP.md
+/RELEASING.md
 CLAUDE.md
 AGENTS.md

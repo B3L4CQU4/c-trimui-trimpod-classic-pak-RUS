@@ -44,6 +44,7 @@
 #include "string-extra.h"       /* strlcpy */
 #include "strnatcmp.h"          /* natural alphabetical sort of the preset list */
 #include "action.h"
+#include "audio.h"             /* audio_status: gate the idle auto-start on playback */
 #include "lcd.h"
 #include "backlight.h"         /* backlight_set_timeout: suspend Auto Screen Off while visualizing */
 #include "kernel.h"
@@ -509,6 +510,8 @@ static void visualizer_session(const char *locked_path)
     {
         trimpod_viz_active = false;   /* the entry fade may have set it */
         viz_entry_faded = false;
+        /* undo the entry fade's Auto-Screen-Off freeze (no-op without a fade) */
+        backlight_set_timeout(global_settings.backlight_timeout);
         lcd_update();                 /* hand the window back, restore the screen */
         return;
     }
@@ -598,6 +601,10 @@ void trimpod_visualizer_run(void)
  * the visualizer (loaded while black) fades in from black. */
 bool trimpod_visualizer_fade_to_black(void)
 {
+    /* Freeze Auto Screen Off so it can't blank mid-fade/mid-load;
+     * visualizer_session keeps it suspended and restores it on exit (the
+     * cancel path below restores it directly). */
+    backlight_set_timeout(0);
     sdl_gl_make_current();
     SDL_GL_SetSwapInterval(1);   /* vsync-pace the fade so it's smooth (else the
                                   * first fade, before viz_gl_init, runs un-paced) */
@@ -614,9 +621,14 @@ bool trimpod_visualizer_fade_to_black(void)
         sdl_gl_present_lcd_fade(fade);
 
         int act = get_action(CONTEXT_STD, TIMEOUT_NOBLOCK);
-        if (act != ACTION_NONE && act != ACTION_REDRAW)   /* real button -> cancel */
+        bool blanked = power_display_off();  /* power short press mid-fade */
+        if (blanked || (act != ACTION_NONE && act != ACTION_REDRAW))
         {
-            sdl_gl_present_lcd_fade(1.0f);   /* snap Now Playing back to full */
+            if (blanked)   /* stay dark: restore without waking the panel */
+                backlight_set_timeout_quiet(global_settings.backlight_timeout);
+            else
+                backlight_set_timeout(global_settings.backlight_timeout);
+            sdl_gl_present_lcd_fade(1.0f);   /* snap the screen back to full */
             trimpod_viz_active = false;      /* hand the window back to the LCD */
             return true;                     /* cancelled */
         }
@@ -627,6 +639,28 @@ bool trimpod_visualizer_fade_to_black(void)
     viz_entry_faded = true;   /* visualizer_session keeps trimpod_viz_active set,
                                * then fades IN from black */
     return false;
+}
+
+bool trimpod_visualizer_autostart_due(void)
+{
+    int status = audio_status();
+    return global_settings.viz_start_delay > 0
+        && !power_display_off()   /* suspended while display blanked */
+        && is_backlight_on(true)  /* screen dark from Auto Screen Off: stay
+                                   * dark (Never counts as always-on) */
+        && (status & AUDIO_STATUS_PLAY)
+        && !(status & AUDIO_STATUS_PAUSE)
+        && TIME_AFTER(current_tick, button_last_activity_tick()
+                      + global_settings.viz_start_delay * HZ);
+}
+
+bool trimpod_visualizer_maybe_autostart(void)
+{
+    if (!trimpod_visualizer_autostart_due())
+        return false;
+    if (!trimpod_visualizer_fade_to_black())   /* fade completed -> launch */
+        trimpod_visualizer_run();
+    return true;   /* screen disturbed either way: caller repaints */
 }
 
 /* ---- Settings -> Visualizers: the on/off toggle list -----------------------

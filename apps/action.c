@@ -998,7 +998,7 @@ static int global_volume_action(int button, int action)
 /* Trimpod: tap vs. hold on the BACK/SELECT buttons.
  *
  * A quick tap runs the primary action on release (back / select).  Holding the
- * button for a second runs the *secondary* action WHILE STILL HELD -- fired once
+ * button for 650 ms runs the *secondary* action WHILE STILL HELD -- fired once
  * off the auto-repeat the button driver emits for any held button -- and the
  * eventual release is then swallowed so it does not also run the primary.
  *
@@ -1008,7 +1008,7 @@ static int global_volume_action(int button, int action)
  * "abort" in the keyboard; A is rewritten only on screens that actually have a
  * context menu -- the list-style screens, and Now Playing (tap = play/pause,
  * hold = the Now Playing menu). */
-#define TP_HOLD_TICKS   HZ          /* a "hold" is one second */
+#define TP_HOLD_TICKS   (65*HZ/100)  /* a "hold" is 650 ms */
 #define TP_CTX_BASE(c)  ((c) & 0x00ffffff)   /* context minus the flag bits */
 
 /* Shared tap/hold engine.  `btn` is the bare button (BUTTON_A/BUTTON_B); returns
@@ -1030,7 +1030,7 @@ static int tp_hold(int button, int action, int btn, int secondary,
         if (!*fired && *tick != 0 && current_tick - *tick >= TP_HOLD_TICKS)
         {
             *fired = true;
-            return secondary;                   /* fire the hold at ~1s, held */
+            return secondary;                   /* fire the hold, still held */
         }
         return ACTION_NONE;                      /* swallow the auto-repeats */
     }

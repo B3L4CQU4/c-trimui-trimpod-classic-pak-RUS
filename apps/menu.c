@@ -42,6 +42,7 @@
 #include "option_select.h"
 #include "trimpod_transition.h"   /* page slide transitions (shared) */
 #include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
+#include "trimpod_visualizer.h"   /* idle auto-start while music plays */
 #include "screens.h"
 #include "lang.h"
 #include "misc.h"
@@ -438,6 +439,11 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
         /* query audio status to see if it changed */
         redraw_lists = query_audio_status(&old_audio_status);
+
+        /* Idle auto-start of the visualizer while music plays (the WPS runs
+         * its own inline hook -- it restores the skin around it). */
+        if (action == ACTION_NONE && trimpod_visualizer_maybe_autostart())
+            redraw_lists = true;
 
         int new_action = menu_callback(action, menu, &lists);
         if (new_action == ACTION_EXIT_AFTER_THIS_MENUITEM)

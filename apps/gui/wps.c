@@ -591,7 +591,12 @@ static int wps_page_poll(struct trimpod_page *p, int timeout)
     if (w->button && !IS_SYSEVENT(w->button) )
         storage_spin();
 
-    long button = skin_wait_for_action(WPS, CONTEXT_WPS|ALLOW_SOFTLOCK, HZ/5);
+    /* 5Hz keeps the counters/progress bar live on screen; while the panel is
+     * dark drop to 1Hz -- each pass redraws the whole WPS (art, spectrum, text)
+     * into the framebuffer, and nobody is looking.  A button still returns
+     * immediately, and 1s-stale content on wake is imperceptible. */
+    long button = skin_wait_for_action(WPS, CONTEXT_WPS|ALLOW_SOFTLOCK,
+                                       lcd_panel_is_dark() ? HZ : HZ/5);
 
     /* Exit if audio has stopped playing. This happens e.g. at end of
        playlist or if using the sleep timer. */
@@ -846,14 +851,11 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 skin_request_full_update(CUSTOM_STATUSBAR); /* if SBS is used */
                 break;
             case ACTION_NONE: /* Timeout, do a partial update */
-                /* Auto-start the visualizer after the configured idle (while
-                 * music is playing) on Now Playing.  0 = Never. */
-                if (global_settings.viz_start_delay > 0
-                    && !power_display_off()   /* suspended while display blanked */
-                    && (audio_status() & AUDIO_STATUS_PLAY)
-                    && !(audio_status() & AUDIO_STATUS_PAUSE)
-                    && TIME_AFTER(current_tick, button_last_activity_tick()
-                                  + global_settings.viz_start_delay * HZ))
+                /* Auto-start the visualizer after the configured idle while
+                 * music plays (0 = Never).  Runs the sequence inline rather
+                 * than via trimpod_visualizer_maybe_autostart() because the
+                 * skin must be left/restored around the run. */
+                if (trimpod_visualizer_autostart_due())
                 {
                     /* Fade Now Playing to black first (hides the viz load).  A
                      * keypress during the fade cancels -> stay here. */
@@ -934,7 +936,17 @@ long gui_wps_show(void)
     wps_state_init();
 
     trimpod_page_run(&w.base);
-    return w.base.home ? GO_TO_ROOT : w.result;
+    if (w.base.home)
+    {
+        /* Hold-B home: the run loop breaks out before on_action can leave the
+         * skin.  w.restore doubles as "the skin is currently left" -- leave
+         * when still entered, and also after a themeless leave (NOSBS hotkey),
+         * whose viewportmanager theme push is still outstanding. */
+        if (!w.restore || !w.theme_enabled)
+            gwps_leave_wps(true);
+        return GO_TO_ROOT;
+    }
+    return w.result;
 }
 
 struct wps_state *get_wps_state(void)

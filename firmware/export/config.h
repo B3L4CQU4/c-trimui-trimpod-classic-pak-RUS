@@ -732,7 +732,7 @@ Lyre prototype 1 */
 
 /* Trimpod: perceptual volume ON -- the rocker steps and the bar both move in
  * equal perceived-loudness increments (volume_adjust_mode=perceptual,
- * volume_adjust_norm_steps=20), so the bar reads as a plain 0..10 loudness dial
+ * volume_adjust_norm_steps=40), so the bar reads as a plain 0..10 loudness dial
  * (middle = half), not the raw logarithmic dB. The dB stays the storage unit;
  * users never see it (the volume_adjust_* knobs are hidden from the menu). */
 #define HAVE_PERCEPTUAL_VOLUME

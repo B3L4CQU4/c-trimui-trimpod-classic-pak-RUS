@@ -38,13 +38,20 @@ bool trimpod_confirm(const char *question, const char *detail);
  * chosen row index, or -1 if the user backed out with B.  Blocking. */
 int trimpod_context_menu(const char *title, const char *const *items, int count);
 
-/* The About screen: a scrollable credits list (up/down scroll, B leaves).
+/* The About screen: a credits reel that drifts up and down on its own (B leaves).
  * Blocking. */
 void trimpod_about(void);
 
 /* Pre-fault the About reel's glyphs into the font cache at startup, so the first
  * (possibly mid-playback) About open doesn't stall the codec on disk reads. */
 void trimpod_about_prewarm(void);
+
+/* A static text page: `rows` rendered as a centred block under a `title`
+ * header (B leaves).  Blocking. */
+void trimpod_message_page(const char *title, const char *const *rows, int nrows);
+
+/* The Controls screen: a static list of the app's inputs (B leaves).  Blocking. */
+void trimpod_controls(void);
 
 /* The shared on/off toggle glyph ("[x]"/"[ ]") for list indicator callbacks.
  * One convention for every toggle list (Menu Settings, Visualizers, ...). */

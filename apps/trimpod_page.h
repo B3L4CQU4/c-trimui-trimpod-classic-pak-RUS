@@ -41,6 +41,11 @@ struct trimpod_page
     int        context;   /* get_action() context for the default poll */
     const int *allowed;   /* NULL = all keys; else a (-1)-terminated whitelist of
                            * allowed actions (others are swallowed) */
+    const char *title;    /* header title (%Lt) for the page's lifetime; the run
+                           * loop restores the previous one on exit.  NULL leaves
+                           * the parent's title up -- right for a page a list
+                           * already titles, wrong for one opened from a menu row
+                           * (it would keep showing the menu's name). */
 
     /* Transition behaviour.  The defaults (both false) suit a nested page that
      * is opened by a parent and returns to it: slide in forward, arm a back

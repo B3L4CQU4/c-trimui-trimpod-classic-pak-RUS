@@ -638,8 +638,8 @@ bool skin_has_sbs(struct gui_wps *gwps)
     return draw;
 }
 
-/* do the button loop as often as required for the peak meters to update
- * with a good refresh rate.
+/* Wait for a button, driving the audio spectrum at SPECTRUM_FPS meanwhile.
+ * Returns as soon as a button arrives, or when `timeout` ticks have passed.
  */
 int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
 {
@@ -653,6 +653,11 @@ int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
            spectrum = true;
     }
 
+    /* A dark panel shows no spectrum: fall through to the plain blocking wait
+     * rather than spinning every tick to animate something invisible. */
+    if (lcd_panel_is_dark())
+        spectrum = false;
+
     if (spectrum) {
         long next_refresh = current_tick;
         long next_big_refresh = current_tick + timeout;
@@ -665,17 +670,27 @@ int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
              * GUI_EVENT_ACTIONUPDATE -> sb_skin_update (so the SBS is repainted
              * into the framebuffer here), and the spectrum redraw below draws
              * into the same framebuffer; we then present exactly ONCE per
-             * frame, with the SBS and the spectrum composited together. */
+             * frame, with the SBS and the spectrum composited together.
+             *
+             * Wait for the next frame's deadline rather than polling every tick:
+             * each extra wake repaints the whole SBS for no extra present.  The
+             * timed wait still returns the instant a button arrives, so this is
+             * no less responsive than the poll it replaces. */
+            long wait = next_refresh - current_tick;
+            if (wait < 0)
+                wait = 0;   /* frame is due: don't block, refresh below */
+
             lcd_set_update_suppressed(true);
-            button = get_action(context,TIMEOUT_NOBLOCK);
+            button = get_action(context, wait);
             if (button != ACTION_NONE) {
                 lcd_set_update_suppressed(false);
                 break;
             }
-            sleep(0);   /* Sleep until end of current tick. */
 
+            /* ">=", not ">": waking exactly on the deadline must refresh, else
+             * the zero-length wait above would spin until the tick rolled over. */
             bool refreshed = false;
-            if (TIME_AFTER(current_tick, next_refresh)) {
+            if (!TIME_BEFORE(current_tick, next_refresh)) {
                 FOR_NB_SCREENS(i)
                 {
                     if(skin_get_gwps(skin, i)->data->spectrum_enabled)

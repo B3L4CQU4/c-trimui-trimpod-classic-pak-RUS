@@ -217,6 +217,7 @@ static bool pl_owns_viewer = false;
 static int playlist_view(void * param)
 {
     (void)param;
+    char viewfile[MAX_PATH];
 
     /* A Play/Shuffle Playlist pick pending from the Playlists screen: start it
      * now and slide to Now Playing, leaving this viewer as the screen behind. */
@@ -225,6 +226,25 @@ static int playlist_view(void * param)
         case 1:  pl_owns_viewer = true;  return GO_TO_WPS;
         case -1: return GO_TO_PLAYLISTS_SCREEN;   /* empty/failed: back to the list */
         default: break;                           /* 0: nothing pending -> show it */
+    }
+
+    /* Tap A on a playlist row: show its track listing.  Picking a track there
+     * makes it the current playlist and plays from it (-> Now Playing, with
+     * the current-queue viewer behind); B backs out to the Playlists list. */
+    if (trimpod_playlists_take_pending_view(viewfile, sizeof(viewfile)))
+    {
+        switch (playlist_viewer_ex(viewfile, NULL))
+        {
+            case PLAYLIST_VIEWER_MAINMENU:
+            case PLAYLIST_VIEWER_USB:
+                pl_owns_viewer = false;
+                return GO_TO_ROOT;
+            case PLAYLIST_VIEWER_OK:        /* track picked: it's playing now */
+                pl_owns_viewer = true;
+                return GO_TO_WPS;
+            default:                        /* B: back to the Playlists list */
+                return GO_TO_PLAYLISTS_SCREEN;
+        }
     }
 
     switch (playlist_viewer())

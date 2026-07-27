@@ -17,9 +17,11 @@
 #include "misc.h"
 #include "screens.h"          /* FOR_NB_SCREENS */
 #include "gui/viewport.h"     /* viewportmanager_theme_enable / _undo */
+#include "statusbar-skinned.h" /* sb_get_title / sb_set_title_text (%Lt) */
 #include "trimpod_ui.h"
 #include "trimpod_page.h"
 #include "trimpod_transition.h"
+#include "trimpod_visualizer.h"   /* idle auto-start while music plays */
 
 bool trimpod_home_pending;   /* see trimpod_page.h: hold-BACK unwinds to root */
 
@@ -53,6 +55,20 @@ static void page_render_cb(void *ctx)
 void trimpod_page_run(struct trimpod_page *page)
 {
     const char *prev = trimpod_get_header_legend();
+    const char *prev_title[NB_SCREENS] = { NULL };
+    enum themable_icons prev_icon[NB_SCREENS] = { Icon_NOICON };
+
+    /* Publish the page's own header title, remembering the one underneath (the
+     * parent list's) so it is back in place before the parent redraws.  The
+     * stored icon is biased by +2 for the skin engine -- undo that on the way
+     * out and it round-trips. */
+    if (page->title)
+        FOR_NB_SCREENS(i)
+        {
+            prev_title[i] = sb_get_title(i);
+            prev_icon[i]  = (enum themable_icons)(sb_get_icon(i) - 2);
+            sb_set_title_text(page->title, Icon_NOICON, i);
+        }
 
     /* swallow the keypress that opened this page */
     action_wait_for_release();
@@ -99,7 +115,7 @@ void trimpod_page_run(struct trimpod_page *page)
         int action = page->vt->poll ? page->vt->poll(page, HZ)
                                     : get_action(page->context, HZ);
 
-        /* Hold BACK >1s anywhere = home (the hold is timed globally in
+        /* Hold BACK anywhere = home (the hold is timed globally in
          * global_home_action).  Flag it so every enclosing loop unwinds too,
          * then leave; the dispatcher slides the Main Menu back in one step. */
         if (action == ACTION_TP_HOME)
@@ -142,6 +158,15 @@ void trimpod_page_run(struct trimpod_page *page)
         if (shutting_down)
             continue;
 
+        /* Idle auto-start of the visualizer while music plays.  The WPS page
+         * handles this inside its own on_action (skin restore); its run stamps
+         * button activity, so it can't double-fire here. */
+        if (action == ACTION_NONE && trimpod_visualizer_maybe_autostart())
+        {
+            page_render(page);
+            continue;
+        }
+
         if (trimpod_transition_take_back())
             /* a nested page just exited: slide it out, us back in (L->R) */
             trimpod_transition_animate(TRIMPOD_TRANS_BACK, page_render_cb, page);
@@ -154,6 +179,11 @@ void trimpod_page_run(struct trimpod_page *page)
     if (page->no_theme)
         FOR_NB_SCREENS(i)
             viewportmanager_theme_undo(i, false);
+
+    /* put the parent's title back */
+    if (page->title)
+        FOR_NB_SCREENS(i)
+            sb_set_title_text(prev_title[i], prev_icon[i], i);
 
     /* restore the header the parent page had, then (unless told not to) arm a
      * back slide so the screen we return to slides us away and itself back in.
