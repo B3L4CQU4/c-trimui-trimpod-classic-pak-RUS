@@ -24,11 +24,12 @@
  * table lands on evenly-spaced perceived-loudness steps instead of snapping to
  * coarse whole-dB values (the old "dB",0,1 quantized every notch to 1 dB, which
  * made the rocker steps -- and the volume bar -- visibly/audibly uneven).  Range
- * -80.0..-1.5 dB: the -1.5 dB ceiling keeps a sliver of speaker headroom while
- * staying near the device's shipped maximum.  Default -22.0 dB.
+ * -80.0..0 dB (upstream's convention): 0 dB = unity gain, i.e. full scale into
+ * the hardware ceiling launch.sh pins (DAC volume 160, NextUI's shipped max).
+ * Default -22.0 dB.
  * NOTE: min/max/default are in 0.1 dB units; the storage unit changed, so any
  * saved whole-dB "volume:" value must be migrated (x10) or reset -- see the pak
  * config.cfg and the clean-deploy requirement. */
-AUDIOHW_SETTING(VOLUME,      "dB",   1,  1, -800, -15, -220)
+AUDIOHW_SETTING(VOLUME,      "dB",   1,  1, -800,   0, -220)
 
 #endif /* _TRIMPOD_CODEC_H */
