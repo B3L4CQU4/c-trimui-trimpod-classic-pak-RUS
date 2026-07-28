@@ -718,16 +718,6 @@ Lyre prototype 1 */
 /* enable logging messages to disk*/
 #define ROCKBOX_HAS_LOGDISKF
 
-#if defined(HAVE_SDL_AUDIO) \
-    && !defined(HAVE_SW_VOLUME_CONTROL)
-/* SW volume is needed for accurate control and no double buffering should be
- * required. If target uses SW volume, then its definitions are used instead
- * so things are as on target. */
-#define HAVE_SW_VOLUME_CONTROL
-#define PCM_SW_VOLUME_UNBUFFERED /* pcm driver itself is buffered */
-#define PCM_SW_VOLUME_FRACBITS  (16)
-#endif /* default SDL SW volume conditions */
-
 #define HAVE_SCREENDUMP
 
 /* Trimpod: perceptual volume ON -- the rocker steps and the bar both move in

@@ -62,13 +62,14 @@ if [ -f "$SHM" ]; then
 fi
 [ -n "$KEYMON_PIDS" ] && kill -STOP $KEYMON_PIDS 2>/dev/null
 
-# Audio: pin the codec to NextUI's safe ceiling, then let Rockbox's SOFTWARE
-# volume ride underneath it.  NextUI (LoveRetro libmsettings SetRawVolume) never
-# drives 'DAC volume' above 160/255 and, at its max, opens 'digital volume' fully
-# (its reversed attenuation: raw 0 = loudest).  So that pair = the loudest the
-# device is shipped to deliver; matching it means Trimpod at full software volume
-# can't over-drive the little speaker.  We snapshot both and restore the user's
-# NextUI levels on exit.  (Rockbox only does software volume via pcm_mixer here.)
+# Audio: pin 'DAC volume' to NextUI's safe ceiling.  NextUI (LoveRetro
+# libmsettings SetRawVolume) never drives 'DAC volume' above 160/255, so 160 is
+# the loudest the device ships to deliver and Trimpod can't over-drive the
+# little speaker.  'digital volume' (reversed attenuation: raw 0 = loudest) is
+# owned by the app while it runs -- pcm-alsa.c splits every volume change into
+# whole hardware steps on that control plus a small software trim; the 0 set
+# here is only the baseline until the app's first volume write.  We snapshot
+# both controls and restore the user's NextUI levels on exit.
 TRIMPOD_DV="$(amixer sget 'digital volume' 2>/dev/null | sed -n 's/.*Mono: \([0-9][0-9]*\).*/\1/p')"
 TRIMPOD_DAC="$(amixer sget 'DAC volume' 2>/dev/null | sed -n 's/.*Front Left: \([0-9][0-9]*\).*/\1/p')"
 [ -n "$TRIMPOD_DV" ]  && amixer -q sset 'digital volume' 0   2>/dev/null

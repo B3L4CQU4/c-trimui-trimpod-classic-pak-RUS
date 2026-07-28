@@ -15,6 +15,18 @@ alias BASE's defaultchar glyph, matching what convttf emits for gaps.  Format
 per tools/convttf.c writer / firmware/font.c font_load_header: 36-byte header,
 4-bit AA pixel data (2 px/byte, low nibble first, 0xF=blank), byte-aligned per
 glyph, then the offset table (u16, or u32 when nbits >= 0xFFDB) and width table.
+
+Shipped-font recipe (PixelMplus12 ADD rasters that were merged into the
+ChicagoFLF bases; convttf args are atoi — DECIMAL ONLY):
+    24px:  convttf -p 24 -X 72 -Ta 2 -Td 1 -e 32 -s 12288 -l 65518
+    20px:  convttf -p 20 -Ta 1 -e 24 -s 12288 -l 65518
+    18px:  convttf -p 18 -Ta 1 -Td 1 -e 16 -s 12288 -l 65518
+-X 72 gives true 24ppem (exact 2x of the 12px pixel font); trims map hhea
+27/22 to cell 24/20.  The embolden values (-e, units of 1/64 px) put edges at
+sub-pixel positions so FreeType antialiases them like ChicagoFLF AND thicken
+toward Chicago's weight — user-reviewed: -e 32 at 24px (pure 2x read as "not
+antialiased", -e 48 clogged dense kanji).  Do NOT pass --quantize-add for
+emboldened rasters (shades are real); BASE bytes stay verbatim either way.
 """
 import struct
 import sys
