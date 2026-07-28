@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2010 by Thomas Martitz
+ * Copyright © 2010 Thomas Martitz
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,18 +17,27 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef _SDL_CODEC_H
-#define _SDL_CODEC_H
 
-/* Trimpod: 0.1 dB resolution (numdecimals=1, step=1) so the perceptual notch
- * table lands on evenly-spaced perceived-loudness steps instead of snapping to
- * coarse whole-dB values (the old "dB",0,1 quantized every notch to 1 dB, which
- * made the rocker steps -- and the volume bar -- visibly/audibly uneven).  Range
- * -80.0..-3.0 dB: the -3 dB ceiling trims the top of the shipped range (nobody
- * runs max) so the notches pack into the usable band.  Default -22.0 dB.
- * NOTE: min/max/default are in 0.1 dB units; the storage unit changed, so any
- * saved whole-dB "volume:" value must be migrated (x10) or reset -- see the pak
- * config.cfg and the clean-deploy requirement. */
-AUDIOHW_SETTING(VOLUME,      "dB",   1,  1, -800, -30, -220)
+#include <limits.h>
+#include "config.h"
+#include "sound.h"
 
-#endif /* _SDL_CODEC_H */
+/* Audio "hardware" for the direct-ALSA output: the only real control is
+ * volume, split by pcm-alsa.c into codec 'digital volume' steps plus a small
+ * software trim.  Tone/EQ live in the DSP chain. */
+
+extern void pcm_set_mixer_volume(int vol_l, int vol_r);
+
+/* Volume arrives in tenth-dB (trimpod_codec.h numdecimals=1); the bottom of the
+ * range is a hard mute. */
+static int alsa_volume_level(int volume)
+{
+    return volume <= sound_min(SOUND_VOLUME) ? INT_MIN : volume;
+}
+
+void audiohw_set_volume(int vol_l, int vol_r)
+{
+    pcm_set_mixer_volume(alsa_volume_level(vol_l), alsa_volume_level(vol_r));
+}
+
+void audiohw_close(void) {}

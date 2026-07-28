@@ -77,9 +77,16 @@
 
 #define CONFIG_KEYPAD RETRO_HANDHELD_PAD
 
-/* Use SDL audio/pcm in a SDL app build */
 #define HAVE_SDL
-#define HAVE_SDL_AUDIO
+
+/* Trimpod: audio goes out via ALSA directly (hw:audiocodec,0), not SDL.
+ * SDL's route ends in the OS dmix bus hardcoded to S16, where deep volume
+ * attenuation of 16-bit samples quantizes quiet passages to silence (an
+ * audible "noise gate" on dynamic material).  The coarse attenuation is
+ * done by the codec's 'digital volume' control instead; software applies
+ * only the small remainder between hardware steps.  See
+ * firmware/target/hosted/pcm-alsa.c. */
+#define HAVE_TRIMPOD_ALSA_AUDIO
 
 #define HAVE_SW_TONE_CONTROLS
 

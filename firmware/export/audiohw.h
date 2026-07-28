@@ -161,7 +161,7 @@ struct sound_settings_info
     { return #expr[0] ? expr : val; }
 #endif
 
-#include "sdl_codec.h"
+#include "trimpod_codec.h"
 
 
 /* convert caps into defines */

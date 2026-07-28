@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Copyright (C) 2013 by Michael Sevakis
+ * Copyright (C) 2010 by Thomas Martitz
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,30 +17,18 @@
  * KIND, either express or implied.
  *
  ****************************************************************************/
-#ifndef PCM_SW_VOLUME_H
-#define PCM_SW_VOLUME_H
+#ifndef _TRIMPOD_CODEC_H
+#define _TRIMPOD_CODEC_H
 
-/***
- ** Note: Only PCM drivers that are themselves buffered should use the
- ** PCM_SW_VOLUME_UNBUFFERED configuration. This may be part of the platform,
- ** the library or a hardware necessity. Normally, it shouldn't be used and
- ** only the port developer can properly decide.
- **/
-#ifdef HAVE_SW_VOLUME_CONTROL
+/* Trimpod: 0.1 dB resolution (numdecimals=1, step=1) so the perceptual notch
+ * table lands on evenly-spaced perceived-loudness steps instead of snapping to
+ * coarse whole-dB values (the old "dB",0,1 quantized every notch to 1 dB, which
+ * made the rocker steps -- and the volume bar -- visibly/audibly uneven).  Range
+ * -80.0..-1.5 dB: the -1.5 dB ceiling keeps a sliver of speaker headroom while
+ * staying near the device's shipped maximum.  Default -22.0 dB.
+ * NOTE: min/max/default are in 0.1 dB units; the storage unit changed, so any
+ * saved whole-dB "volume:" value must be migrated (x10) or reset -- see the pak
+ * config.cfg and the clean-deploy requirement. */
+AUDIOHW_SETTING(VOLUME,      "dB",   1,  1, -800, -15, -220)
 
-#include <audiohw.h>
-#include <limits.h>
-
-#define PCM_MUTE_LEVEL INT_MIN
-
-#ifdef AUDIOHW_HAVE_PRESCALER
-/* Set the prescaler value for all PCM playback */
-void pcm_set_prescaler(int prescale);
-#endif /* AUDIOHW_HAVE_PRESCALER */
-
-/* Set the per-channel volume cut/gain for all PCM playback */
-void pcm_set_master_volume(int vol_l, int vol_r);
-
-#endif /* HAVE_SW_VOLUME_CONTROL */
-
-#endif /* PCM_SW_VOLUME_H */
+#endif /* _TRIMPOD_CODEC_H */

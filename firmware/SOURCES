@@ -122,13 +122,6 @@ target/hosted/sonynwz/nwzlinux-codec.c
 #endif
 #endif
 
-#if !defined(BOOTLOADER)
-#if ((defined(HIBY_LINUX) || defined(FIIO_M3K_LINUX) || defined(SAMSUNG_YPR0) || defined(SAMSUNG_YPR1) || defined(SONY_NWZ_LINUX)) && !defined(SIMULATOR))
-target/hosted/pcm-alsa.c
-target/hosted/alsa-controls.c
-#endif
-#endif
-
 #if ((defined(HIBY_LINUX) || defined(FIIO_M3K_LINUX)) && !defined(SIMULATOR))
 drivers/lcd-memframe.c
 target/hosted/backtrace-glibc.c
@@ -459,9 +452,6 @@ sound.c
 pcm_sampr.c
 pcm.c
 pcm_mixer.c
-#ifdef HAVE_SW_VOLUME_CONTROL
-pcm_sw_volume.c
-#endif /* HAVE_SW_VOLUME_CONTROL */
 
 drivers/audio/audiohw-swcodec.c
 #endif /* !BOOTLOADER */
@@ -474,11 +464,9 @@ drivers/audio/audiohw-swcodec.c
 drivers/audio/aic310x.c
 #endif /* defined(HAVE_*) */
 #else /* PLATFORM_HOSTED */
-#if defined(HAVE_SDL_AUDIO) || defined(SIMULATOR)
-drivers/audio/sdl.c
-target/hosted/sdl/pcm-sdl.c
-#elif defined(CTRU)
-drivers/audio/ctru.c
+#if defined(HAVE_TRIMPOD_ALSA_AUDIO)
+drivers/audio/trimpod-alsa.c
+target/hosted/pcm-alsa.c
 #endif
 #endif /* (CONFIG_PLATFORM & PLATFORM_NATIVE) */
 #endif /* !defined(BOOTLOADER) */

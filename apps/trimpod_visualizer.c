@@ -10,7 +10,7 @@
  *
  * Wraps libprojectM (vendored in lib/projectm) and renders it fullscreen into
  * Trimpod's OpenGL ES window (see firmware/target/hosted/sdl/window-sdl.c).
- * Audio is tapped from the SDL PCM output (pcm-sdl.c: pcm_sdl_viz_latest) so the
+ * Audio is tapped from the PCM output driver (pcm-alsa.c: pcm_viz_latest) so the
  * visuals react to the beat. Presets are .milk files shipped in
  * ROCKBOX_DIR/presets and auto-transition over time (projectM fires a
  * "switch requested" callback when a preset's duration elapses or on a beat).
@@ -63,8 +63,8 @@
 #include "trimpod_page.h"        /* trimpod_page base (the Visualizers list) */
 #include "trimpod_ui.h"          /* trimpod_toggle_str (shared [x]/[ ] glyph) */
 
-/* Audio tap implemented in firmware/target/hosted/sdl/pcm-sdl.c */
-extern unsigned pcm_sdl_viz_latest(int16_t *out, unsigned max_frames);
+/* Audio tap implemented in firmware/target/hosted/pcm-alsa.c */
+extern unsigned pcm_viz_latest(int16_t *out, unsigned max_frames);
 
 /* projectM renders at 1/4 screen resolution into an offscreen FBO, which is then
  * nearest-neighbour upscaled to fill the window.  Our libprojectM is patched to
@@ -436,7 +436,7 @@ static int viz_render_thread(void *param)
 
     while (!viz_thread_stop)
     {
-        unsigned frames = pcm_sdl_viz_latest(pcm, PCM_CHUNK);
+        unsigned frames = pcm_viz_latest(pcm, PCM_CHUNK);
         if (frames > 0)
             projectm_pcm_add_int16(pm, pcm, frames, PROJECTM_STEREO);
 
