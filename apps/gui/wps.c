@@ -498,8 +498,10 @@ static long do_wps_exit(long action, bool bookmark)
 
     gwps_leave_wps(true);
     (void)action;
-    if (TP_BROWSE_CURRENT)
-        return GO_TO_PREVIOUS_BROWSER;
+    /* GO_TO_PREVIOUS, like the ACTION_WPS_BROWSE exit -- GO_TO_PREVIOUS_BROWSER
+     * resolved the stale last_browser (default 0 = filetree) and dumped
+     * end-of-playlist exits into the raw file browser at the dead track's
+     * folder, escapable up through the whole filesystem. */
     return GO_TO_PREVIOUS;
 }
 
