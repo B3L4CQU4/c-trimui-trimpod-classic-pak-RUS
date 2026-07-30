@@ -88,8 +88,11 @@ static void sink_unlock(void)
 
 static void sdl_audio_callback(void *handle, Uint8 *stream, int len);
 
+static uint16_t last_freq;      /* for reopening after the device is lost */
+
 static void sink_set_freq_nolock(uint16_t freq)
 {
+    last_freq = freq;
     pcm_sampr = hw_freq_sampr[freq];
 
     SDL_AudioSpec wanted_spec;
@@ -112,12 +115,19 @@ static void sink_set_freq_nolock(uint16_t freq)
     /* Open the audio device and start playing sound! */
 #if SDL_MAJOR_VERSION > 1
     if((pcm_devid = SDL_OpenAudioDevice(audiodev, 0, &wanted_spec, &obtained, SDL_AUDIO_ALLOW_SAMPLES_CHANGE)) == 0) {
+        /* Trimpod: do not panic -- panicf() ends in system_exception_wait() /
+         * while(1), i.e. a hang only killable over adb, and a routed device can
+         * legitimately be gone (the Bluetooth speaker went out of range).  Run
+         * without audio instead; the next reopen can pick it up again. */
+        fprintf(stderr, "audio: open failed: %s\n", SDL_GetError());
+        return;
+    }
 #else
     if(SDL_OpenAudio(&wanted_spec, &obtained) < 0) {
-#endif
         panicf("Unable to open audio: %s", SDL_GetError());
         return;
     }
+#endif
 
     switch (obtained.format)
     {
@@ -158,6 +168,27 @@ static void sink_set_freq(uint16_t freq)
 {
     sink_lock();
     sink_set_freq_nolock(freq);
+    sink_unlock();
+}
+
+/* Trimpod: SDL drops the device when an ALSA write fails unrecoverably -- the
+ * Bluetooth speaker walking out of range does exactly that, and without this
+ * the app dies mid-song.  Called from the SDL_AUDIODEVICEREMOVED handler in
+ * button-sdl.c; audiomon has already pointed `default` back at the codec by
+ * then, so reopening resumes playback on the speaker. */
+void pcm_sdl_device_lost(void)
+{
+    sink_lock();
+
+    if (pcm_devid)
+    {
+        SDL_CloseAudioDevice(pcm_devid);
+        pcm_devid = 0;
+    }
+    sink_set_freq_nolock(last_freq);
+    if (pcm_devid && pcm_is_playing())
+        SDL_PauseAudioDevice(pcm_devid, 0);
+
     sink_unlock();
 }
 

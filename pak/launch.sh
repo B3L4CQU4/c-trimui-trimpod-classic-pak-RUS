@@ -75,6 +75,8 @@ TRIMPOD_SV="$(amixer sget 'Soft Volume Master' 2>/dev/null | sed -n 's/.*Front L
 [ -n "$TRIMPOD_DV" ]  && amixer -q sset 'digital volume' 0   2>/dev/null
 [ -n "$TRIMPOD_DAC" ] && amixer -q sset 'DAC volume'     160 2>/dev/null
 [ -n "$TRIMPOD_SV" ]  && amixer -q sset 'Soft Volume Master' 255 2>/dev/null
+# Bluetooth needs nothing here: trimpod-alsa.c drives the device's own A2DP
+# volume, so the level the user leaves is the level the system keeps.
 # NextUI at volume 0 (or side-switch mute) ALSO latches the speaker driver's
 # hard mute (/sys/class/speaker/mute), which survives into our session and
 # silences Trimpod regardless of its own volume.  Unmute for the session and

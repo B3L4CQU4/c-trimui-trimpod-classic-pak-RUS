@@ -281,6 +281,15 @@ static bool event_handler(SDL_Event *event)
         mouse_event(mev, event->type == SDL_MOUSEBUTTONUP);
         break;
     }
+    case SDL_AUDIODEVICEREMOVED:
+    {
+        /* Trimpod: the output device vanished (Bluetooth speaker out of range).
+         * SDL has already torn it down; reopen so playback carries on through
+         * the speaker rather than the app dying mid-song. */
+        extern void pcm_sdl_device_lost(void);
+        pcm_sdl_device_lost();
+        break;
+    }
     case SDL_QUIT:
         /* Will post SDL_USEREVENT in shutdown_hw() if successful. */
         sdl_sys_quit();
