@@ -6,7 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Trimpod: the Visualizer Effects menu -- "Start Visualizer After" (WPS idle
+ * Trimpod: the Settings -> Visualizers menu -- "Start Visualizer After" (WPS idle
  * before auto-start) and "Visualization Transition" (seconds per preset),
  * persisted settings rows, plus the presets toggle list.
  *

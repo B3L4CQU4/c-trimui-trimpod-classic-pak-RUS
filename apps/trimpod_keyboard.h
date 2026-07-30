@@ -7,7 +7,7 @@
 #define _TRIMPOD_KEYBOARD_H
 
 /* Edit `buffer` (NUL-terminated, capacity `buflen`) with the on-screen keyboard.
- * Returns 0 if the user pressed enter/START, -1 if they cancelled (B).  On
+ * Returns 0 when the on-screen enter key is engaged, -1 on cancel (B).  On
  * cancel `buffer` is left as it was passed in. */
 int trimpod_kbd_input(char *buffer, int buflen);
 

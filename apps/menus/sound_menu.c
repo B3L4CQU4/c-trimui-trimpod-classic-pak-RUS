@@ -27,7 +27,6 @@
 #include "action.h"
 #include "settings.h"
 #include "menu.h"
-#include "sound_menu.h"
 #include "eq_menu.h"
 #include "exported_menus.h"
 #include "menu_common.h"

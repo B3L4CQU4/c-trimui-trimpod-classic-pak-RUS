@@ -10,7 +10,7 @@
  *
  * Wraps libprojectM (vendored in lib/projectm) and renders it fullscreen into
  * Trimpod's OpenGL ES window (see firmware/target/hosted/sdl/window-sdl.c).
- * Audio is tapped from the PCM output driver (pcm-alsa.c: pcm_viz_latest) so the
+ * Audio is tapped from the SDL PCM output (pcm-sdl.c: pcm_sdl_viz_latest) so the
  * visuals react to the beat. Presets are .milk files shipped in
  * ROCKBOX_DIR/presets and auto-transition over time (projectM fires a
  * "switch requested" callback when a preset's duration elapses or on a beat).
@@ -63,8 +63,8 @@
 #include "trimpod_page.h"        /* trimpod_page base (the Visualizers list) */
 #include "trimpod_ui.h"          /* trimpod_toggle_str (shared [x]/[ ] glyph) */
 
-/* Audio tap implemented in firmware/target/hosted/pcm-alsa.c */
-extern unsigned pcm_viz_latest(int16_t *out, unsigned max_frames);
+/* Audio tap implemented in firmware/target/hosted/sdl/pcm-sdl.c */
+extern unsigned pcm_sdl_viz_latest(int16_t *out, unsigned max_frames);
 
 /* projectM renders at 1/4 screen resolution into an offscreen FBO, which is then
  * nearest-neighbour upscaled to fill the window.  Our libprojectM is patched to
@@ -243,12 +243,10 @@ static void load_enabled_state(void)
 
 static void save_enabled_state(void)
 {
-    /* Build the whole file in memory and flush it in ONE write().  This runs on
-     * every toggle; the previous code issued two tiny write() syscalls per
-     * disabled preset, so toggling got slower the more presets were off -- on the
-     * SD card those unbuffered per-entry writes dominate.  A single write keeps the
-     * cost flat regardless of how many are disabled.  viz_state_buf is reused here
-     * (load + save never overlap). */
+    /* Build the whole file in memory and flush it in ONE write(): this runs on
+     * every toggle, and unbuffered per-entry writes on the SD card would scale
+     * with the number disabled.  viz_state_buf is reused (load + save never
+     * overlap). */
     int used = 0;
     for (int i = 0; i < preset_count; i++)
         if (!preset_enabled[i])
@@ -320,7 +318,8 @@ static int enabled_count(void)
 }
 
 /* Pick a random preset from the enabled pool (whatever's toggled on).  Falls
- * back to the whole set if nothing is enabled, so X is never a black screen.
+ * back to the whole set if nothing is enabled, so a switch is never a black
+ * screen.
  * Avoids repeating the current preset when there's more than one to choose. */
 static void next_preset(bool hard_cut)
 {
@@ -375,10 +374,9 @@ static void preset_switch_cb(bool is_hard_cut, void *user_data)
 static void apply_viz_transition(void)
 {
     /* We cycle presets ourselves on a wall-clock timer (see the session loop),
-     * so projectM must never auto-switch on its own.  Its preset clock counts
-     * wall time across the whole app -- including the gap while the visualizer
-     * is closed -- with no API to reset it, so letting it drive the switch made
-     * a long interval fire the instant the visualizer re-opened. */
+     * so projectM must never auto-switch: its preset clock counts wall time
+     * across the whole app -- including while the visualizer is closed -- and
+     * cannot be reset. */
     projectm_set_preset_duration(pm, 9999999.0);   /* never -- we drive switching */
     projectm_set_hard_cut_enabled(pm, false);
 }
@@ -417,7 +415,7 @@ static bool ensure_init(void)
 
 /* Run the visualizer fullscreen until Back (B). If locked_path != NULL the
  * visualizer stays on that one preset (a path chosen from the browser);
- * otherwise presets auto-cycle from the pool and A jumps to another one. */
+ * otherwise presets auto-cycle from the pool; any button ends the session. */
 /* The projectM render loop runs on its own OS thread so it lands on a free core,
  * in parallel with audio decode/buffering/input -- those stay on the Rockbox
  * cooperative scheduler on the main thread.  The render thread owns the GL
@@ -436,7 +434,7 @@ static int viz_render_thread(void *param)
 
     while (!viz_thread_stop)
     {
-        unsigned frames = pcm_viz_latest(pcm, PCM_CHUNK);
+        unsigned frames = pcm_sdl_viz_latest(pcm, PCM_CHUNK);
         if (frames > 0)
             projectm_pcm_add_int16(pm, pcm, frames, PROJECTM_STEREO);
 
@@ -666,8 +664,8 @@ bool trimpod_visualizer_maybe_autostart(void)
 /* ---- Settings -> Visualizers: the on/off toggle list -----------------------
  * A flat list of the shipped presets, each with an [x]/[ ] toggle (like
  * Settings -> Menu Settings).  A flips the highlighted preset on/off; only
- * enabled presets are played by the Now Playing auto-cycle (X).  Y previews the
- * highlighted preset fullscreen (B leaves the preview).  B leaves the list.
+ * enabled presets are played by the Now Playing auto-cycle.  Hold A opens a
+ * context submenu with Preview (B leaves the preview).  B leaves the list.
  * The list is the scanned name_buf/name_off/preset_enabled set (one at a time,
  * so it lives in the file-scope statics). */
 
@@ -699,7 +697,7 @@ static const char *vm_get_indicator(int sel, void *data)
     return trimpod_toggle_str(preset_enabled[sel]);
 }
 
-/* Y: preview the highlighted preset fullscreen, locked (B exits the preview). */
+/* Preview the highlighted preset fullscreen, locked (B exits). */
 static void vm_preview(int sel)
 {
     if (sel < 0 || sel >= preset_count)

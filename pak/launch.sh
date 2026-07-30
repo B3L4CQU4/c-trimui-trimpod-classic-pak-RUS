@@ -62,18 +62,19 @@ if [ -f "$SHM" ]; then
 fi
 [ -n "$KEYMON_PIDS" ] && kill -STOP $KEYMON_PIDS 2>/dev/null
 
-# Audio: pin 'DAC volume' to NextUI's safe ceiling.  NextUI (LoveRetro
-# libmsettings SetRawVolume) never drives 'DAC volume' above 160/255, so 160 is
-# the loudest the device ships to deliver and Trimpod can't over-drive the
-# little speaker.  'digital volume' (reversed attenuation: raw 0 = loudest) is
-# owned by the app while it runs -- pcm-alsa.c splits every volume change into
-# whole hardware steps on that control plus a small software trim; the 0 set
-# here is only the baseline until the app's first volume write.  We snapshot
-# both controls and restore the user's NextUI levels on exit.
+# Audio: 'DAC volume' 160/255 is NextUI's own ceiling (libmsettings SetRawVolume
+# never exceeds it), so matching it can't over-drive the little speaker.
+# 'digital volume' (0 = loudest) is owned by the app while it runs --
+# trimpod-alsa.c writes it on every volume change, so the 0 here is just the
+# baseline.  'Soft Volume Master' is the OS softvol stage, which attenuates in
+# SOFTWARE and would re-create the quiet-passage gating, so pin it wide open.
+# All three are snapshotted and restored on exit.
 TRIMPOD_DV="$(amixer sget 'digital volume' 2>/dev/null | sed -n 's/.*Mono: \([0-9][0-9]*\).*/\1/p')"
 TRIMPOD_DAC="$(amixer sget 'DAC volume' 2>/dev/null | sed -n 's/.*Front Left: \([0-9][0-9]*\).*/\1/p')"
+TRIMPOD_SV="$(amixer sget 'Soft Volume Master' 2>/dev/null | sed -n 's/.*Front Left: \([0-9][0-9]*\).*/\1/p')"
 [ -n "$TRIMPOD_DV" ]  && amixer -q sset 'digital volume' 0   2>/dev/null
 [ -n "$TRIMPOD_DAC" ] && amixer -q sset 'DAC volume'     160 2>/dev/null
+[ -n "$TRIMPOD_SV" ]  && amixer -q sset 'Soft Volume Master' 255 2>/dev/null
 # NextUI at volume 0 (or side-switch mute) ALSO latches the speaker driver's
 # hard mute (/sys/class/speaker/mute), which survives into our session and
 # silences Trimpod regardless of its own volume.  Unmute for the session and
@@ -95,6 +96,7 @@ cleanup() {
   [ -f /tmp/trimpod_muted_vol ] && dd if=/tmp/trimpod_muted_vol of=/dev/shm/SharedSettings bs=1 seek=56 count=4 conv=notrunc 2>/dev/null
   [ -n "$TRIMPOD_DV" ] && amixer -q sset "digital volume" "$TRIMPOD_DV" 2>/dev/null
   [ -n "$TRIMPOD_DAC" ] && amixer -q sset "DAC volume" "$TRIMPOD_DAC" 2>/dev/null
+  [ -n "$TRIMPOD_SV" ] && amixer -q sset "Soft Volume Master" "$TRIMPOD_SV" 2>/dev/null
   [ -n "$TRIMPOD_SPK_MUTE" ] && echo "$TRIMPOD_SPK_MUTE" > "$SPK_MUTE" 2>/dev/null
   if [ -d "$CPUP" ] && [ -n "$TRIMPOD_OLD_GOV" ]; then
     echo 408000 > "$CPUP/scaling_min_freq"

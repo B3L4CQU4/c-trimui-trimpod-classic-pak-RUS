@@ -11545,34 +11545,6 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TRIMPOD_ADVANCED
-  desc: Trimpod Other Settings submenu (in Settings)
-  user: core
-  <source>
-    *: "Other"
-  </source>
-  <dest>
-    *: "Other"
-  </dest>
-  <voice>
-    *: "Other"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TRIMPOD_BACKLIGHT
-  desc: Trimpod Backlight submenu (in Settings)
-  user: core
-  <source>
-    *: "Backlight"
-  </source>
-  <dest>
-    *: "Backlight"
-  </dest>
-  <voice>
-    *: "Backlight"
-  </voice>
-</phrase>
-<phrase>
   id: LANG_TRIMPOD_COLOR
   desc: Trimpod Backlight > Color entry (background colour presets)
   user: core
@@ -11696,20 +11668,6 @@
   </dest>
   <voice>
     *: "Power"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TRIMPOD_DISPLAY
-  desc: Trimpod Settings > Display Settings (nested: Color, Brightness, Auto Screen Off)
-  user: core
-  <source>
-    *: "Display Settings"
-  </source>
-  <dest>
-    *: "Display Settings"
-  </dest>
-  <voice>
-    *: "Display Settings"
   </voice>
 </phrase>
 <phrase>

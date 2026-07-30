@@ -50,7 +50,6 @@
 #include "yesno.h"
 #include "menus/exported_menus.h"
 #include "icons.h"
-#include "sound_menu.h"
 #include "playlist_menu.h"
 #include "playlist_catalog.h"
 #include "cuesheet.h"

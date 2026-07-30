@@ -2947,7 +2947,7 @@ fi
     extradefines="$extradefines -I$rootdir/lib/projectm/include"
     simcc "sdl-app"
     rhhconf
-    LDOPTS="$LDOPTS -lasound" # direct ALSA audio output (pcm-alsa.c)
+    LDOPTS="$LDOPTS -lasound" # codec mixer volume control (trimpod-alsa.c)
     tool="cp "
     boottool="cp "
     bmp2rb_mono="$rootdir/tools/bmp2rb -f 0"

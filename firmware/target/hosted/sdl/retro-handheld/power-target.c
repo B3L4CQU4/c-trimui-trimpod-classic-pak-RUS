@@ -228,9 +228,8 @@ int retrohh_cpu_get_freq(void)
  * the poll thread is never started and the menu row is read-only (showing the
  * daemon's target, else 100%).  Only one of the two ever writes the bit.
  *
- * No try/catch in C: every fs access is checked and the register is only ever
- * written from a value derived from a *successful* read, so any failure is a
- * true no-op (we never poke a garbage value). */
+ * Every fs access is checked and the register is only ever written from a value
+ * derived from a *successful* read, so any failure is a true no-op. */
 #define BATT_REGS         "/sys/kernel/debug/regmap/6-0034/registers"
 #define BATT_CAP_FILE     "/sys/class/power_supply/axp2202-battery/capacity"
 #define BATT_USB_FILE     "/sys/class/power_supply/axp2202-usb/online"

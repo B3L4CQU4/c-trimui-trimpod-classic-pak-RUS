@@ -453,14 +453,11 @@ int trimpod_library_reconcile(bool force_full)
 }
 
 /* ---- fast play-queue materialization ---------------------------------- *
- * Rockbox builds a dynamic playlist by writing ONE control-file line per track
- * (an lseek + a few small write()s each -- ~8ms/track on the SD/exFAT layer), so
- * a large "All Songs" queue takes seconds (174 tracks measured ~1.4s; 10k would
- * be minutes).  Instead we bulk-write the paths to a reusable m3u and let
- * playlist_create() index it in a single read pass (add_indices_to_playlist does
- * NO per-track writes) -- the same fast path "Play Playlist" already uses.  The
- * queue file is reused (overwritten) each start and lives on SD, so resume and
- * next/prev/shuffle behave exactly like any played .m3u. */
+ * Bulk-write the paths to a reusable m3u and let playlist_create() index them in
+ * one read pass, instead of Rockbox's dynamic playlist -- that writes one
+ * control-file line per track (~8ms each on SD/exFAT), so a large queue costs
+ * seconds.  The queue file is overwritten each start and lives on SD, so resume
+ * and next/prev/shuffle behave like any played .m3u. */
 #define QUEUE_M3U ".trimpod_queue.m3u8"
 
 struct m3u_writer { int fd; int len; char buf[4096]; };

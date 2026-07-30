@@ -54,15 +54,13 @@ extern bool debug_wps;
 extern bool mapping;
 
 /* Trimpod: power button.  On-device the power key is KEY_POWER on the
- * axp2202-pek PMIC node, which SDL's evdev layer opens as a keyboard and
- * delivers as scancode SDL_SCANCODE_POWER (== NextUI's CODE_POWER 102) -- so we
- * track its held state from SDL key events in event_handler (power_key_held),
- * exactly like NextUI.  (SDLK_x in button_event is the desktop simulator's
- * shutdown shortcut.)  The gesture is timed in button_read_device to match
- * NextUI's power-button TIMING: a short press (held < 1s) toggles the display
- * off/on in-app while music keeps playing; a long press (held >= 1s) powers off.
- * We deliberately do NOT replicate NextUI's deep sleep (which pauses audio); a
- * short press just blanks the backlight via the existing backlight system. */
+ * axp2202-pek PMIC node, which SDL's evdev layer delivers as scancode
+ * SDL_SCANCODE_POWER, so held state is tracked from SDL key events in
+ * event_handler (power_key_held); SDLK_x in button_event is the desktop
+ * simulator's shortcut.  Timed in button_read_device to match NextUI: a short
+ * press (< 1s) toggles the display off/on while music keeps playing, a long
+ * press (>= 1s) powers off.  No deep sleep -- a short press only blanks the
+ * backlight. */
 #define POWER_LONG_PRESS_TICKS  HZ      /* 1s, matches NextUI's 1000ms */
 static long power_down_tick = 0;        /* current_tick of power press (0 = up) */
 static bool power_blanked   = false;    /* display blanked by a power short press */
@@ -411,11 +409,9 @@ int button_read_device(void)
         }
     }
 
-    /* Brick physical hold/lock switch (gpio243): lock INPUT ONLY.
-     * We deliberately do NOT call backlight_hold_changed() or
-     * skin_request_update_locked() here -- those poked the backlight fade engine
-     * and forced a full-screen skin redraw on every toggle, which dimmed/flashed
-     * the screen.  Hold means "mute input", nothing else. */
+    /* Brick physical hold/lock switch (gpio243): locks INPUT ONLY -- no
+     * backlight_hold_changed() or skin_request_update_locked(), which would
+     * dim/flash the screen on every toggle. */
     hold_button_state = retrohh_hold_switch();
     if (hold_button_state)
     {

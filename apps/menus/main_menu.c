@@ -121,9 +121,8 @@ static int trimpod_controls_page(void)
     return 0;
 }
 
-/* The Power, Audio Folders, Visualizer Effects and Advanced sub-menus each live
- * in their own file (power_menu.c, audio_folders_menu.c, visualizer_menu.c,
- * advanced_menu.c); their page openers are declared in exported_menus.h. */
+/* Each sub-menu page opener lives in its own file (power_menu.c,
+ * audio_folders_menu.c, visualizer_menu.c); declared in exported_menus.h. */
 
 /* Settings list: nav rows (chevron) open sub-pages via do_menu. */
 MENUITEM_FUNCTION(tp_set_mainmenu, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_MAINMENU),

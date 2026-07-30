@@ -117,11 +117,8 @@ void list_init_item_height(struct gui_synclist *list, enum screen_type screen)
 static void gui_synclist_init_display_settings(struct gui_synclist * list)
 {
     struct user_settings *gs = &global_settings;
-    /* Trimpod: the list scrollbar is disabled entirely (scrolling is implied).
-     * This is the single point all list scrollbar drawing derives from
-     * (apps/gui/bitmap/list.c reads list->scrollbar), so forcing it OFF here
-     * makes it impossible to render regardless of the saved 'scrollbar' setting. */
-    /* list->scrollbar = gs->scrollbar; */
+    /* Trimpod: list scrollbar is always off -- the single point all list
+     * scrollbar drawing derives from (bitmap/list.c reads list->scrollbar). */
     list->scrollbar = SCROLLBAR_OFF;
     list->scroll_paginated = gs->scroll_paginated;
     list->keyclick = TP_KEYCLICK;

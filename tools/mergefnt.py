@@ -22,10 +22,10 @@ ChicagoFLF bases; convttf args are atoi — DECIMAL ONLY):
     20px:  convttf -p 20 -Ta 1 -e 24 -s 12288 -l 65518
     18px:  convttf -p 18 -Ta 1 -Td 1 -e 16 -s 12288 -l 65518
 -X 72 gives true 24ppem (exact 2x of the 12px pixel font); trims map hhea
-27/22 to cell 24/20.  The embolden values (-e, units of 1/64 px) put edges at
-sub-pixel positions so FreeType antialiases them like ChicagoFLF AND thicken
-toward Chicago's weight — user-reviewed: -e 32 at 24px (pure 2x read as "not
-antialiased", -e 48 clogged dense kanji).  Do NOT pass --quantize-add for
+27/22 to cell 24/20.  Embolden (-e, units of 1/64 px) puts edges at sub-pixel
+positions so FreeType antialiases them like ChicagoFLF and thickens toward
+Chicago's weight; keep the values as listed — raising them clogs dense kanji,
+dropping them reads as un-antialiased.  Do NOT pass --quantize-add for
 emboldened rasters (shades are real); BASE bytes stay verbatim either way.
 """
 import struct
