@@ -43,8 +43,9 @@
  * 4. BLUETOOTH OUTPUT RUNS IN A CHILD PROCESS.  bluez-alsa's plugin crashes
  *    its host process when a speaker is powered off; see bt_pipe below.
  *
- * 5. LOSING THE BLUETOOTH ROUTE PAUSES PLAYBACK rather than following the route
- *    back to the internal speaker; see bt_notify_lost(). */
+ * 5. LOSING A PRIVATE ROUTE PAUSES PLAYBACK -- Bluetooth or USB-C headphones --
+ *    rather than following the route back to the internal speaker; see
+ *    route_notify_lost(). */
 
 #include "autoconf.h"
 
@@ -138,7 +139,8 @@ static int16_t *frames;
  * against the sink and the pipe back-pressures us, so no extra clock is needed
  * and the pitch is unaffected. */
 static FILE *bt_pipe;
-static bool bt_lost_sent;           /* pause posted for this speaker already */
+static bool route_lost_sent;        /* pause posted for this route already */
+static int  open_route;             /* the sink dev_open() opened for */
 
 static const void *pcm_data;
 static size_t pcm_size;
@@ -317,10 +319,11 @@ error:
  * BlueALSA PCM, and closing a dead BlueALSA mixer all segfault; all three were
  * caught in trimpod.log switching the speaker off.
  *
- * Both routes have stable names that need no cache invalidation:
+ * All three routes have stable names that need no cache invalidation:
  *   speaker   "Playback" -- /etc/asound.conf, which audiomon never touches.
  *              Measured identical to `default` (4.21 s vs 4.22 s for a 4.000 s
  *              file), so plug -> softvol -> dmix, and no pitch shift.
+ *   usb       the card itself, found the way NextUI finds it; see usb_device().
  *   bluetooth the address audiomon just wrote into ~/.asoundrc, read as plain
  *              text rather than through alsa-lib's cached view of it. */
 static bool bt_address(char *mac, size_t len)
@@ -359,13 +362,27 @@ static bool route_is_bt(void)
 {
     char mac[32];
 
-    return !audiodev && trimpod_audio_sink() != TRIMPOD_SINK_SPEAKER &&
+    return !audiodev && trimpod_audio_sink() == TRIMPOD_SINK_BT &&
            bt_address(mac, sizeof mac);
 }
 
-static const char *speaker_device(void)
+/* USB-C headphones are a USB Audio Class card, so this route is a plain ALSA
+ * device -- but through `plug`.  A USB card advertises only the rates it really
+ * has (these earphones: 44.1/48/96k) and SUBSTITUTES one rather than failing,
+ * which set_hwparams() rejects, so a bare `hw:` route would never open. */
+static bool usb_device(char *buf, size_t len)
 {
-    return audiodev ? audiodev : "Playback";
+    int card;
+
+    if (trimpod_audio_sink() != TRIMPOD_SINK_USB)
+        return false;
+
+    card = trimpod_usb_card();
+    if (card < 0)
+        return false;               /* route says USB, no card to name */
+
+    snprintf(buf, len, "plughw:%d,0", card);
+    return true;
 }
 
 /* Start the child that owns the BlueALSA plugin. */
@@ -413,7 +430,8 @@ static bool bt_open(void)
      * nothing.  Best effort: an old kernel that refuses just keeps 64 KB. */
     fcntl(fileno(bt_pipe), F_SETPIPE_SZ, (int)(2 * period_size * FRAME_BYTES));
 
-    bt_lost_sent = false;
+    route_lost_sent = false;
+    open_route = TRIMPOD_SINK_BT;
     real_sample_rate = last_sample_rate;
     fprintf(stderr, "pcm: bluetooth via child aplay (%s) at %u Hz\n",
             mac, last_sample_rate);
@@ -422,11 +440,23 @@ static bool bt_open(void)
 
 static bool dev_open(void)
 {
-    const char *name = speaker_device();
+    char usb[32];
+    const char *name;
+    int route = TRIMPOD_SINK_SPEAKER;
     int err;
 
     if (route_is_bt())
         return bt_open();
+
+    if (audiodev)
+        name = audiodev;                /* --audiodev overrides every route */
+    else if (usb_device(usb, sizeof usb))
+    {
+        name = usb;
+        route = TRIMPOD_SINK_USB;
+    }
+    else
+        name = "Playback";
 
     /* Serialises against the volume driver's mixer opens: both rebuild
      * alsa-lib's global config on first use. */
@@ -455,6 +485,8 @@ static bool dev_open(void)
     }
 
     trimpod_alsa_unlock();
+    open_route = route;
+    route_lost_sent = false;
     fprintf(stderr, "pcm: opened %s at %u Hz (period %lu, buffer %lu)\n",
             name, real_sample_rate, (unsigned long)period_size,
             (unsigned long)buffer_size);
@@ -502,21 +534,22 @@ static void dev_close(void)
  *
  * NextUI's minarch closes the device as soon as audiomon rewrites ~/.asoundrc
  * and survives a speaker power-off, so closing is the behaviour that works. */
-/* The Bluetooth route is gone.  PAUSE rather than letting the writer follow the
- * route home: audiomon repoints it at the internal speaker within a second, and
- * moving a private listen to the loudspeaker unasked is the worse failure --
- * pausing is what VLC and phones do when an output disappears.
+/* A private route is gone -- a Bluetooth speaker switched off, USB-C headphones
+ * pulled out.  PAUSE rather than letting the writer follow the route home:
+ * audiomon repoints it at the internal speaker within a second, and moving a
+ * private listen to the loudspeaker unasked is the worse failure -- pausing is
+ * what VLC and phones do when an output disappears.
  *
  * Posted, not called.  audio_pause() is a blocking queue_send and must run on a
  * Rockbox thread; sim_enter_irq_handler() is how a foreign thread reaches the
  * kernel here, the same way button-sdl.c's SDL event thread posts keypresses.
- * apps/misc.c handles the event.  Once per speaker: without the flag a route
- * that keeps reopening and dying would post one every REOPEN_DELAY_MS. */
-static void bt_notify_lost(void)
+ * apps/misc.c handles the event.  Once per route: without the flag a route that
+ * keeps reopening and dying would post one every REOPEN_DELAY_MS. */
+static void route_notify_lost(void)
 {
-    if (bt_lost_sent)
+    if (route_lost_sent)
         return;
-    bt_lost_sent = true;
+    route_lost_sent = true;
 
     sim_enter_irq_handler();
     button_queue_post(SYS_PHONE_UNPLUGGED, 0);
@@ -525,17 +558,18 @@ static void bt_notify_lost(void)
 
 static void dev_lost(const char *why)
 {
-    bool was_bt = bt_pipe != NULL;
+    bool was_private = open_route != TRIMPOD_SINK_SPEAKER;
 
     fprintf(stderr, "pcm: device lost (%s), closing\n", why);
 
-    /* Pause BEFORE closing: closing waits on the child, and a child wedged
-     * against a dead speaker must not hold up the one thing the user hears. */
-    if (was_bt)
-        bt_notify_lost();
+    /* Pause BEFORE closing: closing waits on the Bluetooth child, and a child
+     * wedged against a dead speaker must not hold up the one thing the user
+     * hears. */
+    if (was_private)
+        route_notify_lost();
 
     dev_close();
-    trimpod_alsa_forget_bt();
+    trimpod_alsa_forget_sink();
 }
 
 /* --- pulling audio from Rockbox (upstream copy_frames) --------------------- */
@@ -730,10 +764,10 @@ static int writer_fn(void *param)
             {
                 fprintf(stderr, "pcm: route %d -> %d\n", cur_route, route);
                 cur_route = route;
-                /* The poll can beat the write error to a speaker that just
-                 * died, so leaving Bluetooth this way is a loss too -- and the
-                 * route it leaves for is the internal speaker. */
-                if (bt_pipe)
+                /* Either notice can arrive first -- this poll, or the write
+                 * error from a device that has gone -- so leaving a private
+                 * route this way is a loss too. */
+                if (dev_is_open() && open_route != TRIMPOD_SINK_SPEAKER)
                     dev_lost("route changed");
                 else
                     dev_close();

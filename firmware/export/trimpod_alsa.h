@@ -22,11 +22,17 @@
  * PCM sink (target/hosted/sdl/pcm-alsa.c): both need to know where NextUI is
  * currently sending audio, and both talk to alsa-lib from different threads. */
 
+/* NextUI's AUDIO_SINK_* values (workspace/tg5040/libmsettings/msettings.h). */
 #define TRIMPOD_SINK_SPEAKER 0
+#define TRIMPOD_SINK_BT      1
+#define TRIMPOD_SINK_USB     2
 
 /* Active sink as published by NextUI's audiomon; TRIMPOD_SINK_SPEAKER when
  * NextUI is not running. */
 int trimpod_audio_sink(void);
+
+/* Card index of the USB audio device, or -1 if there is none. */
+int trimpod_usb_card(void);
 
 /* One lock over every alsa-lib entry point in the app.  snd_config_update_free_
  * global() is explicitly not thread-safe and rebuilds the global config tree
@@ -35,11 +41,10 @@ int trimpod_audio_sink(void);
 void trimpod_alsa_lock(void);
 void trimpod_alsa_unlock(void);
 
-/* Let go of the BlueALSA mixer handle WITHOUT closing it, for use when the
- * Bluetooth device has gone.  Closing one whose device has vanished segfaults
- * inside the plugin, so the handle is leaked deliberately -- a few hundred
- * bytes per lost speaker, against an app that otherwise dies. */
-void trimpod_alsa_forget_bt(void);
+/* Drop the cached mixer control for the off-codec sinks, for use when the
+ * device behind one has gone.  The next volume change re-probes; a Bluetooth
+ * speaker or a USB DAC that comes back is not the same control. */
+void trimpod_alsa_forget_sink(void);
 
 /* Stop the PCM writer thread and release the device.  Called from
  * audiohw_close() during shutdown. */
