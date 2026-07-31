@@ -57,8 +57,6 @@
          Adjusting the interval to 10ms reduces likelihood of a panic. */
 #define USB_DEBOUNCE_TIME (10*HZ/1000)
 
-bool do_screendump_instead_of_usb = false;
-
 /* Dummy functions for USB_NONE  */
 
 bool usb_inserted(void)

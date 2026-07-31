@@ -8,9 +8,7 @@
  *
  * A trimpod_page like every other Trimpod screen: trimpod_page_run owns the
  * loop, the enter/exit slide transitions and the key whitelist; this page just
- * draws the full-screen grid and reacts to actions.  Going through the page
- * framework is what makes it clear cleanly on exit (the back-slide settles the
- * whole framebuffer), instead of leaving artifacts behind a hand-rolled loop.
+ * draws the full-screen grid and reacts to actions.
  *
  * Button map: D-pad moves the highlight, A engages the highlighted key
  * (letter/number/hyphen/space/caps/del/enter), Y backspaces, B always cancels.

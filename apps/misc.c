@@ -452,6 +452,16 @@ long default_event_handler_ex(long event, void (*callback)(void *), void *parame
             return SYS_USB_CONNECTED;
         }
 
+        /* Trimpod: the Bluetooth speaker went away mid-song, posted by the PCM
+         * writer (firmware/target/hosted/sdl/pcm-alsa.c).  Pause instead of
+         * following the route back to the internal speaker -- a private listen
+         * must not become a loudspeaker one.  Deliberately no auto-resume when
+         * it reconnects; that is the user's call. */
+        case SYS_PHONE_UNPLUGGED:
+            if (audio_status() & AUDIO_STATUS_PLAY)
+                audio_pause();
+            break;
+
         case SYS_POWEROFF:
         case SYS_REBOOT:
         {
@@ -578,10 +588,8 @@ static void update_norm_tab(void)
     norm_tab[0] = min;
     norm_tab_size = 1;
 
-    /* Trimpod: iterate to lim-1, not lim-2.  The upstream bound skipped the
-     * next-to-top normalized index, leaving a double-width gap so the final step
-     * before max was ~2x -- the main source of the uneven bar/loudness at the
-     * top of the dial. */
+    /* Trimpod: bound is lim-1 -- lim-2 drops the next-to-top index and leaves a
+     * double-width final step. */
     for (int i = 1; i < lim; ++i)
     {
         int vol = from_normalized_volume(i, min, max, lim);

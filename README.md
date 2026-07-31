@@ -81,7 +81,7 @@ as SDL joystick events and the power key as an SDL keyboard scancode (no gptokey
 |---|---|
 | `build.sh`, `package.sh` | build, then assemble the pak |
 | `Dockerfile.trimpod` | the toolchain image (NextUI tg5040 + `zip` + an `sdl2-config` shim) |
-| `pak/` | the pak skeleton: `launch.sh`, `pak.json`, `config.cfg`, `.sys` files |
+| `pak/` | the pak skeleton: `launch.sh`, `config.cfg`, `.sys` files (`pak.json` lives at the repo root) |
 | `assets/` | product assets — the theme, ChicagoFLF fonts, icons, Milkdrop presets, the skin build |
 | `apps/`, `firmware/`, `lib/`, `tools/` | the Rockbox source tree + the Trimpod target |
 

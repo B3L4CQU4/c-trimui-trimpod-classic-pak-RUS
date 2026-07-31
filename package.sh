@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Assemble dist/Trimpod.pak from the build (build-trimpod), the bundled theme
-# (assets/theme), and the static pak files (pak/ -- launch.sh, pak.json,
+# (assets/theme), and the static pak files (pak/ -- launch.sh, licenses,
 # config.cfg and the .sys device files).
 # Run ./build.sh first (it produces the runtime zip via 'make fullzip').
 # The app's data dir is /tmp/trimpod (NOT /tmp/rockbox) to avoid clashing with
@@ -52,7 +52,7 @@ mkdir -p "$PAK/trimpod/presets"
 # Ship the curated flat preset set (Settings -> Visualizers toggles them on/off).
 cp -r "$ROOT/assets/presets/." "$PAK/trimpod/presets/"
 
-echo ">> Overlaying the static pak files (pak/: launch.sh, pak.json, config, .sys)"
+echo ">> Overlaying the static pak files (pak/: launch.sh, licenses, config, .sys)"
 # pak/ mirrors the deployed pak skeleton; its trimpod/ merges onto the built one.
 # pak.json lives at the repo root (the Pak Store reads it there); copy it in too.
 cp -a "$ROOT/pak/." "$PAK/"

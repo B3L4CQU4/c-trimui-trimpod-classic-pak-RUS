@@ -6,9 +6,7 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Shared scratch RAM (see scratch_buf.h). Sized to match the old plugin
- * buffer so behaviour is unchanged; net memory footprint is neutral because
- * the plugin buffer was removed along with the plugin subsystem.
+ * Shared scratch RAM (see scratch_buf.h).
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

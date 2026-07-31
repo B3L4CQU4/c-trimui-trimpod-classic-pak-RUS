@@ -6,12 +6,9 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Shared scratch RAM. This buffer was historically borrowed from the plugin
- * buffer (plugin_get_buffer()); since plugins were removed it lives here as
- * plain infrastructure. Only one consumer uses it at a time -- these are all
- * modal operations (cuesheet load, playlist viewer, skin parse, file/folder
- * ops) that never run concurrently, exactly as when they shared the plugin
- * buffer.
+ * Shared scratch RAM. Only one consumer uses it at a time -- every user
+ * (cuesheet load, playlist viewer, skin parse, file/folder ops) is a modal
+ * operation, and they never run concurrently.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License

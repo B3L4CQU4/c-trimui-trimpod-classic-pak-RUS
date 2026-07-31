@@ -115,8 +115,5 @@ void sound_set_hw_eq_band5_frequency(int value);
 void sound_set(int setting, int value);
 int sound_val2phys(int setting, int value);
 
-void sound_set_pitch(int32_t pitch);
-int32_t sound_get_pitch(void);
-
 
 #endif

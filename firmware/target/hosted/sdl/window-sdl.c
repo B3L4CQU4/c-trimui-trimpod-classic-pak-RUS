@@ -151,8 +151,8 @@ static void gl_present_lcd_fade(SDL_Surface *src, float fade)
      * pass, and a quarter less data than RGBA.  SDL pads surface rows to 4 bytes
      * and GL's default unpack alignment is 4, so the strides agree for any width
      * (the alignment is left alone -- it is global state projectM shares).
-     * Re-specifying the texture every frame made the driver reallocate it; only
-     * a size change needs that, otherwise update in place. */
+     * Only a size change re-specifies the texture (that reallocates); otherwise
+     * update in place. */
     if (src->w != gl_tex_w || src->h != gl_tex_h)
     {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, src->w, src->h, 0,

@@ -81,8 +81,8 @@ static void trimpod_color_changed(int idx, void *ctx)
     settings_save();               /* self-persisting: no page-close hook needed */
 }
 
-/* CPU Frequency: inline selector over the A133's cpufreq steps; applied live,
- * persisted to cpu_freq.txt on close (launch.sh re-applies next boot). */
+/* CPU Frequency: inline selector over the A133's cpufreq steps; applied and
+ * persisted live (power-target.c owns cpu_freq.txt). */
 extern void retrohh_cpu_set_freq(int khz);
 extern void retrohh_cpu_set_dynamic(void);
 extern int  retrohh_cpu_get_freq(void);

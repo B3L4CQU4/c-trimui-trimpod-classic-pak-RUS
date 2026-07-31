@@ -38,7 +38,7 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-/* Audio tap implemented in firmware/target/hosted/pcm-alsa.c */
+/* Audio tap implemented in firmware/target/hosted/sdl/pcm-alsa.c */
 extern unsigned pcm_viz_latest(int16_t *out, unsigned max_frames);
 
 #define SPEC_N       512        /* samples analyzed per frame */

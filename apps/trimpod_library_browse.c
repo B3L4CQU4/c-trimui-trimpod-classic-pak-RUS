@@ -242,9 +242,8 @@ static int lib_poll(struct trimpod_page *self, int timeout)
 
 /* Start the shown Tracks list as one playlist at row `sel`.  p->paths was filled
  * (index-aligned with the visible rows) when the level loaded, so no DB query
- * runs here.  Materialize the queue via a single bulk m3u write + index scan
- * (trimpod_library_stage_paths) rather than Rockbox's O(n) per-track control-file
- * writes -- staging 174 tracks the old way measured ~1.4s on SD; this is one pass.
+ * runs here.  Materialize the queue via trimpod_library_stage_paths (bulk m3u
+ * write + index scan).
  * Row order == playlist index, so `sel` is the start index and the Now-Playing
  * return re-highlights the playing track. */
 static bool play_track(struct lib_page *p, int sel)

@@ -26,6 +26,10 @@
 #include <inttypes.h>
 #ifdef __unix__
 #include <unistd.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <ucontext.h>
+#include <sys/syscall.h>
 #endif
 #include "system.h"
 #include "kernel.h"
@@ -56,6 +60,7 @@ SDL_Surface *gui_surface;
 
 bool            background = true;          /* use backgrounds by default */
 bool            mapping = false;
+const char      *audiodev = NULL;
 bool            debug_buttons = false;
 
 bool            sim_alarm_wakeup = false;
@@ -155,6 +160,65 @@ void sim_do_exit()
     exit(EXIT_SUCCESS);
 }
 
+/* Trimpod: turn a crash into an answer.  stderr is trimpod.log, so a fault
+ * leaves a symbolised stack there instead of a bare "Segmentation fault" that
+ * can only be guessed at.  Re-raising with the handler reset gives the normal
+ * exit status. */
+/* Report the faulting PC and the process map rather than a backtrace: unwinding
+ * needs tables this binary does not carry and faulted again when tried, which
+ * is why the log kept showing nothing.  PC plus maps says which library died,
+ * using only reads that cannot themselves fault. */
+static void crash_handler(int sig, siginfo_t *info, void *ctx)
+{
+    unsigned long pc = 0;
+    char buf[1024];
+    ssize_t n;
+    int fd;
+
+#if defined(__aarch64__)
+    pc = ((ucontext_t *)ctx)->uc_mcontext.pc;
+#elif defined(__arm__)
+    pc = ((ucontext_t *)ctx)->uc_mcontext.arm_pc;
+#else
+    (void)ctx;
+#endif
+
+    /* si_code is the one field that says whether this was a real memory fault
+     * (SEGV_MAPERR 1 / SEGV_ACCERR 2, si_addr = the bad address) or a signal
+     * something sent us (SI_USER 0 / SI_TKILL -6, si_addr aliases si_pid). */
+    static volatile sig_atomic_t depth;
+
+    dprintf(STDERR_FILENO,
+            "\n*** signal %d (entry #%d)  si_code %d  addr/pid %p  pc 0x%lx  tid %ld ***\n",
+            sig, (int)++depth, info->si_code, info->si_addr, pc,
+            (long)syscall(SYS_gettid));
+
+    if (depth > 1)              /* the real fault re-firing; maps already dumped */
+    {
+        signal(sig, SIG_DFL);
+        return;
+    }
+
+    fd = open("/proc/self/maps", O_RDONLY);
+    if (fd >= 0)
+    {
+        dprintf(STDERR_FILENO, "--- maps ---\n");
+        while ((n = read(fd, buf, sizeof buf)) > 0)
+            if (write(STDERR_FILENO, buf, n) < 0)
+                break;
+        close(fd);
+        dprintf(STDERR_FILENO, "--- end maps ---\n");
+    }
+
+    /* Deliberately no raise().  Re-raising made the log ambiguous: the kernel
+     * then reported OUR tgkill (si_code SI_TKILL, pc inside raise) instead of
+     * the original fault.  Restoring the default and RETURNING re-executes the
+     * faulting instruction, so the kernel logs the true pc/lr/sp -- and if the
+     * signal was sent rather than faulted, execution simply carries on, which
+     * is itself the answer. */
+    signal(sig, SIG_DFL);
+}
+
 uintptr_t *stackbegin;
 uintptr_t *stackend;
 void system_init(void)
@@ -162,6 +226,14 @@ void system_init(void)
     SDL_sem *s;
     /* fake stack, OS manages size (and growth) */
     stackbegin = stackend = (uintptr_t*)&s;
+
+    struct sigaction sa;
+    memset(&sa, 0, sizeof sa);
+    sa.sa_sigaction = crash_handler;
+    sa.sa_flags = SA_SIGINFO;
+    sigaction(SIGSEGV, &sa, NULL);
+    sigaction(SIGBUS,  &sa, NULL);
+    sigaction(SIGABRT, &sa, NULL);
 
 
     if (SDL_InitSubSystem(SDL_INIT_TIMER))
@@ -278,6 +350,15 @@ void sys_handle_argv(int argc, char *argv[])
                     debug_buttons = true;
                     printf("Printing background button clicks.\n");
             }
+            else if (!strcmp("--audiodev", argv[x]))
+            {
+                x++;
+                if (x < argc)
+                {
+                    audiodev = argv[x];
+                    printf("Audio device: '%s'\n", audiodev);
+                }
+            }
             else
             {
                 printf("rockboxui\n");
@@ -288,6 +369,7 @@ void sys_handle_argv(int argc, char *argv[])
                 printf("  --alarm \t Simulate a wake-up on alarm\n");
                 printf("  --root [DIR]\t Set root directory\n");
                 printf("  --mapping \t Output coordinates and radius for mapping backgrounds\n");
+                printf("  --audiodev [NAME] \t Audio device name to use\n");
                 exit(0);
             }
         }

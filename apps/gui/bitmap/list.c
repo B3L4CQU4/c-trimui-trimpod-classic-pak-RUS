@@ -128,21 +128,14 @@ static void _default_listdraw_fn(struct list_putlineinfo_t *list_info)
     else
         display->put_line(x, y, linedes, "$*s$*t", item_indent, item_offset, dsp_text);
 
-    /* Trimpod: [x]/[ ] toggle or ">" arrow in the gutter list_draw reserved on
-     * the right.  The name was drawn in the narrowed name-column viewport (so the
-     * scroll marquee clips there); widen back over the gutter, extend the row's
-     * bar across it (an empty put_line == style_line, so the highlight spans the
-     * whole row), then draw the glyph on top.  The scroll engine only repaints the
-     * name column, so the gutter bar+glyph persist under the marquee.  A toggle
-     * draws its brackets at fixed positions (middle 'x'-wide) so [x]/[ ] don't
-     * jitter. */
-    /* Trimpod: the list reserved a right gutter (indic_gutter) for the inline
-     * value / [x] / ">" glyph, which narrowed every row's name viewport.  Stretch
-     * the selection bar across that gutter on EVERY row -- not only rows that carry
-     * a glyph -- so the highlight spans the full row width uniformly.  Plain action
-     * rows (Add to Playlist, Start Visualizer) and the label-only Play/Pause row
-     * supply no indicator/chevron yet must still highlight edge-to-edge.  Draw the
-     * glyph on top only when there is one. */
+    /* Trimpod: [x]/[ ] toggle or ">" arrow in the right gutter (indic_gutter)
+     * that list_draw reserved.  The name was drawn in a narrowed viewport (so the
+     * marquee clips there); widen back over the gutter and extend the row's bar
+     * across it on EVERY row -- an empty put_line == style_line -- so the
+     * highlight spans the full width even on rows carrying no glyph.  Draw the
+     * glyph on top only when there is one; the scroll engine repaints just the
+     * name column, so bar+glyph persist under the marquee.  Toggle brackets sit
+     * at fixed positions so [x]/[ ] don't jitter. */
     if (list_info->indic_gutter > 0 && !is_title)
     {
         vp->width += list_info->indic_gutter;

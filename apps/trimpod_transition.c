@@ -5,7 +5,6 @@
  * screen we arrive at) are composited into the live framebuffer at sliding
  * offsets over TRIMPOD_TRANSITION_MS with an ease-out curve.  The destination
  * is rendered off-screen first (lcd updates suppressed) so it never flashes.
- * The slide runs at full CPU clock and restores the user's frequency after.
  *
  * The SBS status row (header, above the content viewport) and the now-playing
  * row (footer, below it) are PINNED: only the content band between them slides.
@@ -98,9 +97,9 @@ static void slide(enum trimpod_transition_dir dir)
     /* No CPU boost: the slide runs at the user's configured clock; the fast
      * single-blit present (lcd-sdl.c) keeps the tween smooth without pinning. */
 
-    /* The loop is paced by the vsync'd present inside lcd_update()
-     * (SDL_RENDERER_PRESENTVSYNC) -- NO sleep.  Position comes from a real ms
-     * clock so motion is smooth and spans exactly TRIMPOD_TRANSITION_MS. */
+    /* Paced by the vsync'd GL swap inside lcd_update() -- NO sleep.  Position
+     * comes from a real ms clock so the tween spans exactly
+     * TRIMPOD_TRANSITION_MS. */
     int d = (dir == TRIMPOD_TRANS_FORWARD) ? 1 : -1;
     int hh = header_h();                  /* pinned header band: rows [0, hh)   */
     int fy = footer_y0();                 /* pinned footer band: rows [fy, end) */

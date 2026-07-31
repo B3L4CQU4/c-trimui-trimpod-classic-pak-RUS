@@ -498,10 +498,8 @@ static long do_wps_exit(long action, bool bookmark)
 
     gwps_leave_wps(true);
     (void)action;
-    /* GO_TO_PREVIOUS, like the ACTION_WPS_BROWSE exit -- GO_TO_PREVIOUS_BROWSER
-     * resolved the stale last_browser (default 0 = filetree) and dumped
-     * end-of-playlist exits into the raw file browser at the dead track's
-     * folder, escapable up through the whole filesystem. */
+    /* GO_TO_PREVIOUS, like the ACTION_WPS_BROWSE exit: _BROWSER resolves a
+     * stale last_browser (default 0 = filetree) and lands in the file browser. */
     return GO_TO_PREVIOUS;
 }
 
@@ -574,8 +572,8 @@ static void wps_page_draw(struct trimpod_page *p)
                  * to the progress bar on its own ~1s after the last change.
                  * skin_update() only draws into the framebuffer (it never
                  * presents -- the peak-meter loop owns presents) and only tokens
-                 * whose value changed actually repaint, so this is cheap.  (An
-                 * earlier "update only on change" gate here froze the %mv swap.) */
+                 * whose value changed actually repaint, so this is cheap.  Do
+                 * not gate this on "changed" -- that freezes the %mv swap. */
                 bool full_update = skin_do_full_update(WPS, i);
                 skin_update(WPS, i, full_update ?
                              SKIN_REFRESH_ALL : SKIN_REFRESH_NON_STATIC);
@@ -738,9 +736,8 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
             case ACTION_WPS_BROWSE:
                 gwps_leave_wps(true);
                 /* B backs out of Now Playing -> slide the previous screen in L->R.
-                 * GO_TO_PREVIOUS (not GO_TO_PREVIOUS_BROWSER) returns to whatever
-                 * screen we came from -- the root dispatch resolves it via
-                 * last_screen; GO_TO_PREVIOUS_BROWSER went to a stale browser. */
+                 * GO_TO_PREVIOUS (not _BROWSER): the root dispatch resolves the
+                 * real previous screen via last_screen. */
                 trimpod_transition_arm_back();
                 w->result = GO_TO_PREVIOUS;
                 return TRIMPOD_PAGE_DONE;
@@ -921,10 +918,9 @@ long gui_wps_show(void)
             .vt                = &wps_page_vtable,
             .context           = CONTEXT_WPS,
             /* Slide in like every other page (only the very first screen at app
-             * launch skips it).  KNOWN BUG (task #11, deferred): the slide can
-             * flicker / show missing data while the track loads because the
-             * destination frame is captured before id3 is ready -- left visible
-             * on purpose rather than hidden by snapping. */
+             * launch skips it).  The slide can flicker or show missing data
+             * while a track loads -- the destination frame is captured before
+             * id3 is ready; left visible rather than hidden by snapping. */
             .no_enter_anim     = trimpod_transition_first_screen(),
             .no_arm_back       = true,  /* B arms its own back slide to browser */
             .no_header_refresh = true,  /* the skin engine owns the SBS header */

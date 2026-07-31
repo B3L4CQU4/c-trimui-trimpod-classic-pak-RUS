@@ -148,12 +148,9 @@ void lcd_init_device(void)
     lcd_surface = SDL_CreateRGBSurface(SDL_SWSURFACE, SIM_LCD_WIDTH, SIM_LCD_HEIGHT,
                                        LCD_DEPTH, 0, 0, 0, 0);
 #if SDL_MAJOR_VERSION > 1
-    /* BLENDMODE_NONE, not BLEND: the surface has no alpha channel (masks are 0)
-     * and this target has a real hardware backlight, so nothing ever sets an
-     * alpha mod -- BLEND only forced every frame's copy into sim_lcd_surface
-     * through SDL's per-pixel software blender (15ms/frame vs 0.3ms for a plain
-     * copy).  Blending only ever served the simulator's fake backlight dimming,
-     * which this target does not use -- it has a real one. */
+    /* BLENDMODE_NONE: the surface has no alpha channel (masks are 0) and this
+     * target has a real backlight, so BLEND would only put every frame's copy
+     * through SDL's per-pixel software blender (15ms/frame vs 0.3ms). */
     SDL_SetSurfaceBlendMode(lcd_surface, SDL_BLENDMODE_NONE);
 #endif
 #elif LCD_DEPTH <= 8
