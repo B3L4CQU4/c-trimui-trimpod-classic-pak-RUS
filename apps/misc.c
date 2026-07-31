@@ -452,6 +452,16 @@ long default_event_handler_ex(long event, void (*callback)(void *), void *parame
             return SYS_USB_CONNECTED;
         }
 
+        /* Trimpod: the Bluetooth speaker went away mid-song, posted by the PCM
+         * writer (firmware/target/hosted/sdl/pcm-alsa.c).  Pause instead of
+         * following the route back to the internal speaker -- a private listen
+         * must not become a loudspeaker one.  Deliberately no auto-resume when
+         * it reconnects; that is the user's call. */
+        case SYS_PHONE_UNPLUGGED:
+            if (audio_status() & AUDIO_STATUS_PLAY)
+                audio_pause();
+            break;
+
         case SYS_POWEROFF:
         case SYS_REBOOT:
         {

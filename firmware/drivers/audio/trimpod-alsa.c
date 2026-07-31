@@ -16,7 +16,7 @@
  *
  ****************************************************************************/
 
-/* Trimpod: audiohw for the SDL PCM output.  Volume is split -- the coarse
+/* Trimpod: audiohw for the ALSA PCM output.  Volume is split -- the coarse
  * attenuation goes to a mixer control, software carries only the remainder.
  *
  * A mixer only attenuates what passes through it, so WHICH control depends on
@@ -38,11 +38,13 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 #include <alsa/asoundlib.h>
 #include "config.h"
 #include "sound.h"
 #include "fixedpoint.h"
 #include "pcm_sw_volume.h"
+#include "trimpod_alsa.h"
 
 /* Codec 'digital volume': 0..63, 1.16 dB/step, 0 = loudest.  The driver's TLV
  * dB info has the direction backwards -- do not "correct" this from it. */
@@ -58,11 +60,11 @@
  * 33 ints. */
 #define SHM_SETTINGS      "/dev/shm/SharedSettings"
 #define SHM_AUDIOSINK_OFF 112
-#define SINK_SPEAKER      0
+#define SINK_SPEAKER      TRIMPOD_SINK_SPEAKER
 
 /* stdio, not the Rockbox file API -- that one is macro-redirected and would
  * mangle a host path (firmware/target/hosted/sysfs.c does the same). */
-static int read_audiosink(void)
+int trimpod_audio_sink(void)
 {
     FILE *f = fopen(SHM_SETTINGS, "rb");
     int32_t sink = SINK_SPEAKER;        /* NextUI absent -> speaker */
@@ -76,6 +78,12 @@ static int read_audiosink(void)
     }
     return sink;
 }
+
+/* snd_config_update_free_global() is not thread-safe, and the PCM writer thread
+ * calls it on every (re)open while this file's mixer handles are live on the
+ * Rockbox side.  One lock covers both.  Static init because the first volume
+ * change can land before any explicit setup. */
+static pthread_mutex_t alsa_cfg_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* ---- internal speaker: the codec's own control --------------------------- */
 
@@ -107,97 +115,85 @@ static void hw_dv_open(void)
     snd_ctl_elem_value_set_name(dv_val, DV_CTL_NAME);
 }
 
-/* ---- Bluetooth: BlueALSA's A2DP volume ----------------------------------- */
+/* ---- Bluetooth: BlueALSA's A2DP volume, out of process ------------------
+ *
+ * Deliberately NOT snd_ctl_open("bluealsa").  Doing that loads
+ * libasound_module_ctl_bluealsa.so -- with its own D-Bus connection and thread
+ * -- into this address space, and when the speaker is switched off that plugin
+ * faults and takes the app with it.  Every crash log named that library, a
+ * PCM-only probe survived the same disconnect repeatedly, and NextUI (which
+ * never calls snd_ctl_open anywhere) does not crash.
+ *
+ * So the mixer runs as a child process, exactly as NextUI's SetRawVolume does:
+ * "bluealsa is a mixer plugin, not exposed as a separate card".  A dying plugin
+ * can then only kill the child.  amixer inherits our HOME, so ctl.!default
+ * resolves to the same BlueALSA control audiomon configured.
+ *
+ * Volume changes are user keypresses, so the fork/exec cost is irrelevant. */
 
-static snd_ctl_t *bt_ctl = NULL;
-static snd_ctl_elem_value_t *bt_val = NULL;
-static long bt_min, bt_max;
-static bool bt_open_tried = false;
+static char bt_ctl_name[128];
+static bool bt_ctl_looked_up;
 
-static void bt_close(void)
+/* First A2DP simple control, as listed by amixer.  Same scan NextUI does. */
+static void bt_find_control(void)
 {
-    if (bt_val)
-        snd_ctl_elem_value_free(bt_val);
-    if (bt_ctl)
-        snd_ctl_close(bt_ctl);
-    bt_val = NULL;
-    bt_ctl = NULL;
-    bt_open_tried = false;
+    FILE *fp;
+    char line[256];
+
+    if (bt_ctl_looked_up)
+        return;
+    bt_ctl_looked_up = true;
+    bt_ctl_name[0] = '\0';
+
+    fp = popen("amixer scontrols 2>/dev/null", "r");
+    if (!fp)
+        return;
+
+    while (fgets(line, sizeof line, fp))
+    {
+        char *start = strchr(line, '\'');
+        char *end = strrchr(line, '\'');
+
+        if (!start || !end || end <= start)
+            continue;
+        *end = '\0';
+        if (!strstr(start + 1, "A2DP") || strchr(start + 1, '"'))
+            continue;               /* skip anything we would have to escape */
+        snprintf(bt_ctl_name, sizeof bt_ctl_name, "%s", start + 1);
+        break;
+    }
+
+    pclose(fp);
 }
 
-/* One attempt per sink change -- retrying a failure would reconnect to
- * BlueALSA's D-Bus service on every volume change.
- *
- * The type check must be inside the loop: BlueALSA exposes a boolean
- * "<device> A2DP Playback Switch" whose name matches before the integer
- * "<device> A2DP Playback Volume" does. */
-static void bt_open(void)
+static void bt_forget(void)
 {
-    snd_ctl_elem_list_t *list = NULL;
-    snd_ctl_elem_info_t *info = NULL;
-    snd_ctl_elem_id_t *id = NULL;
-    unsigned int used, i;
-    bool found = false;
+    bt_ctl_looked_up = false;
+    bt_ctl_name[0] = '\0';
+}
 
-    if (bt_open_tried)
-        return;
-    bt_open_tried = true;
+/* Returns true if the control took the level. */
+static bool bt_set_percent(int percent)
+{
+    char cmd[256];
 
-    if (snd_ctl_open(&bt_ctl, "bluealsa", 0) < 0)
-    {
-        bt_ctl = NULL;
-        return;
-    }
-    if (snd_ctl_elem_list_malloc(&list) < 0 ||
-        snd_ctl_elem_info_malloc(&info) < 0 ||
-        snd_ctl_elem_id_malloc(&id) < 0)
-        goto out;
+    bt_find_control();
+    if (!bt_ctl_name[0])
+        return false;
 
-    if (snd_ctl_elem_list(bt_ctl, list) < 0 ||
-        snd_ctl_elem_list_alloc_space(list,
-                                      snd_ctl_elem_list_get_count(list)) < 0 ||
-        snd_ctl_elem_list(bt_ctl, list) < 0)
-        goto out;
+    snprintf(cmd, sizeof cmd, "amixer -M sset \"%s\" %d%% >/dev/null 2>&1",
+             bt_ctl_name, percent);
+    return system(cmd) == 0;
+}
 
-    /* iterate `used`, not `count`: entries past it are uninitialised */
-    used = snd_ctl_elem_list_get_used(list);
-    for (i = 0; i < used && !found; i++)
-    {
-        const char *name = snd_ctl_elem_list_get_name(list, i);
+void trimpod_alsa_lock(void)   { pthread_mutex_lock(&alsa_cfg_lock); }
+void trimpod_alsa_unlock(void) { pthread_mutex_unlock(&alsa_cfg_lock); }
 
-        if (!name || !strstr(name, "A2DP"))
-            continue;
-        snd_ctl_elem_list_get_id(list, i, id);
-        snd_ctl_elem_info_set_id(info, id);
-        if (snd_ctl_elem_info(bt_ctl, info) < 0 ||
-            snd_ctl_elem_info_get_type(info) != SND_CTL_ELEM_TYPE_INTEGER)
-            continue;                   /* the boolean switch */
-        bt_min = snd_ctl_elem_info_get_min(info);
-        bt_max = snd_ctl_elem_info_get_max(info);
-        if (bt_max <= bt_min)
-            continue;
-        if (snd_ctl_elem_value_malloc(&bt_val) == 0)
-        {
-            snd_ctl_elem_value_set_id(bt_val, id);
-            found = true;
-        }
-    }
-
-out:
-    if (list)
-    {
-        snd_ctl_elem_list_free_space(list);
-        snd_ctl_elem_list_free(list);
-    }
-    if (info)
-        snd_ctl_elem_info_free(info);
-    if (id)
-        snd_ctl_elem_id_free(id);
-    if (!found && bt_ctl)
-    {
-        snd_ctl_close(bt_ctl);          /* keep bt_open_tried set */
-        bt_ctl = NULL;
-    }
+void trimpod_alsa_forget_bt(void)
+{
+    pthread_mutex_lock(&alsa_cfg_lock);
+    bt_forget();
+    pthread_mutex_unlock(&alsa_cfg_lock);
 }
 
 /* Q16 amplitude factor for an attenuation in milli-dB (unity = 1<<16). */
@@ -214,12 +210,16 @@ static int32_t mdb_to_factor(int att_mdb)
 void audiohw_set_volume(int vol_l, int vol_r)
 {
     static int last_sink = -1;
-    int sink = read_audiosink();
+    int sink = trimpod_audio_sink();
+
+    /* Held across the whole body: the PCM writer thread can free the config
+     * tree these handles came from at any moment. */
+    pthread_mutex_lock(&alsa_cfg_lock);
 
     if (sink != last_sink)
     {
         last_sink = sink;
-        bt_close();                     /* re-probe once for the new route */
+        bt_forget();                    /* re-probe once for the new route */
     }
 
     /* attenuations in milli-dB, INT_MAX = mute */
@@ -243,29 +243,27 @@ void audiohw_set_volume(int vol_l, int vol_r)
             hw_mdb = steps * DV_STEP_MDB;
         }
     }
-    else
+    else if (common != INT_MAX)
     {
-        bt_open();
-        /* Mute stays a software zero -- instant, and it leaves the device's
-         * own level where the user set it. */
-        if (bt_ctl && common != INT_MAX)
-        {
-            /* A2DP volume is defined as linear in LOUDNESS, so step it ~2x per
-             * 10 dB; an amplitude map would collapse the dial.  The control
-             * then carries the whole attenuation and software stays at unity. */
-            long v = bt_min + (((bt_max - bt_min) *
-                                mdb_to_factor(common * 602 / 1000)) >> 16);
-            if (v < bt_min)
-                v = bt_min;
-            if (v > bt_max)
-                v = bt_max;
+        /* Mute stays a software zero -- instant, and it leaves the device's own
+         * level where the user set it.
+         *
+         * A2DP volume is defined as linear in LOUDNESS, so step it ~2x per
+         * 10 dB; an amplitude map would collapse the dial.  When the control
+         * takes it, it carries the whole attenuation and software stays at
+         * unity, which keeps the 16-bit truncation floor out of the way. */
+        int percent = (int)((mdb_to_factor(common * 602 / 1000) * 100) >> 16);
 
-            snd_ctl_elem_value_set_integer(bt_val, 0, v);
-            snd_ctl_elem_value_set_integer(bt_val, 1, v);
-            if (snd_ctl_elem_write(bt_ctl, bt_val) >= 0)
-                hw_mdb = common;
-        }
+        if (percent < 0)
+            percent = 0;
+        if (percent > 100)
+            percent = 100;
+
+        if (bt_set_percent(percent))
+            hw_mdb = common;
     }
+
+    pthread_mutex_unlock(&alsa_cfg_lock);
 
     /* software covers what the control did not, rounded to the setting's
      * tenth-dB unit (<=0.05 dB of rounding error) */
@@ -275,4 +273,9 @@ void audiohw_set_volume(int vol_l, int vol_r)
     pcm_set_master_volume(rem_l, rem_r);
 }
 
-void audiohw_close(void) {}
+/* shutdown_hw() calls this after audio_stop(); stopping the writer here is what
+ * lets the process actually exit instead of hanging on "Shutting Down". */
+void audiohw_close(void)
+{
+    pcm_alsa_shutdown();
+}

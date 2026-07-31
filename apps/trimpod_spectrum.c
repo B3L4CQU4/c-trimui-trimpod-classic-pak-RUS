@@ -9,7 +9,7 @@
  * Trimpod: audio spectrum bar graph for the Now Playing screen.
  *
  * Computes per-band magnitudes with Goertzel filters over the live PCM tap
- * (pcm-sdl.c: pcm_sdl_viz_latest) -- no FFT library or allocation needed -- and
+ * (pcm-alsa.c: pcm_viz_latest) -- no FFT library or allocation needed -- and
  * draws bottom-anchored bars filling the viewport. Rendered in place of the
  * volume bar via the WPS peak-meter element (see skin_display.c / the theme's
  * %pm tag), which already drives a fast partial refresh.
@@ -38,8 +38,8 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-/* Audio tap implemented in firmware/target/hosted/sdl/pcm-sdl.c */
-extern unsigned pcm_sdl_viz_latest(int16_t *out, unsigned max_frames);
+/* Audio tap implemented in firmware/target/hosted/sdl/pcm-alsa.c */
+extern unsigned pcm_viz_latest(int16_t *out, unsigned max_frames);
 
 #define SPEC_N       512        /* samples analyzed per frame */
 #define SPEC_BARS    16
@@ -85,7 +85,7 @@ void trimpod_spectrum_draw(struct screen *display, struct viewport *vp)
     if (!spec_inited)
         spec_init();
 
-    unsigned got = pcm_sdl_viz_latest(pcm, SPEC_N);
+    unsigned got = pcm_viz_latest(pcm, SPEC_N);
 
     /* mono mix, normalise to ~[-1,1], apply window */
     for (int n = 0; n < SPEC_N; n++)

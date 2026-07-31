@@ -10,7 +10,7 @@
  *
  * Wraps libprojectM (vendored in lib/projectm) and renders it fullscreen into
  * Trimpod's OpenGL ES window (see firmware/target/hosted/sdl/window-sdl.c).
- * Audio is tapped from the SDL PCM output (pcm-sdl.c: pcm_sdl_viz_latest) so the
+ * Audio is tapped from the PCM output (pcm-alsa.c: pcm_viz_latest) so the
  * visuals react to the beat. Presets are .milk files shipped in
  * ROCKBOX_DIR/presets and auto-transition over time (projectM fires a
  * "switch requested" callback when a preset's duration elapses or on a beat).
@@ -63,8 +63,8 @@
 #include "trimpod_page.h"        /* trimpod_page base (the Visualizers list) */
 #include "trimpod_ui.h"          /* trimpod_toggle_str (shared [x]/[ ] glyph) */
 
-/* Audio tap implemented in firmware/target/hosted/sdl/pcm-sdl.c */
-extern unsigned pcm_sdl_viz_latest(int16_t *out, unsigned max_frames);
+/* Audio tap implemented in firmware/target/hosted/sdl/pcm-alsa.c */
+extern unsigned pcm_viz_latest(int16_t *out, unsigned max_frames);
 
 /* projectM renders at 1/4 screen resolution into an offscreen FBO, which is then
  * nearest-neighbour upscaled to fill the window.  Our libprojectM is patched to
@@ -434,7 +434,7 @@ static int viz_render_thread(void *param)
 
     while (!viz_thread_stop)
     {
-        unsigned frames = pcm_sdl_viz_latest(pcm, PCM_CHUNK);
+        unsigned frames = pcm_viz_latest(pcm, PCM_CHUNK);
         if (frames > 0)
             projectm_pcm_add_int16(pm, pcm, frames, PROJECTM_STEREO);
 
@@ -562,8 +562,26 @@ static void visualizer_session(const char *locked_path)
     {
         /* Exit also when a power-button short press blanks the display, so the
          * visualizer doesn't keep rendering to a dark screen (music plays on). */
-        while (get_action(CONTEXT_STD, HZ/20) == ACTION_NONE && !power_display_off())
-            ;
+        for (;;)
+        {
+            int act = get_action(CONTEXT_STD, HZ/20);
+            bool leave;
+
+            /* SYS events pass through get_action() unchanged, so they have to
+             * be handled here instead of being mistaken for the exit button:
+             * losing the Bluetooth route pauses playback and stays on screen. */
+            if (act & SYS_EVENT)
+            {
+                long handled = default_event_handler(act);
+                leave = handled == SYS_USB_CONNECTED ||
+                        handled == SYS_POWEROFF || handled == SYS_REBOOT;
+            }
+            else
+                leave = act != ACTION_NONE || power_display_off();
+
+            if (leave)
+                break;
+        }
         viz_thread_stop = true;
         SDL_WaitThread(rt, NULL);
     }
@@ -620,6 +638,13 @@ bool trimpod_visualizer_fade_to_black(void)
 
         int act = get_action(CONTEXT_STD, TIMEOUT_NOBLOCK);
         bool blanked = power_display_off();  /* power short press mid-fade */
+
+        /* As in the session loop: a SYS event mid-fade (the Bluetooth route
+         * dying, say) must be handled, not swallowed as a cancel.  Only one
+         * that took the screen for itself cancels. */
+        if (act & SYS_EVENT)
+            act = default_event_handler(act) ? ACTION_STD_CANCEL : ACTION_NONE;
+
         if (blanked || (act != ACTION_NONE && act != ACTION_REDRAW))
         {
             if (blanked)   /* stay dark: restore without waking the panel */
