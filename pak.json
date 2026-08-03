@@ -13,7 +13,7 @@
   ],
   "platforms": ["tg5040"],
   "changelog": {
-    "v1.0.7": "Added a Red color option (Settings -> Power -> Color), matching the iPod nano (PRODUCT)RED. Added a Foreground Color option (Settings -> Power) for the text/ink color: White plus the full color lineup, for light-on-dark looks like white on Red.",
+    "v1.0.7": "Added a Red color option (Settings -> Power -> Color), matching the iPod nano (PRODUCT)RED. Added a Foreground Color option (Settings -> Power) for the text/ink color: White plus the full color lineup, for light-on-dark looks like white on Red. Volume bar now reads 'Volume X/40'. Fixed: playlist song menu not sliding back on close, status bar showing '.trimpod_queue', divider line ignoring the foreground color, and Now Playing spacing/status-bar text alignment.",
     "v1.0.6": "Fixed music playing about 8% too fast (roughly 1.4 semitones sharp). USB-C headphones work again, with in-app volume control. Powering off a Bluetooth speaker no longer crashes the app. Unplugging headphones or losing a Bluetooth device now pauses playback instead of switching to the internal speaker.",
     "v1.0.5": "Fixed bug allowing user to escape to file system after song end",
     "v1.0.4": "Rebuilt the audio output path: direct ALSA output with a hardware/software split volume. Fixes quiet passages dropping to silence at low volume; maximum volume is now full scale.",
