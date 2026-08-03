@@ -11545,17 +11545,17 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TRIMPOD_COLOR
-  desc: Trimpod Backlight > Color entry (background colour presets)
+  id: LANG_TRIMPOD_THEME
+  desc: Trimpod Power > Theme entry (background + ink colour pairs)
   user: core
   <source>
-    *: "Color"
+    *: "Theme"
   </source>
   <dest>
-    *: "Color"
+    *: "Theme"
   </dest>
   <voice>
-    *: "Color"
+    *: "Theme"
   </voice>
 </phrase>
 <phrase>

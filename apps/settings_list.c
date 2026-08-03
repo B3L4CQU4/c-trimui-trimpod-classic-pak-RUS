@@ -207,8 +207,11 @@ static const char graphic_numeric[] = "graphic,numeric";
   #define DEFAULT_VIEWERS_ICONSET ""
 #endif
 
-#define DEFAULT_THEME_FOREGROUND LCD_RGBPACK(0xce, 0xcf, 0xce)
-#define DEFAULT_THEME_BACKGROUND LCD_RGBPACK(0x00, 0x00, 0x00)
+/* Trimpod: the Classic Dark pairing (power_menu.c's theme table), so a config
+ * with a missing colour line still lands on a named theme, not stock Rockbox's
+ * grey-on-black (which the Theme knob would show as "Custom"). */
+#define DEFAULT_THEME_FOREGROUND LCD_RGBPACK(0x18, 0x1C, 0x18)
+#define DEFAULT_THEME_BACKGROUND LCD_RGBPACK(0xd8, 0xdc, 0xd0)
 #define DEFAULT_THEME_SELECTOR_START LCD_RGBPACK(0xff, 0xeb, 0x9c)
 #define DEFAULT_THEME_SELECTOR_END LCD_RGBPACK(0xb5, 0x8e, 0x00)
 #define DEFAULT_THEME_SELECTOR_TEXT LCD_RGBPACK(0x00, 0x00, 0x00)

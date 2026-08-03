@@ -159,6 +159,7 @@ enum volume_adjust_mode
 void setvol(void);
 void set_normalized_volume(int vol);
 int get_normalized_volume(void);
+int get_normalized_volume_steps(void);  /* highest notch (total on the dial) */
 void adjust_volume(int steps);
 void adjust_volume_ex(int steps, enum volume_adjust_mode mode);
 

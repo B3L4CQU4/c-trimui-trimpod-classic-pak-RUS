@@ -125,14 +125,64 @@ static void skin_reset_buffers(int item, int screen)
 #endif
 }
 
-/* Recolour the loaded skins' default background in place -- no reparse, so a
- * live background change never has to stop playback.  Only viewports still on
+/* Recolour one element subtree in place: viewports still on the previous theme
+ * default, plus cached %Vf(-)/%Vb(-) tag colours -- those re-apply at render
+ * time, so leaving them stale would revert their viewport on the next draw.
+ * %dr rectangles cache the fg colour at parse time too (dividers, boxes), so
+ * the fg pass recolours those as well. */
+static void skin_recolour_tree(char *buf, struct skin_element *e, bool fg,
+                               unsigned old_colour, unsigned new_colour)
+{
+    for (; e; e = SKINOFFSETTOPTR(buf, e->next))
+    {
+        if (e->type == VIEWPORT)
+        {
+            struct skin_viewport *svp = SKINOFFSETTOPTR(buf, e->data);
+            unsigned *pat = svp ? (fg ? &svp->vp.fg_pattern
+                                      : &svp->vp.bg_pattern) : NULL;
+            if (pat && *pat == old_colour)
+                *pat = new_colour;
+        }
+        else if (e->type == TAG && e->tag &&
+                 e->tag->type == (fg ? SKIN_TOKEN_VIEWPORT_FGCOLOUR
+                                     : SKIN_TOKEN_VIEWPORT_BGCOLOUR))
+        {
+            struct wps_token *tok = SKINOFFSETTOPTR(buf, e->data);
+            struct viewport_colour *col =
+                tok ? SKINOFFSETTOPTR(buf, tok->value.data) : NULL;
+            if (col && col->colour == old_colour)
+                col->colour = new_colour;
+        }
+        else if (e->type == TAG && e->tag && fg &&
+                 e->tag->type == SKIN_TOKEN_DRAWRECTANGLE)
+        {
+            struct wps_token *tok = SKINOFFSETTOPTR(buf, e->data);
+            struct draw_rectangle *rect =
+                tok ? SKINOFFSETTOPTR(buf, tok->value.data) : NULL;
+            if (rect)
+            {
+                if (rect->start_colour == old_colour)
+                    rect->start_colour = new_colour;
+                if (rect->end_colour == old_colour)
+                    rect->end_colour = new_colour;
+            }
+        }
+        OFFSETTYPE(struct skin_element*) *kids =
+            SKINOFFSETTOPTR(buf, e->children);
+        for (int i = 0; kids && i < e->children_count; i++)
+            skin_recolour_tree(buf, SKINOFFSETTOPTR(buf, kids[i]), fg,
+                               old_colour, new_colour);
+    }
+}
+
+/* Recolour the loaded skins' default fore/background in place -- no reparse,
+ * so a live colour change never has to stop playback.  Only colours still on
  * the previous theme default are touched; explicit and transparent viewport
  * colours keep theirs. */
-void skin_update_bg_color(unsigned old_bg, unsigned new_bg)
+static void skin_update_colour(bool fg, unsigned old_colour, unsigned new_colour)
 {
     int item, screen;
-    if (old_bg == new_bg)
+    if (old_colour == new_colour)
         return;
     for (item = 0; item < SKINNABLE_SCREENS_COUNT; item++)
     {
@@ -141,17 +191,21 @@ void skin_update_bg_color(unsigned old_bg, unsigned new_bg)
             char *buf = get_skin_buffer(&skins[item][screen].data);
             if (!buf)
                 continue;
-            struct skin_element *vp =
-                SKINOFFSETTOPTR(buf, skins[item][screen].data.tree);
-            while (vp)
-            {
-                struct skin_viewport *svp = SKINOFFSETTOPTR(buf, vp->data);
-                if (svp && svp->vp.bg_pattern == old_bg)
-                    svp->vp.bg_pattern = new_bg;
-                vp = SKINOFFSETTOPTR(buf, vp->next);
-            }
+            skin_recolour_tree(buf,
+                SKINOFFSETTOPTR(buf, skins[item][screen].data.tree),
+                fg, old_colour, new_colour);
         }
     }
+}
+
+void skin_update_bg_color(unsigned old_bg, unsigned new_bg)
+{
+    skin_update_colour(false, old_bg, new_bg);
+}
+
+void skin_update_fg_color(unsigned old_fg, unsigned new_fg)
+{
+    skin_update_colour(true, old_fg, new_fg);
 }
 
 void settings_apply_skins(void)

@@ -702,9 +702,10 @@ static void update_gui(struct gui_synclist * playlist_lists, bool init)
     gui_synclist_draw(playlist_lists);
 }
 
-static bool update_viewer(struct gui_synclist *playlist_lists, enum pv_context_result res)
+/* Apply a context-menu result to the playlist state (no drawing).
+ * Returns true when the viewer must close (playlist emptied). */
+static bool apply_context_result(enum pv_context_result res)
 {
-    bool exit = false;
     if (res == PV_CONTEXT_MODIFIED)
     {
         playlist_set_modified(viewer.playlist, true);
@@ -712,13 +713,26 @@ static bool update_viewer(struct gui_synclist *playlist_lists, enum pv_context_r
 
         update_playlist(true);
         if (viewer.num_tracks <= 0)
-            exit = true;
+            return true;
 
         if (viewer.selected_track >= viewer.num_tracks)
             viewer.selected_track = viewer.num_tracks-1;
     }
+    return false;
+}
+
+static bool update_viewer(struct gui_synclist *playlist_lists, enum pv_context_result res)
+{
+    bool exit = apply_context_result(res);
     update_gui(playlist_lists, false);
     return exit;
+}
+
+/* render callback for the back-slide out of the Hold-A context menu: the
+ * viewer redraw is the slide's destination frame */
+static void pv_list_render(void *ctx)
+{
+    update_gui((struct gui_synclist *)ctx, false);
 }
 
 static bool open_playlist_viewer(const char* filename,
@@ -953,13 +967,29 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
                 break;
             }
             case ACTION_STD_CONTEXT:
-                if (update_viewer(&playlist_lists,
-                                  context_menu(viewer.selected_track)))
+            {
+                enum pv_context_result cres = context_menu(viewer.selected_track);
+                /* The context menu is a trimpod_page: closing it (A or B)
+                 * armed a back slide.  Consume it and slide the viewer back
+                 * in, as trimpod_page_run does for its nested pages --
+                 * skipped during a home unwind (one slide at the Main Menu)
+                 * and when the viewer itself is about to close (its exit
+                 * arms the parent's slide instead). */
+                bool back = trimpod_transition_take_back();
+                if (trimpod_home_pending)
+                    break;
+                if (apply_context_result(cres))
                 {
                     exit = true;
                     ret = PLAYLIST_VIEWER_CANCEL;
                 }
+                else if (back)
+                    trimpod_transition_animate(TRIMPOD_TRANS_BACK,
+                                               pv_list_render, &playlist_lists);
+                else
+                    update_gui(&playlist_lists, false);
                 break;
+            }
             case ACTION_STD_MENU:
                 ret = PLAYLIST_VIEWER_MAINMENU;
                 goto exit;

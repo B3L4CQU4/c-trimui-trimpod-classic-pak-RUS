@@ -53,7 +53,9 @@
 # the current screen's title (%Lt) -- "TrimPod" on the main menu, "Settings"/etc
 # elsewhere, falling back to TrimPod if unset.  Hold is shown by the lock icon (left
 # of the battery), not the title.  Viewport centred (x 65..255) so %ac is centred.
-%Vl(mainMenu,65,9,190,24,3)
+# y=8: the font is 21px tall, so its centre (8+10.5) matches the icons' (18 --
+# play icon y7 h22, battery y9 h18).
+%Vl(mainMenu,65,8,190,24,3)
 %?if(%cs, =, 2)<%ac%s%?pn<%t(5)Now Playing;%t(5)%pn|%acNow Playing>|%?Lt<%ac%s%Lt|%acTrimPod>>
 
 # Battery
@@ -78,7 +80,8 @@
 ## Header Button-Legend (overlay, displayed via %Vd when a page sets %Tl) ##
 
 # Left-aligned button labels over the header; TrimPod is covered while shown.
-%Vl(legend,10,7,245,24,3)
+# y=8: same vertical centring as the title it covers.
+%Vl(legend,10,8,245,24,3)
 %Tl
 
 ## USB Screen ##

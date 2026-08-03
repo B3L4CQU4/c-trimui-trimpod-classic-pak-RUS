@@ -638,6 +638,12 @@ int get_normalized_volume(void)
 
     return a;
 }
+
+int get_normalized_volume_steps(void)
+{
+    update_norm_tab();
+    return norm_tab_size - 1;      /* notches run 0 (min) .. size-1 (max) */
+}
 #else
 void set_normalized_volume(int vol)
 {
@@ -647,6 +653,12 @@ void set_normalized_volume(int vol)
 int get_normalized_volume(void)
 {
     return global_status.volume / sound_steps(SOUND_VOLUME);
+}
+
+int get_normalized_volume_steps(void)
+{
+    return (sound_max(SOUND_VOLUME) - sound_min(SOUND_VOLUME))
+           / sound_steps(SOUND_VOLUME);
 }
 #endif
 

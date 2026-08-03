@@ -249,8 +249,9 @@ void sound_settings_apply(void);
  * skin buffer is reset properly
  */
 void settings_apply_skins(void);
-/* Live-recolour loaded skins' default background without a reparse (no audio stop). */
+/* Live-recolour loaded skins' default colours without a reparse (no audio stop). */
 void skin_update_bg_color(unsigned old_bg, unsigned new_bg);
+void skin_update_fg_color(unsigned old_fg, unsigned new_fg);
 
 void settings_apply(bool read_disk);
 void settings_display(void);

@@ -66,20 +66,21 @@
 %V(0,0,1,1,-)
 %?mv(2)<%Vd(npVolume)|%Vd(npProgress)>
 
-# Panel: PROGRESS -- playback position (shown when idle)
-%Vl(npProgress,20,190,280,14,-)%Vf(-)%Vb(-)
+# Panel: PROGRESS -- playback position (shown when idle).  The bar (y 192,
+# h 14) sits equidistant between the spectrum's bottom edge (188) and the
+# times line's top (210): 4px of air on each side.
+%Vl(npProgress,20,192,280,14,-)%Vf(-)%Vb(-)
 %pb(0,0,-,14,PBB,backdrop,PB)
 %Vl(npProgress,20,210,90,25,1)
 %al%pc
 %Vl(npProgress,235,210,65,25,1)
 %ar-%pr
 
-# Panel: VOLUME -- shown ~1s after a volume change (%mv).  Perceptual 0..10 dial
-# (40 even loudness steps): empty = 0 (silence), full = 10 (max), default = 5.
-# End labels are plain "0"/"10"; no dB (the scale isn't user-facing).
-%Vl(npVolume,20,190,280,14,-)%Vf(-)%Vb(-)
+# Panel: VOLUME -- shown ~1s after a volume change (%mv).  Perceptual dial
+# (40 even loudness steps): empty = silence, full = max.  The label under the
+# bar is the dial position, "Volume <notch>/<total>" (%vv); no dB (the scale
+# isn't user-facing).  Bar spacing mirrors the progress panel.
+%Vl(npVolume,20,192,280,14,-)%Vf(-)%Vb(-)
 %pv(0,0,-,14,PBB,backdrop,PB)
-%Vl(npVolume,20,210,40,25,1)
-%al0
-%Vl(npVolume,260,210,40,25,1)
-%ar10
+%Vl(npVolume,20,210,280,25,1)
+%acVolume %vv
