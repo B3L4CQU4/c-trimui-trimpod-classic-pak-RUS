@@ -11545,31 +11545,17 @@
   </voice>
 </phrase>
 <phrase>
-  id: LANG_TRIMPOD_BG_COLOR
-  desc: Trimpod Power > Background Color entry (background colour presets)
+  id: LANG_TRIMPOD_THEME
+  desc: Trimpod Power > Theme entry (background + ink colour pairs)
   user: core
   <source>
-    *: "Background Color"
+    *: "Theme"
   </source>
   <dest>
-    *: "Background Color"
+    *: "Theme"
   </dest>
   <voice>
-    *: "Background Color"
-  </voice>
-</phrase>
-<phrase>
-  id: LANG_TRIMPOD_FG_COLOR
-  desc: Trimpod Power > Foreground Color entry (text/ink colour presets)
-  user: core
-  <source>
-    *: "Foreground Color"
-  </source>
-  <dest>
-    *: "Foreground Color"
-  </dest>
-  <voice>
-    *: "Foreground Color"
+    *: "Theme"
   </voice>
 </phrase>
 <phrase>

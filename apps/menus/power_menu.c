@@ -6,11 +6,10 @@
  *   Firmware   |____|_  /\____/ \___  >__|_ \|___  /\____/__/\_ \
  *                     \/            \/     \/    \/            \/
  *
- * Trimpod: the Power (Device) settings menu -- Background Color, Foreground
- * Color, Brightness, Display Poweroff, Idle Poweroff, CPU Frequency, Charge
- * Limit -- on one do_menu page.  The colours, CPU and Charge Limit are inline
- * value knobs (LEFT/RIGHT cycle, applied live); the others are plain settings
- * rows.
+ * Trimpod: the Power (Device) settings menu -- Theme, Brightness, Display
+ * Poweroff, Idle Poweroff, CPU Frequency, Charge Limit -- on one do_menu page.
+ * Theme, CPU and Charge Limit are inline value knobs (LEFT/RIGHT cycle, applied
+ * live); the others are plain settings rows.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,95 +32,86 @@
 #include "viewport.h"       /* viewportmanager_theme_changed: full redraw on colour change */
 #include "exported_menus.h"
 
-/* Colour: pick the UI background from the iPod-family colour lineup (iPod mini
- * + nano tones; Apple never published official hexes, so these are the
- * recognised approximations). Kept light/medium so the dark theme foreground
- * stays readable. Written straight into the bg_color theme setting. */
-static const int trimpod_bg_presets[] = {
-    0xD8DCD0, /* Default (classic mono LCD) */
-    0xC4C7CC, /* Silver                     */
-    0x637D8C, /* Slate                      */
-    0x0094E1, /* Blue                       */
-    0xA0CB3B, /* Green                      */
-    0xFFD400, /* Yellow                     */
-    0xFAB71F, /* Gold                       */
-    0xF08A1C, /* Orange                     */
-    0xEA323C, /* Red ((PRODUCT)RED nano)    */
-    0xEC5298, /* Pink                       */
-    0x9B72B0, /* Purple                     */
-    0xBFCBB0, /* Mono Green                 */
-};
-#define TRIMPOD_BG_NPRESETS \
-    ((int)(sizeof(trimpod_bg_presets)/sizeof(trimpod_bg_presets[0])))
+/* Theme: a named background + ink pair, cycled as one knob.  Backgrounds are
+ * the iPod-family colour lineup (iPod mini + nano tones; Apple never published
+ * official hexes, so these are the recognised approximations).  Every
+ * background comes in three inks:
+ *   Dark  - the near-black mono-LCD ink (#181C18), the classic look;
+ *   Light - white, for light-on-dark pairings (white on (PRODUCT)RED etc);
+ *   a third, per-family ink picked for hue harmony with readable contrast
+ *   (complementary navy on yellow/orange, monochromatic deep tones elsewhere,
+ *   the Game Boy green on Mono Green).
+ * Written straight into the bg_color/fg_color theme settings. */
+#define TRIMPOD_INK_DARK  0x181C18   /* classic mono-LCD ink */
+#define TRIMPOD_INK_LIGHT 0xFFFFFF
 
-static void trimpod_bg_apply(int idx)
+struct trimpod_theme
 {
-    if (idx >= 0 && idx < TRIMPOD_BG_NPRESETS)
-    {
-        unsigned old_bg = global_settings.bg_color;
-        global_settings.bg_color = trimpod_bg_presets[idx];
-        screens[SCREEN_MAIN].set_background(global_settings.bg_color);
-        /* Recolour the loaded skins' cached default background in place, then
-         * force the UI viewports to re-fetch it and fully redraw.  A full skin
-         * reload would apply the same change but stop playback. */
-        skin_update_bg_color(old_bg, global_settings.bg_color);
-        viewportmanager_theme_changed(THEME_UI_VIEWPORT | THEME_STATUSBAR |
-                                      THEME_LISTS);
-    }
-}
-
-static const char *const trimpod_bg_names[TRIMPOD_BG_NPRESETS] = {
-    "Default", "Silver", "Slate", "Blue", "Green", "Yellow", "Gold", "Orange",
-    "Red", "Pink", "Purple", "Mono Green",
+    const char *name;
+    unsigned    bg;
+    unsigned    fg;
 };
 
-/* Colour: cycle the iPod bg-colour presets; applies live app-wide + saves. */
-static void trimpod_color_changed(int idx, void *ctx)
+static const struct trimpod_theme trimpod_themes[] = {
+    /* Classic (0xD8DCD0, the mono LCD): Dark is the shipped default look */
+    { "Classic Dark",     0xD8DCD0, TRIMPOD_INK_DARK  },
+    { "Classic Light",    0xD8DCD0, TRIMPOD_INK_LIGHT },
+    { "Classic Sepia",    0xD8DCD0, 0x5D4037 },  /* warm book-ink sepia   */
+    { "Silver Dark",      0xC4C7CC, TRIMPOD_INK_DARK  },
+    { "Silver Light",     0xC4C7CC, TRIMPOD_INK_LIGHT },
+    { "Silver Slate",     0xC4C7CC, 0x37474F },  /* cool monochrome       */
+    { "Slate Dark",       0x637D8C, TRIMPOD_INK_DARK  },
+    { "Slate Light",      0x637D8C, TRIMPOD_INK_LIGHT },
+    { "Slate Gold",       0x637D8C, 0xFFD97D },  /* warm on cool          */
+    { "Blue Dark",        0x0094E1, TRIMPOD_INK_DARK  },
+    { "Blue Light",       0x0094E1, TRIMPOD_INK_LIGHT },
+    { "Blue Navy",        0x0094E1, 0x002B4A },  /* deep monochrome       */
+    { "Green Dark",       0xA0CB3B, TRIMPOD_INK_DARK  },
+    { "Green Light",      0xA0CB3B, TRIMPOD_INK_LIGHT },
+    { "Green Forest",     0xA0CB3B, 0x2E4A1C },  /* deep monochrome       */
+    { "Yellow Dark",      0xFFD400, TRIMPOD_INK_DARK  },
+    { "Yellow Light",     0xFFD400, TRIMPOD_INK_LIGHT },
+    { "Yellow Navy",      0xFFD400, 0x1D3557 },  /* complementary         */
+    { "Gold Dark",        0xFAB71F, TRIMPOD_INK_DARK  },
+    { "Gold Light",       0xFAB71F, TRIMPOD_INK_LIGHT },
+    { "Gold Espresso",    0xFAB71F, 0x4E342E },  /* warm analogous        */
+    { "Orange Dark",      0xF08A1C, TRIMPOD_INK_DARK  },
+    { "Orange Light",     0xF08A1C, TRIMPOD_INK_LIGHT },
+    { "Orange Navy",      0xF08A1C, 0x1D3557 },  /* complementary         */
+    { "Red Dark",         0xEA323C, TRIMPOD_INK_DARK  },   /* (PRODUCT)RED */
+    { "Red Light",        0xEA323C, TRIMPOD_INK_LIGHT },
+    { "Red Cream",        0xEA323C, 0xFFF3E0 },  /* soft warm white       */
+    { "Pink Dark",        0xEC5298, TRIMPOD_INK_DARK  },
+    { "Pink Light",       0xEC5298, TRIMPOD_INK_LIGHT },
+    { "Pink Berry",       0xEC5298, 0x4A0728 },  /* deep monochrome       */
+    { "Purple Dark",      0x9B72B0, TRIMPOD_INK_DARK  },
+    { "Purple Light",     0x9B72B0, TRIMPOD_INK_LIGHT },
+    { "Purple Plum",      0x9B72B0, 0x2A1438 },  /* deep monochrome       */
+    { "Mono Green Dark",  0xBFCBB0, TRIMPOD_INK_DARK  },
+    { "Mono Green Light", 0xBFCBB0, TRIMPOD_INK_LIGHT },
+    { "Mono Green Pixel", 0xBFCBB0, 0x0F380F },  /* the Game Boy pairing  */
+};
+#define TRIMPOD_NTHEMES \
+    ((int)(sizeof(trimpod_themes)/sizeof(trimpod_themes[0])))
+
+static void trimpod_theme_apply(int idx)
 {
-    (void)ctx;
-    trimpod_bg_apply(idx);
+    if (idx < 0 || idx >= TRIMPOD_NTHEMES)
+        return;
+    unsigned old_bg = global_settings.bg_color;
+    unsigned old_fg = global_settings.fg_color;
+    global_settings.bg_color = trimpod_themes[idx].bg;
+    global_settings.fg_color = trimpod_themes[idx].fg;
+    screens[SCREEN_MAIN].set_background(global_settings.bg_color);
+    screens[SCREEN_MAIN].set_foreground(global_settings.fg_color);
+    /* Recolour the loaded skins' cached default colours in place, then force
+     * the UI viewports to re-fetch them and fully redraw.  A full skin reload
+     * would apply the same change but stop playback. */
+    skin_update_bg_color(old_bg, global_settings.bg_color);
+    skin_update_fg_color(old_fg, global_settings.fg_color);
+    viewportmanager_theme_changed(THEME_UI_VIEWPORT | THEME_STATUSBAR |
+                                  THEME_LISTS);
     settings_save();               /* self-persisting: no page-close hook needed */
-}
-
-/* Foreground Color: the text/line ink.  Default is the near-black mono-LCD ink
- * (#181C18); White plus the bg lineup enables light-on-dark pairings (white on
- * (PRODUCT)RED, etc).  Written straight into the fg_color theme setting. */
-static const int trimpod_fg_presets[] = {
-    0x181C18, /* Default (mono LCD ink)     */
-    0xFFFFFF, /* White                      */
-    0xC4C7CC, /* Silver                     */
-    0x637D8C, /* Slate                      */
-    0x0094E1, /* Blue                       */
-    0xA0CB3B, /* Green                      */
-    0xFFD400, /* Yellow                     */
-    0xFAB71F, /* Gold                       */
-    0xF08A1C, /* Orange                     */
-    0xEA323C, /* Red ((PRODUCT)RED nano)    */
-    0xEC5298, /* Pink                       */
-    0x9B72B0, /* Purple                     */
-    0xBFCBB0, /* Mono Green                 */
-};
-#define TRIMPOD_FG_NPRESETS \
-    ((int)(sizeof(trimpod_fg_presets)/sizeof(trimpod_fg_presets[0])))
-
-static const char *const trimpod_fg_names[TRIMPOD_FG_NPRESETS] = {
-    "Default", "White", "Silver", "Slate", "Blue", "Green", "Yellow", "Gold",
-    "Orange", "Red", "Pink", "Purple", "Mono Green",
-};
-
-static void trimpod_fg_changed(int idx, void *ctx)
-{
-    (void)ctx;
-    if (idx >= 0 && idx < TRIMPOD_FG_NPRESETS)
-    {
-        unsigned old_fg = global_settings.fg_color;
-        global_settings.fg_color = trimpod_fg_presets[idx];
-        screens[SCREEN_MAIN].set_foreground(global_settings.fg_color);
-        skin_update_fg_color(old_fg, global_settings.fg_color);
-        viewportmanager_theme_changed(THEME_UI_VIEWPORT | THEME_STATUSBAR |
-                                      THEME_LISTS);
-        settings_save();
-    }
 }
 
 /* CPU Frequency: inline selector over the A133's cpufreq steps; applied and
@@ -193,65 +183,35 @@ static void tp_cpu_value_cycle(void *ctx, int dir)
 static const struct menu_value_cb trimpod_cpu_value =
     { tp_cpu_value_get, tp_cpu_value_cycle, NULL };
 
-static int tp_color_cur_index(void)
+/* Current theme = the pair (bg_color, fg_color) matched against the table;
+ * -1 when the saved settings predate the selector (an unlisted combo). */
+static int tp_theme_cur_index(void)
 {
-    for (int i = 0; i < TRIMPOD_BG_NPRESETS; i++)
-        if (trimpod_bg_presets[i] == global_settings.bg_color)
+    for (int i = 0; i < TRIMPOD_NTHEMES; i++)
+        if (trimpod_themes[i].bg == global_settings.bg_color &&
+            trimpod_themes[i].fg == global_settings.fg_color)
             return i;
-    return 0;
+    return -1;
 }
-static const char *tp_color_value_get(void *ctx, char *buf, int len)
+static const char *tp_theme_value_get(void *ctx, char *buf, int len)
 {
     (void)ctx; (void)buf; (void)len;
-    return trimpod_bg_names[tp_color_cur_index()];
+    int idx = tp_theme_cur_index();
+    return idx >= 0 ? trimpod_themes[idx].name : "Custom";
 }
-static void tp_color_value_cycle(void *ctx, int dir)
+static void tp_theme_value_cycle(void *ctx, int dir)
 {
     (void)ctx;
-    int step = dir < 0 ? -1 : 1;
-    int idx = tp_color_cur_index() + step;
-    /* never offer bg == fg (the UI would turn invisible): step past the clash */
-    if (idx >= 0 && idx < TRIMPOD_BG_NPRESETS &&
-        trimpod_bg_presets[idx] == global_settings.fg_color)
-        idx += step;
+    int cur = tp_theme_cur_index();
+    /* from an unlisted combo any step lands on the first theme */
+    int idx = (cur < 0) ? 0 : cur + (dir < 0 ? -1 : 1);
     if (idx < 0) idx = 0;
-    if (idx >= TRIMPOD_BG_NPRESETS) idx = TRIMPOD_BG_NPRESETS - 1;
-    if (trimpod_bg_presets[idx] == global_settings.fg_color)
-        return;                       /* clash sits on the boundary: stay put */
-    trimpod_color_changed(idx, NULL);
+    if (idx >= TRIMPOD_NTHEMES) idx = TRIMPOD_NTHEMES - 1;
+    if (idx != cur)
+        trimpod_theme_apply(idx);
 }
-static const struct menu_value_cb trimpod_color_value =
-    { tp_color_value_get, tp_color_value_cycle, NULL };
-
-static int tp_fg_cur_index(void)
-{
-    for (int i = 0; i < TRIMPOD_FG_NPRESETS; i++)
-        if (trimpod_fg_presets[i] == global_settings.fg_color)
-            return i;
-    return 0;
-}
-static const char *tp_fg_value_get(void *ctx, char *buf, int len)
-{
-    (void)ctx; (void)buf; (void)len;
-    return trimpod_fg_names[tp_fg_cur_index()];
-}
-static void tp_fg_value_cycle(void *ctx, int dir)
-{
-    (void)ctx;
-    int step = dir < 0 ? -1 : 1;
-    int idx = tp_fg_cur_index() + step;
-    /* never offer fg == bg (the UI would turn invisible): step past the clash */
-    if (idx >= 0 && idx < TRIMPOD_FG_NPRESETS &&
-        trimpod_fg_presets[idx] == global_settings.bg_color)
-        idx += step;
-    if (idx < 0) idx = 0;
-    if (idx >= TRIMPOD_FG_NPRESETS) idx = TRIMPOD_FG_NPRESETS - 1;
-    if (trimpod_fg_presets[idx] == global_settings.bg_color)
-        return;                       /* clash sits on the boundary: stay put */
-    trimpod_fg_changed(idx, NULL);
-}
-static const struct menu_value_cb trimpod_fg_value =
-    { tp_fg_value_get, tp_fg_value_cycle, NULL };
+static const struct menu_value_cb trimpod_theme_value =
+    { tp_theme_value_get, tp_theme_value_cycle, NULL };
 
 /* Charge Limit: inline value 75/80/85/90/95/100% (100% = no cap), wrapping. The
  * row is omitted from the menu entirely when the Battery Care daemon is running
@@ -270,13 +230,11 @@ static void tp_charge_value_cycle(void *ctx, int dir)
 static const struct menu_value_cb trimpod_charge_value =
     { tp_charge_value_get, tp_charge_value_cycle, NULL };
 
-/* The page, in order: Background Color, Foreground Color, Brightness, Display
- * Poweroff, Idle Poweroff, CPU Frequency, Charge Limit.  Setting rows label
- * from their setting lang_id. */
+/* The page, in order: Theme, Brightness, Display Poweroff, Idle Poweroff, CPU
+ * Frequency, Charge Limit.  Setting rows label from their setting lang_id. */
 MENUITEM_VALUE(tp_pw_cpu, ID2P(LANG_TRIMPOD_CPU), &trimpod_cpu_value, Icon_NOICON);
 MENUITEM_SETTING(tp_pw_brightness, &global_settings.brightness, NULL);
-MENUITEM_VALUE(tp_pw_colour, ID2P(LANG_TRIMPOD_BG_COLOR), &trimpod_color_value, Icon_NOICON);
-MENUITEM_VALUE(tp_pw_fgcolour, ID2P(LANG_TRIMPOD_FG_COLOR), &trimpod_fg_value, Icon_NOICON);
+MENUITEM_VALUE(tp_pw_theme, ID2P(LANG_TRIMPOD_THEME), &trimpod_theme_value, Icon_NOICON);
 MENUITEM_SETTING(tp_pw_screenoff, &global_settings.backlight_timeout, NULL);
 MENUITEM_SETTING(tp_pw_idlepoweroff, &global_settings.poweroff, NULL);
 MENUITEM_VALUE(tp_pw_charge, "Charge Limit", &trimpod_charge_value, Icon_NOICON);
@@ -284,10 +242,10 @@ MENUITEM_VALUE(tp_pw_charge, "Charge Limit", &trimpod_charge_value, Icon_NOICON)
  * charging.  When the Battery Care daemon owns the bit the row is simply absent
  * (the "_nobatt" menu) rather than shown disabled -- see trimpod_power_page. */
 MAKE_MENU(trimpod_power_menu, ID2P(LANG_TRIMPOD_DEVICE), NULL, Icon_Submenu_Entered,
-          &tp_pw_colour, &tp_pw_fgcolour, &tp_pw_brightness, &tp_pw_screenoff,
+          &tp_pw_theme, &tp_pw_brightness, &tp_pw_screenoff,
           &tp_pw_idlepoweroff, &tp_pw_cpu, &tp_pw_charge);
 MAKE_MENU(trimpod_power_menu_nobatt, ID2P(LANG_TRIMPOD_DEVICE), NULL, Icon_Submenu_Entered,
-          &tp_pw_colour, &tp_pw_fgcolour, &tp_pw_brightness, &tp_pw_screenoff,
+          &tp_pw_theme, &tp_pw_brightness, &tp_pw_screenoff,
           &tp_pw_idlepoweroff, &tp_pw_cpu);
 
 int trimpod_power_page(void)
