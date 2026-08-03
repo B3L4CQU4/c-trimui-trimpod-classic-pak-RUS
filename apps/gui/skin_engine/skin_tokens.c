@@ -916,7 +916,13 @@ const char *get_token_value(struct gui_wps *gwps,
         case SKIN_TOKEN_LIST_NEEDS_SCROLLBAR:
             return skinlist_needs_scrollbar(gwps->display->screen_type) ? "s" : "";
         case SKIN_TOKEN_PLAYLIST_NAME:
-            return playlist_name(NULL, buf, buf_size);
+        {
+            /* Dotfile playlists are internal (the library's hidden
+             * .trimpod_queue): report no name, so the status bar shows a
+             * steady "Now Playing" instead of alternating with the filename. */
+            char *name = playlist_name(NULL, buf, buf_size);
+            return (name && name[0] == '.') ? NULL : name;
+        }
 
         case SKIN_TOKEN_PLAYLIST_POSITION:
             numeric_ret = playlist_get_display_index()+offset;
@@ -990,6 +996,13 @@ const char *get_token_value(struct gui_wps *gwps,
             /* the user's Maximum Volume Limit (Settings -> ... -> Volume Limit) */
             format_sound_value_ex(buf, buf_size, SOUND_VOLUME,
                                   global_settings.volume_limit, true);
+            return buf;
+
+        case SKIN_TOKEN_VOLUME_NOTCH:
+            /* the rocker's dial position on the perceptual scale, as
+             * "<notch>/<total>" (e.g. "23/40") */
+            snprintf(buf, buf_size, "%d/%d", get_normalized_volume(),
+                     get_normalized_volume_steps());
             return buf;
 
         case SKIN_TOKEN_BATTERY_PERCENT:

@@ -127,7 +127,9 @@ static void skin_reset_buffers(int item, int screen)
 
 /* Recolour one element subtree in place: viewports still on the previous theme
  * default, plus cached %Vf(-)/%Vb(-) tag colours -- those re-apply at render
- * time, so leaving them stale would revert their viewport on the next draw. */
+ * time, so leaving them stale would revert their viewport on the next draw.
+ * %dr rectangles cache the fg colour at parse time too (dividers, boxes), so
+ * the fg pass recolours those as well. */
 static void skin_recolour_tree(char *buf, struct skin_element *e, bool fg,
                                unsigned old_colour, unsigned new_colour)
 {
@@ -150,6 +152,20 @@ static void skin_recolour_tree(char *buf, struct skin_element *e, bool fg,
                 tok ? SKINOFFSETTOPTR(buf, tok->value.data) : NULL;
             if (col && col->colour == old_colour)
                 col->colour = new_colour;
+        }
+        else if (e->type == TAG && e->tag && fg &&
+                 e->tag->type == SKIN_TOKEN_DRAWRECTANGLE)
+        {
+            struct wps_token *tok = SKINOFFSETTOPTR(buf, e->data);
+            struct draw_rectangle *rect =
+                tok ? SKINOFFSETTOPTR(buf, tok->value.data) : NULL;
+            if (rect)
+            {
+                if (rect->start_colour == old_colour)
+                    rect->start_colour = new_colour;
+                if (rect->end_colour == old_colour)
+                    rect->end_colour = new_colour;
+            }
         }
         OFFSETTYPE(struct skin_element*) *kids =
             SKINOFFSETTOPTR(buf, e->children);

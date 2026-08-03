@@ -242,6 +242,7 @@ enum skin_token_type {
     SKIN_TOKEN_VOLUMEBAR,
     SKIN_TOKEN_VOLUME_MIN,      /* lowest volume (sound_min), as a dB number */
     SKIN_TOKEN_VOLUME_LIMIT,    /* Maximum Volume Limit setting, as a dB number */
+    SKIN_TOKEN_VOLUME_NOTCH,    /* rocker dial position, "<notch>/<total>" */
     /* hold */
     SKIN_TOKEN_MAIN_HOLD,
     SKIN_TOKEN_REMOTE_HOLD,
