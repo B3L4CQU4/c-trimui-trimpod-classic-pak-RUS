@@ -13,11 +13,10 @@ BUILD_DIR="build-trimpod"
 TARGET_ID=210          # retro-handheld (TrimUI Brick SDL app), see tools/configure
 JOBS="$(nproc)"
 
-# Build the derived toolchain image once (cached thereafter).
-if ! docker image inspect "$IMG" >/dev/null 2>&1; then
-  echo ">> Building toolchain image $IMG ..."
-  docker build -t "$IMG" -f "$ROOT/Dockerfile.trimpod" "$ROOT"
-fi
+# Keep the image in sync with Dockerfile.trimpod. Docker reuses unchanged
+# layers, so this is quick after the first run and picks up new host tools.
+echo ">> Preparing toolchain image $IMG ..."
+docker build -t "$IMG" -f "$ROOT/Dockerfile.trimpod" "$ROOT"
 
 CLEAN=0
 [ "${1:-}" = "clean" ] && CLEAN=1
@@ -30,6 +29,10 @@ docker run --rm \
   --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$ROOT":/build -w /build "$IMG" bash -lc "
   set -e
+  # Generate the licensed UI font derivatives before packaging. convttf is a
+  # host tool, so it is built with the container's native gcc, not AArch64 gcc.
+  bash tools/build_trimpod_fonts.sh
+
   # /usr/local/bin (our sdl2-config wrapper, baked into the image) must win over
   # the sysroot's broken sdl2-config, so do NOT prepend \$SYSROOT/usr/bin here.
   if [ $CLEAN -eq 1 ] || [ ! -f $BUILD_DIR/Makefile ]; then

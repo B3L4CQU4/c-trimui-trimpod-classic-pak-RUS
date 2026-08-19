@@ -17,8 +17,8 @@
 %?Lt<|>
 
 # Preload Fonts
-%Fl(2,18-ChicagoFLF.fnt)
-%Fl(3,20-ChicagoFLF.fnt)
+%Fl(2,18-TrimpodUI.fnt)
+%Fl(3,20-TrimpodUI.fnt)
 
 #Preload Images
 %xl(sad_mac,sad_mac.bmp,0,0)
@@ -34,7 +34,7 @@
 # Header button-legend (the standard): when a page sets a legend (%Tl non-empty)
 # overlay it on the header.  Conditionally DISPLAYED (like usbScreen), not a
 # content-conditional, so when hidden it doesn't clear over the header -- the
-# normal header (centred TrimPod) is left exactly as it is.
+# normal header (centred project title) is left exactly as it is.
 %?Tl<%Vd(legend)|>
 
 # Clear Screen
@@ -42,77 +42,76 @@
 
 ## Main Menu ##
 
-# Main Menu UI Viewport (font slot 1 = user-selected font, so the Font setting applies)
-%Vi(mainMenu,5,45,310,170,1)
+# 512x384 layout. Font slot 1 remains the user-selected UI font.
+%Vi(mainMenu,8,64,496,284,1)
 
 # Play/Pause Icons
-%Vl(mainMenu,10,7,22,22,-)
+%Vl(mainMenu,16,11,44,44,-)
 %?if(%mp, >, 1)<%xd(playmodes,%mp)|>
 
 # Title (shared status bar): Now Playing (%cs=2) shows the playlist name; otherwise
-# the current screen's title (%Lt) -- "TrimPod" on the main menu, "Settings"/etc
-# elsewhere, falling back to TrimPod if unset.  Hold is shown by the lock icon (left
+# the current screen's title (%Lt) -- the localized fork title on the main menu,
+# "Settings"/etc elsewhere, falling back to TrimPod(RUS) if unset. Parentheses
+# are escaped because they are control characters in Rockbox skin source. Hold is shown by the lock icon (left
 # of the battery), not the title.  Viewport centred (x 65..255) so %ac is centred.
-# y=8: the font is 21px tall, so its centre (8+10.5) matches the icons' (18 --
-# play icon y7 h22, battery y9 h18).
-%Vl(mainMenu,65,8,190,24,3)
-%?if(%cs, =, 2)<%ac%s%?pn<%t(5)Now Playing;%t(5)%pn|%acNow Playing>|%?Lt<%ac%s%Lt|%acTrimPod>>
+# The original 20px Chicago role is centred against the pixel-art icons.
+%Vl(mainMenu,104,18,280,27,3)
+%?if(%cs, =, 2)<%ac%s%?pn<%t(5)%Sx(Now Playing);%t(5)%pn|%ac%Sx(Now Playing)>|%?Lt<%ac%s%Lt|%acTrimPod%(RUS%)>>
 
 # Battery
-%Vl(mainMenu,274,9,40,18,2)
+%Vl(mainMenu,424,14,80,36,2)
 %?if(%bl, >, 88)<%xd(battery,5)|%?if(%bl, >, 63)<%xd(battery,4)|%?if(%bl, >, 38)<%xd(battery,3)|%?if(%bl, >, 13)<%xd(battery,2)|%xd(battery,1)>>>>
 
 # Hold lock: a padlock (lock.bmp) shown just left of the battery while the side
 # switch is engaged (%mh).
-%Vl(mainMenu,256,9,14,18,-)
+%Vl(mainMenu,392,14,28,36,-)
 %?mh<%xd(lock)|>
 
 # Line
-%Vl(mainMenu,5,36,310,2,-)
-%dr(0,0,310,2)
+%Vl(mainMenu,8,58,496,3,-)
+%dr(0,0,496,3)
 
 # Now Playing (bottom scroller on menu screens; hidden on the WPS, which draws
-# its own track info/times there).  18px tall: fullwidth CJK glyphs fill the
-# 18px font's whole em -- a shorter band clips them.
-%Vl(mainMenu,5,218,310,18,2)
+# its own track info/times there). The 29px font has room for fullwidth glyphs.
+%Vl(mainMenu,8,356,496,22,2)
 %?if(%cs, =, 2)<|%ac%?mp<|%s%?it<%it|%fn>%?ia< - %ia>|>>
 
 ## Header Button-Legend (overlay, displayed via %Vd when a page sets %Tl) ##
 
-# Left-aligned button labels over the header; TrimPod is covered while shown.
-# y=8: same vertical centring as the title it covers.
-%Vl(legend,10,8,245,24,3)
+# Left-aligned button labels over the header; the title is covered while shown.
+# Same vertical centring as the title it covers.
+%Vl(legend,16,18,392,27,3)
 %Tl
 
 ## USB Screen ##
 
 # USB Screen Viewport
-%Vl(usbScreen,0,0,320,240,-)
+%Vl(usbScreen,0,0,512,384,-)
 
 # Time / Battery (numerical)
-%Vl(usbScreen,40,10,240,25,3)
-%t(10)%ac%?cf<%ac%cH|%cl>:%cM%?cf<| %cP>;%t(10)%acBattery: %bl%%
+%Vl(usbScreen,64,18,384,27,3)
+%t(10)%ac%?cf<%ac%cH|%cl>:%cM%?cf<| %cP>;%t(10)%ac%Sx(Battery): %bl%%
 
 # Battery
-%Vl(usbScreen,274,9,40,18,2)
+%Vl(usbScreen,424,14,80,36,2)
 %?if(%bl, >, 88)<%xd(battery,5)|%?if(%bl, >, 63)<%xd(battery,4)|%?if(%bl, >, 38)<%xd(battery,3)|%?if(%bl, >, 13)<%xd(battery,2)|%xd(battery,1)>>>>
 
 # Line
-%Vl(usbScreen,5,36,310,2,-)
-%dr(0,0,310,2)
+%Vl(usbScreen,8,58,496,3,-)
+%dr(0,0,496,3)
 
 # USB Mac Icon
-%Vl(usbScreen,220,75,95,120,-)
+%Vl(usbScreen,314,112,190,240,-)
 %xd(sad_mac)
 
 # USB Text
-%Vl(usbScreen,5,95,210,27,3)
-%acUSB CONNECTED%Vs(invert)
+%Vl(usbScreen,8,160,300,28,3)
+%ac%Sx(USB Connected)%Vs(invert)
 
 # USB Eject Box
-%Vl(usbScreen,5,130,210,27,-)
-%dr(0,0,210,1)%dr(0,0,1,26)%dr(209,0,1,26)%dr(0,26,210,1)
+%Vl(usbScreen,8,208,336,43,-)
+%dr(0,0,336,2)%dr(0,0,2,42)%dr(334,0,2,42)%dr(0,41,336,2)
 
 # Eject Warning
-%Vl(usbScreen,6,138,205,18,2)
-%ac%t(1)! EJECT BEFORE DISCONNECTING !;%t(.1)%ac
+%Vl(usbScreen,10,226,328,22,2)
+%ac%t(1)! %Sx(Eject Before Disconnecting) !;%t(.1)%ac

@@ -180,7 +180,10 @@ static const char *pl_get_name(int sel, void *data, char *buf, size_t buf_len)
 {
     (void)data;
     if (sel == pl_count)
-        return "+ Add Playlist";
+    {
+        snprintf(buf, buf_len, "+ %s", str(LANG_CREATE_PLAYLIST));
+        return buf;
+    }
     if (sel < 0 || sel > pl_count)
         return "";
     pl_display_name(sel, buf, buf_len);   /* no extension shown */
@@ -288,9 +291,9 @@ static enum trimpod_page_result editor_on_action(struct trimpod_page *self, int 
     {
         char name[MAX_PATH];
         editor_track_name(p, sel, name, sizeof(name));
-        static const char *const opts[] = { "Remove from Playlist" };
+        static const char *const opts[] = { ID2P(LANG_TRIMPOD_REMOVE_FROM_PLAYLIST) };
         if (trimpod_context_menu(name, opts, 1) == 0 &&
-            trimpod_confirm("Remove from playlist?", name) &&
+            trimpod_confirm(str(LANG_TRIMPOD_REMOVE_PLAYLIST_QUESTION), name) &&
             playlist_delete(p->pl, sel) == 0)
         {
             p->dirty = true;
@@ -370,7 +373,8 @@ static void edit_playlist(int sel)
  * trimpod_context_menu returns the row index or -1 on cancel. */
 enum { PL_ACT_PLAY = 0, PL_ACT_SHUFFLE, PL_ACT_RENAME, PL_ACT_EDIT, PL_ACT_DELETE };
 static const char *const playlist_action_opts[] =
-    { "Play", "Shuffle", "Rename", "Edit", "Delete" };
+    { ID2P(LANG_PLAY), ID2P(LANG_SHUFFLE), ID2P(LANG_RENAME),
+      ID2P(LANG_EDIT), ID2P(LANG_DELETE) };
 
 /* Open the context menu for playlist `sel`; returns TRIMPOD_PAGE_DONE when a
  * chosen action leaves the page (play -> Now Playing), else STAY. */
@@ -426,7 +430,7 @@ static enum trimpod_page_result playlist_action(struct playlists_page *p, int se
             break;
         case PL_ACT_DELETE:
         {
-            if (trimpod_confirm("Delete this playlist?", name))
+            if (trimpod_confirm(str(LANG_TRIMPOD_DELETE_PLAYLIST_QUESTION), name))
             {
                 remove(path);
                 pl_load();
@@ -511,8 +515,9 @@ static enum trimpod_page_result playlists_on_action(struct trimpod_page *self,
                 char name[MAX_PATH];
                 pl_display_name(sel, name, sizeof(name));
                 static const char *const rows[] =
-                    { "Playlist is empty", "Hold A on any song",
-                      "to add it to a playlist" };
+                    { ID2P(LANG_TRIMPOD_PLAYLIST_EMPTY),
+                      ID2P(LANG_TRIMPOD_PLAYLIST_HINT_1),
+                      ID2P(LANG_TRIMPOD_PLAYLIST_HINT_2) };
                 trimpod_message_page(name, rows, 3);
                 return TRIMPOD_PAGE_STAY;
             }
@@ -607,7 +612,7 @@ int trimpod_playlists_start_pending(void)
 
     if (playlist_create(pl_dir, pl_pending_file) == -1 || playlist_amount() <= 0)
     {
-        splashf(HZ, "Playlist is empty");
+        splash(HZ, ID2P(LANG_TRIMPOD_PLAYLIST_EMPTY));
         return -1;
     }
     /* Reflect the chosen mode in the shuffle setting so Now Playing shows it
@@ -648,7 +653,7 @@ void trimpod_playlists_pick(const char *sel, int sel_attr)
         .result = GO_TO_ROOT,
         .pick = true, .pick_sel = sel, .pick_attr = sel_attr,
     };
-    run_playlists(&p, "Add to Playlist");
+    run_playlists(&p, str(LANG_ADD_TO_PL));
 }
 
 /* Add an explicit set of track paths (a library album/artist, which has no
@@ -662,14 +667,14 @@ static void trimpod_playlists_pick_tracks(char **paths, int count)
         .result = GO_TO_ROOT,
         .pick = true, .pick_paths = paths, .pick_npaths = count,
     };
-    run_playlists(&p, "Add to Playlist");
+    run_playlists(&p, str(LANG_ADD_TO_PL));
 }
 
 /* ---- shared Hold-A "Add to Playlist" entry points ------------------------
  * The one gesture every music browser routes through: show the context submenu
  * for `title`, and on confirm add the selection.  One flow, so a page only has
  * to resolve its highlighted row to a path (or a set of track paths). */
-static const char *const add_to_pl_opts[] = { "Add to Playlist" };
+static const char *const add_to_pl_opts[] = { ID2P(LANG_ADD_TO_PL) };
 
 void trimpod_add_to_playlist(const char *title, const char *path, int attr)
 {

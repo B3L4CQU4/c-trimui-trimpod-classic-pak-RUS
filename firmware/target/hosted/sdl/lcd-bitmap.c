@@ -110,7 +110,7 @@ void lcd_update(void)
 
 /* Trimpod: the panel is dark (Auto Screen Off timeout or a manual power blank).
  * Nothing drawn can be seen, and on this target every present is a full-window
- * 3.2x upscale + swap -- the single most expensive thing the app does.  Drawing
+ * exact 2x upscale + swap -- the single most expensive thing the app does. Drawing
  * still lands in the surfaces (so they stay current); only the push to the panel
  * is skipped, and waking pushes once.  Driven by backlight_hw_on/off, which is
  * where the panel physically changes state. */

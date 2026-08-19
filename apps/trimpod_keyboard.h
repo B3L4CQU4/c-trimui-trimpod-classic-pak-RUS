@@ -1,8 +1,8 @@
 /* Trimpod: a minimal on-screen keyboard (see trimpod_keyboard.c).
  *
- * An iPod-aesthetic grid keyboard rendered in ChicagoFLF: A-Z (case via an
- * on-screen capslock), 0-9, hyphen, space, backspace and enter.  Replaces the
- * stock Rockbox kbd_input for Trimpod text entry. */
+ * An iPod-aesthetic UTF-8 grid keyboard rendered in the active UI family: Russian and
+ * Latin letters (with on-screen RU/EN and caps toggles), digits, punctuation,
+ * space, backspace and enter. Replaces Rockbox kbd_input for Trimpod input. */
 #ifndef _TRIMPOD_KEYBOARD_H
 #define _TRIMPOD_KEYBOARD_H
 

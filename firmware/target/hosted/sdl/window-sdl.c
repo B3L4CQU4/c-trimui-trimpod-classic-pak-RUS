@@ -18,6 +18,7 @@
  ****************************************************************************/
 
 #include <SDL.h>
+#include <stdio.h>
 #include "sim-ui-defines.h"
 #include "window-sdl.h"
 #include "lcd-sdl.h"
@@ -27,8 +28,8 @@
 
 /* Trimpod renders through an OpenGL ES 2/3 context (not an SDL_Renderer) so the
  * Milkdrop visualizer (projectM) can draw into the same window. In normal UI
- * mode we upload the 320x240 LCD surface to a texture and draw it as a
- * full-window quad (nearest-filtered 3.2x upscale). */
+ * mode we upload the 512x384 LCD surface to a texture and draw it as a
+ * full-window quad (nearest-filtered exact 2x upscale on Brick/Brick Pro). */
 #include <GLES2/gl2.h>
 
 extern SDL_Surface *lcd_surface;
@@ -245,8 +246,10 @@ void sdl_window_adjustment_needed(void)
 void sdl_window_setup(void)
 {
     int width, height;
+    int window_w, window_h, drawable_w, drawable_h;
     int depth = LCD_DEPTH < 8 ? 16 : LCD_DEPTH;
     Uint32 flags = SDL_WINDOW_ALLOW_HIGHDPI;
+    const double requested_zoom = display_zoom;
 
     if (display_zoom == 1)
         flags |= SDL_WINDOW_RESIZABLE;
@@ -273,6 +276,12 @@ void sdl_window_setup(void)
     SDL_GL_MakeCurrent(sdlWindow, gl_ctx);
     SDL_GL_SetSwapInterval(1);
     gl_init_present();
+
+    SDL_GetWindowSize(sdlWindow, &window_w, &window_h);
+    SDL_GL_GetDrawableSize(sdlWindow, &drawable_w, &drawable_h);
+    printf("Trimpod display: logical=%dx%d zoom=%.3f window=%dx%d drawable=%dx%d\n",
+           SIM_LCD_WIDTH, SIM_LCD_HEIGHT, requested_zoom,
+           window_w, window_h, drawable_w, drawable_h);
 
     /* Surface for LCD content only. Needs to fit largest LCD */
     if ((sim_lcd_surface = SDL_CreateRGBSurface(0,

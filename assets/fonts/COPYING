@@ -1,14 +1,15 @@
-Licenses for the fonts Trimpod ships.  Three faces are distributed: ChicagoFLF
-(the UI font, as 18/20/24px Rockbox .fnt rasterizations), the PixelMplus
-Japanese glyphs merged into all three .fnt sizes, and Schumacher Clean (the
-fallback system font, compiled into the binary from 08-Schumacher-Clean.bdf).
+Licenses for the fonts Trimpod ships. English mode uses the original ChicagoFLF
+files unchanged. Russian mode uses Mulmaru for every available UI glyph,
+including Latin, digits, punctuation, symbols and Cyrillic. PixelMplus fills
+missing Japanese glyphs, and Schumacher Clean is the fallback system font
+compiled into the binary.
 
------ ChicagoFLF (18/20/24-ChicagoFLF.fnt) ----
+----- ChicagoFLF (unchanged English UI .fnt files) -----
 
 ChicagoFLF by Robin Casady, a reproduction of Susan Kare's Chicago.
 Released by the author into the public domain.
 
------ PixelMplus (Japanese glyphs merged into the ChicagoFLF .fnt files) ----
+----- PixelMplus (fallback Japanese glyphs in the Russian UI family) -----
 
 The Japanese (kana/kanji/fullwidth) glyphs in the .fnt files are rasterized
 from PixelMplus12-Regular by Itou Hiroki (https://github.com/itouhiro/PixelMplus),
@@ -23,6 +24,17 @@ or without modification, either commercially or noncommercially.
 THESE FONTS ARE PROVIDED "AS IS" WITHOUT WARRANTY.
 
 http://mplus-fonts.sourceforge.jp/mplus-outline-fonts/
+
+----- Mulmaru (complete Russian UI family) -----
+
+Copyright (c) 2025, Mushsooni (https://github.com/mushsooni/mulmaru),
+with Reserved Font Name "Mulmaru" and "Mulmaru Mono".
+
+Distributed under the SIL Open Font License, Version 1.1. The unmodified
+Mulmaru.ttf source and the complete license are included under fonts/sources.
+The modified derivative is named TrimpodRus in accordance with the Reserved
+Font Name requirement. It adds one blank logical pixel after each visible glyph
+to improve Russian UI readability.
 
 ----- Schumacher Clean (built-in system font) ----
 

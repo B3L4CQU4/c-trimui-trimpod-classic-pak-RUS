@@ -45,8 +45,10 @@
 #include "skin_buffer.h"
 #include "disk.h"
 #include "trimpod_ui.h"
+#include "rbpaths.h"
 
 static const struct browse_folder_info config = {ROCKBOX_DIR, SHOW_CFG};
+static const struct browse_folder_info languages = {LANG_DIR, SHOW_LNG};
 /***********************************/
 /*    MANAGE SETTINGS MENU        */
 
@@ -121,6 +123,19 @@ static int trimpod_controls_page(void)
     return 0;
 }
 
+/* Apply the selected .lng immediately (browse_folder does that in filetree.c)
+ * and persist it so a language selected before a crash/reboot is not lost. */
+static int trimpod_language_page(void)
+{
+    int result = browse_folder((void *)&languages);
+    /* The theme uses language-aware TrimpodUI font aliases. Reload the UI font
+     * after the picker updates lang_file so Russian switches every visible
+     * glyph to TrimpodRus and English switches back to unchanged Chicago. */
+    settings_apply(true);
+    settings_save();
+    return result;
+}
+
 /* Each sub-menu page opener lives in its own file (power_menu.c,
  * audio_folders_menu.c, visualizer_menu.c); declared in exported_menus.h. */
 
@@ -133,13 +148,15 @@ MENUITEM_FUNCTION(tp_set_viz, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_AUDIO_VISUALI
                   trimpod_av_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_power, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_DEVICE),
                   trimpod_power_page, NULL, Icon_NOICON);
+MENUITEM_FUNCTION(tp_set_language, MENU_SHOW_CHEVRON, ID2P(LANG_LANGUAGE),
+                  trimpod_language_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_controls, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_CONTROLS),
                   trimpod_controls_page, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_set_about, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_ABOUT),
                   trimpod_about_page, NULL, Icon_NOICON);
 MAKE_MENU(trimpod_settings_menu, ID2P(LANG_SETTINGS), NULL, Icon_Submenu_Entered,
           &tp_set_mainmenu, &tp_set_audio, &tp_set_viz, &sound_settings, &tp_set_power,
-          &tp_set_controls, &tp_set_about);
+          &tp_set_language, &tp_set_controls, &tp_set_about);
 int trimpod_settings_page(void)
 {
     do_menu(&trimpod_settings_menu, NULL, NULL, false);

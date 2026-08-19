@@ -69,6 +69,7 @@
 #include "statusbar-skinned.h"
 #include "bootchart.h"
 #include "scroll_engine.h"
+#include "trimpod_ui.h"
 
 struct user_settings global_settings;
 struct system_status global_status;
@@ -825,15 +826,19 @@ void settings_apply(bool read_disk)
         if (global_settings.font_file[0]
             && global_settings.font_file[0] != '-') {
             int font_ui = screens[SCREEN_MAIN].getuifont();
+            char resolved_font[MAX_FILENAME + 1];
+            const char *font_file = trimpod_resolve_ui_font(
+                (const char *)global_settings.font_file,
+                resolved_font, sizeof(resolved_font));
             snprintf(buf, sizeof buf, FONT_DIR "/%s.fnt",
-                     global_settings.font_file);
+                     font_file);
             if (!font_filename_matches_loaded_id(font_ui, buf))
             {
-                CHART2(">font_load ", global_settings.font_file);
+                CHART2(">font_load ", font_file);
                 if (font_ui >= 0)
                     font_unload(font_ui);
                 rc = font_load_ex(buf, 0, TRIMPOD_GLYPHS_TO_CACHE);
-                CHART2("<font_load ", global_settings.font_file);
+                CHART2("<font_load ", font_file);
                 screens[SCREEN_MAIN].setuifont(rc);
                 screens[SCREEN_MAIN].setfont(rc);
             }

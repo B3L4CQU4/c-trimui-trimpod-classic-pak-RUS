@@ -39,6 +39,35 @@
 
 static const char *s_header_legend;   /* NULL = no legend */
 
+bool trimpod_russian_ui(void)
+{
+    return !strcmp((const char *)global_settings.lang_file, "russian");
+}
+
+const char *trimpod_resolve_ui_font(const char *name, char *resolved,
+                                    size_t resolved_size)
+{
+    static const char marker[] = "-TrimpodUI";
+    const char *mark = strstr(name, marker);
+    if (!mark)
+        return name;
+
+    size_t prefix_len = (size_t)(mark - name);
+    const char *tail = mark + sizeof(marker) - 1;
+    bool supported_size =
+        (prefix_len == 2 &&
+         ((name[0] == '1' && name[1] == '8') ||
+          (name[0] == '2' && (name[1] == '0' || name[1] == '4'))));
+    if (!supported_size || (*tail && strcmp(tail, ".fnt")))
+        return name;
+
+    int written = snprintf(resolved, resolved_size, "%.*s-%s%s",
+                           (int)prefix_len, name,
+                           trimpod_russian_ui() ? "TrimpodRus" : "ChicagoFLF",
+                           tail);
+    return (written >= 0 && (size_t)written < resolved_size) ? resolved : name;
+}
+
 void trimpod_set_header_legend(const char *legend)
 {
     s_header_legend = legend;
@@ -55,6 +84,15 @@ const char *trimpod_get_header_legend(void)
 const char *trimpod_toggle_str(bool on)
 {
     return on ? "[x]" : "[ ]";
+}
+
+/* Trimpod string tables deliberately use const char * so callers can mix
+ * literal UTF-8 text with Rockbox's ID2P() virtual language pointers.  P2STR
+ * predates const-correct tables and performs pointer arithmetic on unsigned
+ * char *, so normalize the type at this single boundary. */
+static const char *trimpod_resolve_string(const char *value)
+{
+    return P2STR((const unsigned char *)value);
 }
 
 /* Re-render the status row so a just-changed legend appears/clears.  Needed
@@ -128,7 +166,8 @@ static void confirm_page_draw(struct trimpod_page *self)
 {
     struct confirm_page *p = (struct confirm_page *)self;
     /* the choices live in the page body, not a header legend */
-    trimpod_centered_message(p->question, p->detail, "Cancel (B)      OK (A)");
+    trimpod_centered_message(p->question, p->detail,
+                             str(LANG_TRIMPOD_CONFIRM_BUTTONS));
 }
 
 static enum trimpod_page_result confirm_on_action(struct trimpod_page *self,
@@ -183,7 +222,7 @@ struct ctxmenu_page
 static const char *ctxmenu_get_name(int sel, void *data, char *buf, size_t len)
 {
     (void)buf; (void)len;
-    return ((struct ctxmenu_page *)data)->items[sel];
+    return trimpod_resolve_string(((struct ctxmenu_page *)data)->items[sel]);
 }
 
 static void ctxmenu_draw(struct trimpod_page *self)
@@ -249,19 +288,34 @@ int trimpod_context_menu(const char *title, const char *const *items, int count)
  * (long URLs wrap at '/').  B leaves. ----------------------------------- */
 
 #define ABOUT_SCROLL_PXPS 16                          /* drift speed, px/sec */
-#define ABOUT_URL_FONT    FONT_DIR "/18-ChicagoFLF.fnt"
+#define ABOUT_URL_FONT    "18-TrimpodUI.fnt"
 #define ABOUT_MAX_RLINES  48                          /* expanded reel capacity */
 #define ABOUT_SEG_MAX     48                          /* longest wrapped piece */
+
+static int about_load_url_font(void)
+{
+    char resolved[MAX_FILENAME + 1];
+    char path[MAX_PATH];
+    const char *name = trimpod_resolve_ui_font(
+        ABOUT_URL_FONT, resolved, sizeof(resolved));
+    snprintf(path, sizeof(path), FONT_DIR "/%s", name);
+    return font_load(path);
+}
 
 enum about_kind { AB_TITLE, AB_SUB, AB_CAP, AB_NAME, AB_URL, AB_GAP };
 
 struct about_line { const char *text; enum about_kind kind; };
 
 static const struct about_line about_lines[] = {
-    { "Trimpod Classic",     AB_TITLE },
-    { "v1.0.7",              AB_SUB   },
+    { "TrimPod(RUS)",        AB_TITLE },
+    { "v1.0.7-rus",          AB_SUB   },
     { NULL,                  AB_GAP   },
-    { "MADE BY",             AB_CAP   },
+    { "FORK BY",             AB_CAP   },
+    { "B3L4CQU4",            AB_NAME  },
+    { "github.com/B3L4CQU4", AB_URL   },
+    { NULL,                  AB_GAP   },
+    { "FORK OF",             AB_CAP   },
+    { "TrimPod Classic 1.0.7", AB_NAME },
     { "Werewolf Camp",       AB_NAME  },
     { "werewolf.camp",       AB_URL   },
     { NULL,                  AB_GAP   },
@@ -293,7 +347,7 @@ struct about_page
     struct trimpod_page base;
     long start_tick;     /* when the reel began -- drives the scroll clock */
     bool header_done;    /* draw the themed header once, then leave it static */
-    int  url_fid;        /* loaded 18pt font for URLs (FONT_UI on failure) */
+    int  url_fid;        /* loaded compact font for URLs (FONT_UI on failure) */
     int  nr;             /* number of expanded render lines */
     struct about_rline r[ABOUT_MAX_RLINES];
 };
@@ -370,7 +424,7 @@ static void about_draw(struct trimpod_page *self)
     struct viewport vp = {0};
     const unsigned fg = global_settings.fg_color;
     const unsigned bg = global_settings.bg_color;
-    const int margin = 12;
+    const int margin = 10;
 
     /* draw the themed header once; it then persists in the framebuffer while
      * the reel below repaints (the no_header_refresh animated-page pattern). */
@@ -475,12 +529,12 @@ void trimpod_about(void)
 {
     struct screen *s = &screens[SCREEN_MAIN];
     struct viewport vp = {0};
-    /* The only resource the page holds.  font_load is refcounted, so this is
-     * the skin's already-loaded 18-ChicagoFLF with one more ref; freed below.
+    /* The only resource the page holds. font_load is refcounted, so this is
+     * the skin's already-loaded language-aware 18px font with one more ref.
      * Everything else lives in the stack-allocated `p` (no heap). */
-    int fid = font_load(ABOUT_URL_FONT);
+    int fid = about_load_url_font();
     if (fid < 0)
-        fid = FONT_UI;            /* the UI font is ChicagoFLF too */
+        fid = FONT_UI;
 
     struct about_page p =
     {
@@ -493,9 +547,9 @@ void trimpod_about(void)
         .url_fid     = fid,
     };
 
-    /* expand the reel once: wrap URLs to the content width in the 18pt font */
+    /* Expand the reel once: wrap URLs in the compact language-aware font. */
     viewport_set_defaults(&vp, s->screen_type);
-    about_build(&p, s, vp.width - 2 * 12);
+    about_build(&p, s, vp.width - 2 * 10);
     s->setfont(FONT_UI);
 
     trimpod_page_run(&p.base);   /* always returns (B / USB); no early exit */
@@ -532,18 +586,19 @@ static void message_draw(struct trimpod_page *self)
     int w, fh = 0, block = 0;
     for (int i = 0; i < p->nrows; i++)
     {
-        s->getstringsize((const unsigned char *)p->rows[i], &w, &fh);
+        const char *row = trimpod_resolve_string(p->rows[i]);
+        s->getstringsize((const unsigned char *)row, &w, &fh);
         if (w > block) block = w;                 /* the widest row sets the left edge */
     }
 
-    const int line = fh + 8;
+    const int line = fh + 6;
     int x = (vp.width - block) / 2;
     int y = (vp.height - p->nrows * line) / 2;
     if (x < 0) x = 0;
     if (y < 0) y = 0;
 
     for (int i = 0; i < p->nrows; i++, y += line)
-        s->putsxy(x, y, (const unsigned char *)p->rows[i]);
+        s->putsxy(x, y, (const unsigned char *)trimpod_resolve_string(p->rows[i]));
 
     s->update_viewport();
     s->set_viewport(NULL);
@@ -580,10 +635,10 @@ void trimpod_message_page(const char *title, const char *const *rows, int nrows)
 
 /* Controls: a static reference card for the four inputs. */
 static const char *const controls_rows[] = {
-    "B - Back/Cancel",
-    "A - Play/Enter",
-    "Hold A - Context Menus",
-    "Side Switch - Lock Buttons",
+    ID2P(LANG_TRIMPOD_CONTROL_BACK),
+    ID2P(LANG_TRIMPOD_CONTROL_SELECT),
+    ID2P(LANG_TRIMPOD_CONTROL_CONTEXT),
+    ID2P(LANG_TRIMPOD_CONTROL_LOCK),
 };
 #define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))
 
@@ -595,11 +650,11 @@ void trimpod_controls(void)
 
 /* Measure every reel line once to fault its glyphs into the cache now (startup),
  * sparing the first About open the synchronous .fnt reads.  font_load refcounts
- * the .sbs-resident 18pt font, so the warmed cache survives the unload. */
+ * the .sbs-resident compact font, so the warmed cache survives the unload. */
 void trimpod_about_prewarm(void)
 {
     struct screen *s = &screens[SCREEN_MAIN];
-    int fid = font_load(ABOUT_URL_FONT);
+    int fid = about_load_url_font();
     for (int i = 0; i < ABOUT_NLINES; i++)
     {
         const struct about_line *l = &about_lines[i];

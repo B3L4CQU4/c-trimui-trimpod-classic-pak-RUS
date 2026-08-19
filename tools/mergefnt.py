@@ -1,32 +1,29 @@
 #!/usr/bin/env python3
 """Merge two Rockbox RB12 .fnt files (stdlib only).
 
-    mergefnt.py [--quantize-add] BASE.fnt ADD.fnt OUT.fnt   merge (BASE wins)
+    mergefnt.py [options] BASE.fnt ADD.fnt OUT.fnt
     mergefnt.py --show U+3042 FONT.fnt        ASCII-render one glyph (debug)
 
 --quantize-add snaps ADD's 4-bit pixels to solid ink/blank.  Use it when ADD
 is a pixel font rasterized at an exact integer scale (e.g. PixelMplus12 at
 24ppem = 2x): any intermediate shade is FreeType hinter drift, not design.
+--quantize-base does the same for BASE. --spacing N adds N blank pixels to the
+right side of every visible glyph (blank space glyphs keep their normal width).
 
-Both inputs must agree on height/ascent/depth; the merged font keeps BASE's
-metrics and defaultchar, and BASE's bitmap bytes verbatim (its glyph data is
-the unmodified prefix of the output's bitmap block).  Chars absent from both
-alias BASE's defaultchar glyph, matching what convttf emits for gaps.  Format
+--prefer-add SPEC makes ADD replace BASE for the listed Unicode characters.
+SPEC is comma-separated and accepts U+0401 and U+0410-U+044F forms.
+--fit-add-metrics aligns ADD to BASE's baseline and pads/crops its cell when
+height/ascent differ. --synthesize-yo creates U+0401 from ADD's U+0415 when the
+source font supplies every other Russian letter but lacks uppercase Yo.
+
+The merged font keeps BASE's metrics and defaultchar. Chars absent from both
+alias BASE's defaultchar glyph, matching what convttf emits for gaps. Format
 per tools/convttf.c writer / firmware/font.c font_load_header: 36-byte header,
 4-bit AA pixel data (2 px/byte, low nibble first, 0xF=blank), byte-aligned per
 glyph, then the offset table (u16, or u32 when nbits >= 0xFFDB) and width table.
 
-Shipped-font recipe (PixelMplus12 ADD rasters that were merged into the
-ChicagoFLF bases; convttf args are atoi — DECIMAL ONLY):
-    24px:  convttf -p 24 -X 72 -Ta 2 -Td 1 -e 32 -s 12288 -l 65518
-    20px:  convttf -p 20 -Ta 1 -e 24 -s 12288 -l 65518
-    18px:  convttf -p 18 -Ta 1 -Td 1 -e 16 -s 12288 -l 65518
--X 72 gives true 24ppem (exact 2x of the 12px pixel font); trims map hhea
-27/22 to cell 24/20.  Embolden (-e, units of 1/64 px) puts edges at sub-pixel
-positions so FreeType antialiases them like ChicagoFLF and thickens toward
-Chicago's weight; keep the values as listed — raising them clogs dense kanji,
-dropping them reads as un-antialiased.  Do NOT pass --quantize-add for
-emboldened rasters (shades are real); BASE bytes stay verbatim either way.
+The complete, reproducible PixelMplus + Mulmaru recipe lives in
+tools/build_trimpod_fonts.sh.  convttf numeric arguments are decimal only.
 """
 import struct
 import sys
@@ -88,40 +85,150 @@ def quantize(bits):
     return bytes(snap[b] for b in bits)
 
 
-def merge(basef, addf, outpath, quantize_add=False):
-    base, add = Font(basef), Font(addf)
-    for f in ('height', 'ascent', 'depth'):
-        if getattr(base, f) != getattr(add, f):
-            sys.exit(f'metric mismatch: {f} {getattr(base, f)} vs {getattr(add, f)}')
-    if quantize_add:
-        add.bits = quantize(add.bits)
+def decode_glyph(bits, width, height):
+    values = []
+    for byte in bits:
+        values.extend((byte & 0x0f, byte >> 4))
+    values = values[:width * height]
+    return [values[y * width:(y + 1) * width] for y in range(height)]
 
-    firstchar = min(base.firstchar, add.firstchar)
-    lastchar = max(base.firstchar + base.size, add.firstchar + add.size) - 1
+
+def encode_glyph(rows):
+    values = [value for row in rows for value in row]
+    if len(values) & 1:
+        values.append(0x0f)
+    return bytes(values[i] | (values[i + 1] << 4)
+                 for i in range(0, len(values), 2))
+
+
+def add_glyph_spacing(glyph, height, columns):
+    """Increase a visible glyph's advance by appending blank pixel columns."""
+    if columns <= 0:
+        return glyph
+    bits, width = glyph
+    rows = decode_glyph(bits, width, height)
+    # Keep regular/non-breaking spaces unchanged: spacing belongs between
+    # visible glyphs and must not also inflate the gap between words.
+    if not any(value < 0x0f for row in rows for value in row):
+        return glyph
+    width += columns
+    if width > 255:  # the RB12 width table stores one byte per glyph
+        sys.exit(f'glyph width {width} exceeds RB12 limit after spacing')
+    for row in rows:
+        row.extend([0x0f] * columns)
+    return encode_glyph(rows), width
+
+
+def render_add_glyph(add, code, base, fit_metrics, quantize_add):
+    bits, width = add.glyph(code)
+    if add.height == base.height and add.ascent == base.ascent:
+        rendered = bits
+    else:
+        if not fit_metrics:
+            sys.exit('metric mismatch: ADD is '
+                     f'h={add.height}/ascent={add.ascent}, BASE is '
+                     f'h={base.height}/ascent={base.ascent}; '
+                     'pass --fit-add-metrics')
+        source = decode_glyph(bits, width, add.height)
+        rows = [[0x0f] * width for _ in range(base.height)]
+        row_offset = base.ascent - add.ascent
+        for source_y, row in enumerate(source):
+            target_y = source_y + row_offset
+            if 0 <= target_y < base.height:
+                rows[target_y] = row[:]
+        rendered = encode_glyph(rows)
+    return (quantize(rendered) if quantize_add else rendered), width
+
+
+def synthesize_upper_yo(add, base, fit_metrics, quantize_add):
+    """Build U+0401 from ADD's U+0415 using pixel dots above the E glyph."""
+    bits, width = render_add_glyph(add, 0x0415, base, fit_metrics, quantize_add)
+    rows = decode_glyph(bits, width, base.height)
+    ink_rows = [y for y, row in enumerate(rows) if any(value < 0x0f for value in row)]
+    if not ink_rows:
+        sys.exit('cannot synthesize U+0401: ADD U+0415 is blank')
+
+    top = ink_rows[0]
+    dot_size = max(1, base.height // 24)
+    dot_y = max(0, top - dot_size - 1)
+    centers = (max(1, width // 3), min(width - 2, (2 * width) // 3))
+    for center in centers:
+        start_x = max(0, center - (dot_size - 1) // 2)
+        for y in range(dot_y, min(base.height, dot_y + dot_size)):
+            for x in range(start_x, min(width, start_x + dot_size)):
+                rows[y][x] = 0
+    return encode_glyph(rows), width
+
+
+def parse_codepoints(spec):
+    result = set()
+    for part in spec.split(','):
+        part = part.strip().upper().replace('U+', '')
+        if not part:
+            continue
+        if '-' in part:
+            first, last = part.split('-', 1)
+            result.update(range(int(first, 16), int(last, 16) + 1))
+        else:
+            result.add(int(part, 16))
+    return result
+
+
+def merge(basef, addf, outpath, quantize_add=False, quantize_base=False,
+          prefer_add=None, fit_add_metrics=False, synthesize_yo=False,
+          spacing=0):
+    base, add = Font(basef), Font(addf)
+    if base.depth != add.depth:
+        sys.exit(f'metric mismatch: depth {base.depth} vs {add.depth}')
+    prefer_add = prefer_add or set()
+
+    for code in sorted(prefer_add):
+        can_synthesize = synthesize_yo and code == 0x0401 and add.has(0x0415)
+        if not add.has(code) and not can_synthesize:
+            sys.exit(f'preferred ADD glyph U+{code:04X} is missing')
+
+    firstchar = min(base.firstchar, add.firstchar,
+                    min(prefer_add) if prefer_add else base.firstchar)
+    lastchar = max(base.firstchar + base.size - 1,
+                   add.firstchar + add.size - 1,
+                   max(prefer_add) if prefer_add else base.firstchar)
     size = lastchar - firstchar + 1
 
-    # base bits verbatim, then all of add's bits rebased after them
-    bits = base.bits + add.bits
-    rebase = len(base.bits)
-
-    dflt_i = base.defaultchar - base.firstchar
-    dflt = (base.offsets[dflt_i], base.widths[dflt_i])
-
-    offsets, widths = [], []
+    bits = bytearray()
+    entries = []
     n_base = n_add = 0
     for code in range(firstchar, lastchar + 1):
-        if base.has(code):
-            i = code - base.firstchar
-            offsets.append(base.offsets[i]); widths.append(base.widths[i])
+        glyph = None
+        if code in prefer_add and add.has(code):
+            glyph = render_add_glyph(add, code, base, fit_add_metrics, quantize_add)
+            n_add += 1
+        elif code in prefer_add and synthesize_yo and code == 0x0401:
+            glyph = synthesize_upper_yo(add, base, fit_add_metrics, quantize_add)
+            n_add += 1
+        elif base.has(code):
+            glyph = base.glyph(code)
+            if quantize_base:
+                glyph = quantize(glyph[0]), glyph[1]
             n_base += 1
         elif add.has(code):
-            i = code - add.firstchar
-            offsets.append(add.offsets[i] + rebase); widths.append(add.widths[i])
+            glyph = render_add_glyph(add, code, base, fit_add_metrics, quantize_add)
             n_add += 1
+        if glyph:
+            glyph = add_glyph_spacing(glyph, base.height, spacing)
+            glyph_bits, width = glyph
+            entries.append((len(bits), width))
+            bits += glyph_bits
         else:
-            offsets.append(dflt[0]); widths.append(dflt[1])
+            entries.append(None)
 
-    out = bytearray(HDR.pack(b'RB12', max(base.maxwidth, add.maxwidth),
+    default_index = base.defaultchar - firstchar
+    if not 0 <= default_index < len(entries) or entries[default_index] is None:
+        sys.exit(f'BASE default glyph U+{base.defaultchar:04X} is unavailable')
+    default_entry = entries[default_index]
+    offsets = [entry[0] if entry else default_entry[0] for entry in entries]
+    widths = [entry[1] if entry else default_entry[1] for entry in entries]
+
+    out = bytearray(HDR.pack(b'RB12', max(widths),
                              base.height, base.ascent, base.depth,
                              firstchar, base.defaultchar, size,
                              len(bits), size, size))
@@ -135,14 +242,20 @@ def merge(basef, addf, outpath, quantize_add=False):
     out += struct.pack(f'<{size}B', *widths)
     open(outpath, 'wb').write(out)
 
-    # verify: every source glyph must read back byte-identical from the output
+    # Verify BASE glyphs that were not overridden and ensure every preferred
+    # character resolves to a real glyph in the result.
     m = Font(outpath)
-    for src, own in ((base, base), (add, base)):
-        for code in range(src.firstchar, src.firstchar + src.size):
-            if not src.has(code) or (src is add and base.has(code)):
-                continue
-            if m.glyph(code) != src.glyph(code):
+    for code in range(base.firstchar, base.firstchar + base.size):
+        if base.has(code) and code not in prefer_add:
+            expected = base.glyph(code)
+            if quantize_base:
+                expected = quantize(expected[0]), expected[1]
+            expected = add_glyph_spacing(expected, base.height, spacing)
+            if m.glyph(code) != expected:
                 sys.exit(f'verify FAILED at U+{code:04X}')
+    for code in prefer_add:
+        if not m.has(code):
+            sys.exit(f'verify FAILED: preferred U+{code:04X} is missing')
     print(f'{outpath}: {size} slots U+{firstchar:04X}..U+{lastchar:04X}, '
           f'{n_base} from base, {n_add} from add, '
           f'{size - n_base - n_add} aliased to default; verified OK')
@@ -167,11 +280,54 @@ def show(codearg, path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 4 and sys.argv[1] == '--show':
-        show(sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 5 and sys.argv[1] == '--quantize-add':
-        merge(*sys.argv[2:5], quantize_add=True)
-    elif len(sys.argv) == 4:
-        merge(*sys.argv[1:4])
-    else:
+    args = sys.argv[1:]
+    if len(args) == 3 and args[0] == '--show':
+        show(args[1], args[2])
+        sys.exit(0)
+
+    kwargs = {
+        'quantize_add': False,
+        'quantize_base': False,
+        'prefer_add': set(),
+        'fit_add_metrics': False,
+        'synthesize_yo': False,
+        'spacing': 0,
+    }
+    positional = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == '--quantize-add':
+            kwargs['quantize_add'] = True
+        elif arg == '--quantize-base':
+            kwargs['quantize_base'] = True
+        elif arg == '--fit-add-metrics':
+            kwargs['fit_add_metrics'] = True
+        elif arg == '--synthesize-yo':
+            kwargs['synthesize_yo'] = True
+        elif arg == '--prefer-add':
+            i += 1
+            if i >= len(args):
+                sys.exit('--prefer-add requires a Unicode specification')
+            kwargs['prefer_add'].update(parse_codepoints(args[i]))
+        elif arg.startswith('--prefer-add='):
+            kwargs['prefer_add'].update(parse_codepoints(arg.split('=', 1)[1]))
+        elif arg == '--spacing':
+            i += 1
+            if i >= len(args):
+                sys.exit('--spacing requires a non-negative integer')
+            kwargs['spacing'] = int(args[i])
+        elif arg.startswith('--spacing='):
+            kwargs['spacing'] = int(arg.split('=', 1)[1])
+        elif arg.startswith('--'):
+            sys.exit(f'unknown option: {arg}\n{__doc__}')
+        else:
+            positional.append(arg)
+        i += 1
+
+    if kwargs['spacing'] < 0:
+        sys.exit('--spacing requires a non-negative integer')
+
+    if len(positional) != 3:
         sys.exit(__doc__)
+    merge(*positional, **kwargs)

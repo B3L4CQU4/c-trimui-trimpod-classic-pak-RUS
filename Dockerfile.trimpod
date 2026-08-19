@@ -6,7 +6,8 @@
 #    real $SYSROOT paths (placed in /usr/local/bin which precedes /usr/bin).
 FROM ghcr.io/loveretro/tg5040-toolchain:latest
 
-RUN apt-get update && apt-get install -y --no-install-recommends zip \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        gcc libc6-dev libfreetype6-dev pkg-config python3 zip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN printf '%s\n' \

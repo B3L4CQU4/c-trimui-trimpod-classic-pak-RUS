@@ -35,8 +35,8 @@
  * the Database menu, its settings, the scanner and tagcache/tagtree sources. */
 
 /* LCD dimensions */
-#define LCD_WIDTH  320
-#define LCD_HEIGHT 240
+#define LCD_WIDTH  512
+#define LCD_HEIGHT 384
 #define LCD_DEPTH  24
 #define LCD_PIXELFORMAT RGB888
 

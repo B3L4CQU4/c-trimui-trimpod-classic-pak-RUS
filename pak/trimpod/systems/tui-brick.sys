@@ -10,5 +10,5 @@ export SYSFS_BL_PARAM="/sys/kernel/debug/dispdbg/param"
 export SYSFS_BL_START="/sys/kernel/debug/dispdbg/start"
 export BL_COMMAND="setbl"
 export BL_NAME="lcd0"
-# Zoom value
-ZOOMVAL="3.2"
+# 512x384 logical framebuffer -> exact 2x scale on the 1024x768 panel.
+ZOOMVAL="2"

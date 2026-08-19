@@ -1,0 +1,18 @@
+# The project is built and packaged inside Linux/WSL containers.  Some of its
+# Perl generators compare parsed values literally, so CRLF can turn a sentinel
+# such as "-" into an invalid path.  Keep all detected text files in LF even
+# when Git for Windows has autocrlf=true.
+*           text=auto eol=lf
+
+# Explicit entries also cover extensionless executable/parser inputs.
+*.sh        text eol=lf
+*.sys       text eol=lf
+*.pl        text eol=lf
+*.pm        text eol=lf
+*.py        text eol=lf
+assets/wps/WPSLIST text eol=lf
+tools/configure   text eol=lf
+tools/genlang     text eol=lf
+tools/langstatus  text eol=lf
+tools/langv1tov2  text eol=lf
+tools/updatelang  text eol=lf

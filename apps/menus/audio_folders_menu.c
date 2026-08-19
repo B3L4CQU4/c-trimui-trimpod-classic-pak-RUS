@@ -27,6 +27,8 @@
 #include "menu.h"
 #include "splash.h"
 #include "kernel.h"              /* HZ */
+#include "action.h"
+#include "rbunicode.h"
 #include "trimpod_folders.h"
 #include "trimpod_library.h"     /* trimpod_library_reconcile (Rescan) */
 #include "exported_menus.h"
@@ -37,6 +39,23 @@ MENUITEM_FUNCTION(tp_af_podcast, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_PODCAST_FO
                   trimpod_podcast_settings, NULL, Icon_NOICON);
 MENUITEM_FUNCTION(tp_af_audiobook, MENU_SHOW_CHEVRON, ID2P(LANG_TRIMPOD_AUDIOBOOK_FOLDERS),
                   trimpod_audiobook_settings, NULL, Icon_NOICON);
+
+/* This affects legacy one-byte tags only; ID3 UTF-8/UTF-16 remains automatic. */
+static int trimpod_codepage_changed(int action,
+                                    const struct menu_item_ex *this_item,
+                                    struct gui_synclist *this_list)
+{
+    (void)this_item;
+    (void)this_list;
+    if (action == ACTION_EXIT_MENUITEM)
+    {
+        set_codepage(global_settings.default_codepage);
+        settings_save();
+    }
+    return action;
+}
+MENUITEM_SETTING(tp_af_codepage, &global_settings.default_codepage,
+                 trimpod_codepage_changed);
 
 /* Rescan Library: rebuild the SQLite tag index from the source folders. Blocks
  * with a splash during the scan, then reports the track count. */
@@ -52,7 +71,7 @@ MENUITEM_FUNCTION(tp_af_rescan, 0, ID2P(LANG_TRIMPOD_RESCAN),
 
 MAKE_MENU(trimpod_audio_folders_menu, ID2P(LANG_TRIMPOD_LIBRARY), NULL,
           Icon_Submenu_Entered, &tp_af_music, &tp_af_podcast, &tp_af_audiobook,
-          &tp_af_rescan);
+          &tp_af_codepage, &tp_af_rescan);
 
 int trimpod_audio_folders_page(void)
 {

@@ -481,6 +481,10 @@ while(<WPS>) {
         # parse main unit settings
         while(<WPS>) {
             my $l = $_;
+            # WPSLIST may come from a Git for Windows checkout.  The outer
+            # parser strips CR as well; do the same in nested sections so a
+            # sentinel such as "-" is not mistaken for a resource filename.
+            $l =~ s/\r//g;
             if ($l =~ /^ *<\/main>/i) {
                 last;
             }
@@ -547,6 +551,7 @@ while(<WPS>) {
         while(<WPS>) {
             # parse remote settings
             my $l = $_;
+            $l =~ s/\r//g;
             if ($l =~ /^ *<\/remote>/i) {
                 last;
             }

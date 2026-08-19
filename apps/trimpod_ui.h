@@ -3,6 +3,14 @@
 #define _TRIMPOD_UI_H
 
 #include <stdbool.h>
+#include <stddef.h>
+
+/* Language-aware font aliases used by the theme. English resolves directly to
+ * the original ChicagoFLF files; Russian resolves to the all-Mulmaru
+ * TrimpodRus derivative. `name` may include the .fnt extension. */
+bool trimpod_russian_ui(void);
+const char *trimpod_resolve_ui_font(const char *name, char *resolved,
+                                    size_t resolved_size);
 
 /* ---- Header button-legend (the standard) -----------------------------------
  * A "page" declares the button legend it wants shown in the status-row header

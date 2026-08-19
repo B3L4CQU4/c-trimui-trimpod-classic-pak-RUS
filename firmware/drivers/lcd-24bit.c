@@ -422,15 +422,6 @@ void lcd_mono_bitmap(const unsigned char *src, int x, int y, int width, int heig
 /* This is based on SDL (src/video/SDL_RLEaccel.c) ALPHA_BLIT32_888() macro */
 static inline fb_data blend_two_colors(unsigned c1, unsigned c2, unsigned a)
 {
-    /* Trimpod: lighten anti-aliased font edges. The UI renders at a logical
-     * 320x240 and is hardware-upscaled 3.2x to the Brick's 1024x768, which
-     * magnifies the soft (partial-coverage) edge pixels and makes text read
-     * heavy/bold. The 4-bit alpha here is 0=ink .. 15=background; this curve
-     * pushes partial coverage toward the background while keeping solid ink (0)
-     * and full background (15) fixed, so strokes look their true weight. */
-    static const unsigned char trimpod_aa_lighten[16] =
-        { 0, 2, 4, 5, 6, 7, 8, 9, 10, 10, 11, 12, 13, 14, 14, 15 };
-    a = trimpod_aa_lighten[a & 0x0f];
     unsigned s = c1;
     unsigned d = c2;
     unsigned s1 = s & 0xff00ff;

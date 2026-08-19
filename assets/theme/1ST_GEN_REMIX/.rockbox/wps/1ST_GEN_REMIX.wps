@@ -17,8 +17,8 @@
 %V(0,0,-,-,-)
 
 # Preload Fonts
-%Fl(2,18-ChicagoFLF.fnt)
-%Fl(3,20-ChicagoFLF.fnt)
+%Fl(2,18-TrimpodUI.fnt)
+%Fl(3,20-TrimpodUI.fnt)
 
 # Preload Images
 %xl(PB,pb.bmp,0,0)
@@ -30,31 +30,31 @@
 ## Main Display ##
 
 # Clear Screen
-%Vl(mainDisplay,0,39,320,201,-)
+%Vl(mainDisplay,0,62,512,322,-)
 
 # Status bar is the shared SBS (enabled via %we above).
 
 # Playlist Number (wide enough for "999999 of 999999" without clipping)
-%Vl(mainDisplay,8,46,240,20,2)
+%Vl(mainDisplay,13,74,384,22,2)
 %?if(%pp, =, %pe)<%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe|%pp %Sx(of) %pe>
 
 # Track Title
-%Vl(mainDisplay,10,62,300,30,1)
+%Vl(mainDisplay,16,98,480,31,1)
 %ac%s%?it<%s%it|%fn>
 
 # Artist
-%Vl(mainDisplay,10,91,300,30,1)
+%Vl(mainDisplay,16,132,480,31,1)
 %ac%s%?ia<%ia>
 
 # Album
-%Vl(mainDisplay,10,119,300,30,1)
+%Vl(mainDisplay,16,166,480,31,1)
 %ac%s%?id<%id>
 
 # Spectrum analyzer (%pm renders FFT bars on this target)
-%Vl(mainDisplay,20,152,280,36,-)
+%Vl(mainDisplay,32,205,448,96,-)
 %pm
 
-## --- Bottom strip: swappable panels (y=190..235) -------------------------
+## --- Bottom strip: swappable panels (y=307..378) -------------------------
 ## Exactly ONE self-contained panel occupies this strip at a time.  Each panel
 ## below is its own group of %Vl(<label>,...) viewports; this dispatch enables
 ## one group's label and the skin engine hides + clears the others.
@@ -69,18 +69,18 @@
 # Panel: PROGRESS -- playback position (shown when idle).  The bar (y 192,
 # h 14) sits equidistant between the spectrum's bottom edge (188) and the
 # times line's top (210): 4px of air on each side.
-%Vl(npProgress,20,192,280,14,-)%Vf(-)%Vb(-)
-%pb(0,0,-,14,PBB,backdrop,PB)
-%Vl(npProgress,20,210,90,25,1)
+%Vl(npProgress,32,307,448,22,-)%Vf(-)%Vb(-)
+%pb(0,0,-,22,PBB,backdrop,PB)
+%Vl(npProgress,32,342,144,30,1)
 %al%pc
-%Vl(npProgress,235,210,65,25,1)
+%Vl(npProgress,376,342,104,30,1)
 %ar-%pr
 
 # Panel: VOLUME -- shown ~1s after a volume change (%mv).  Perceptual dial
 # (40 even loudness steps): empty = silence, full = max.  The label under the
 # bar is the dial position, "Volume <notch>/<total>" (%vv); no dB (the scale
 # isn't user-facing).  Bar spacing mirrors the progress panel.
-%Vl(npVolume,20,192,280,14,-)%Vf(-)%Vb(-)
-%pv(0,0,-,14,PBB,backdrop,PB)
-%Vl(npVolume,20,210,280,25,1)
+%Vl(npVolume,32,307,448,22,-)%Vf(-)%Vb(-)
+%pv(0,0,-,22,PBB,backdrop,PB)
+%Vl(npVolume,32,342,448,30,1)
 %acVolume %vv

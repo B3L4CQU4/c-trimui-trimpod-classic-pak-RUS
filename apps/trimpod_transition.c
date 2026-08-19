@@ -22,7 +22,7 @@
 #include "window-sdl.h"   /* trimpod_viz_active: projectM owns the GL window */
 #include "trimpod_transition.h"
 
-/* full-screen frame snapshots (off the stack: ~225KB each at 320x240x3) */
+/* full-screen frame snapshots (off the stack: ~576KB each at 512x384x3) */
 static fb_data s_from[LCD_FBWIDTH * LCD_FBHEIGHT];
 static fb_data s_to[LCD_FBWIDTH * LCD_FBHEIGHT];
 static bool    s_back_pending;

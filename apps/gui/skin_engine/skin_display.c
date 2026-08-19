@@ -663,7 +663,7 @@ int skin_wait_for_action(enum skinnable_screens skin, int context, int timeout)
         long next_big_refresh = current_tick + timeout;
         button = BUTTON_NONE;
         while (TIME_BEFORE(current_tick, next_big_refresh)) {
-            /* On this target every lcd_update() presents the whole 3.2x
+            /* On this target every lcd_update() presents the whole 2x
              * upscaled window, so more than one present per frame tears and
              * the shared status bar blanks when the spectrum starts.  Suppress
              * presents for the whole iteration: get_action() fires

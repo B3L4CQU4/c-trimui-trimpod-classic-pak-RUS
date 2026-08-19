@@ -11489,6 +11489,20 @@
   </voice>
 </phrase>
 <phrase>
+  id: LANG_TRIMPOD_HEADER
+  desc: Trimpod root-menu title shown in the shared header
+  user: core
+  <source>
+    *: "TrimPod Classic"
+  </source>
+  <dest>
+    *: "TrimPod Classic"
+  </dest>
+  <voice>
+    *: "TrimPod Classic"
+  </voice>
+</phrase>
+<phrase>
   id: LANG_TRIMPOD_EXIT
   desc: Trimpod root menu entry to quit the app
   user: core
@@ -11878,6 +11892,314 @@
   </dest>
   <voice>
     *: "Unknown Artist"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_KBD_CAPS
+  desc: Trimpod on-screen keyboard caps key
+  user: core
+  <source>
+    *: "Caps"
+  </source>
+  <dest>
+    *: "Caps"
+  </dest>
+  <voice>
+    *: "Caps"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_KBD_SPACE
+  desc: Trimpod on-screen keyboard space key
+  user: core
+  <source>
+    *: "Space"
+  </source>
+  <dest>
+    *: "Space"
+  </dest>
+  <voice>
+    *: "Space"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_KBD_DELETE
+  desc: Trimpod on-screen keyboard delete key
+  user: core
+  <source>
+    *: "Del"
+  </source>
+  <dest>
+    *: "Del"
+  </dest>
+  <voice>
+    *: "Delete"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_KBD_ENTER
+  desc: Trimpod on-screen keyboard accept key
+  user: core
+  <source>
+    *: "Done"
+  </source>
+  <dest>
+    *: "Done"
+  </dest>
+  <voice>
+    *: "Done"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONFIRM_BUTTONS
+  desc: Trimpod confirmation page button legend
+  user: core
+  <source>
+    *: "Cancel (B)      OK (A)"
+  </source>
+  <dest>
+    *: "Cancel (B)      OK (A)"
+  </dest>
+  <voice>
+    *: "Cancel or OK"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_BACK
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "B - Back/Cancel"
+  </source>
+  <dest>
+    *: "B - Back/Cancel"
+  </dest>
+  <voice>
+    *: "B, Back or Cancel"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_SELECT
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "A - Play/Enter"
+  </source>
+  <dest>
+    *: "A - Play/Enter"
+  </dest>
+  <voice>
+    *: "A, Play or Enter"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_CONTEXT
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "Hold A - Context Menus"
+  </source>
+  <dest>
+    *: "Hold A - Context Menus"
+  </dest>
+  <voice>
+    *: "Hold A for Context Menus"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_LOCK
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "Side Switch - Lock Buttons"
+  </source>
+  <dest>
+    *: "Side Switch - Lock Buttons"
+  </dest>
+  <voice>
+    *: "Side Switch locks buttons"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_REMOVE_FROM_PLAYLIST
+  desc: Trimpod playlist editor context action
+  user: core
+  <source>
+    *: "Remove from Playlist"
+  </source>
+  <dest>
+    *: "Remove from Playlist"
+  </dest>
+  <voice>
+    *: "Remove from Playlist"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_REMOVE_PLAYLIST_QUESTION
+  desc: Trimpod playlist track removal confirmation
+  user: core
+  <source>
+    *: "Remove from playlist?"
+  </source>
+  <dest>
+    *: "Remove from playlist?"
+  </dest>
+  <voice>
+    *: "Remove from playlist?"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_DELETE_PLAYLIST_QUESTION
+  desc: Trimpod playlist deletion confirmation
+  user: core
+  <source>
+    *: "Delete this playlist?"
+  </source>
+  <dest>
+    *: "Delete this playlist?"
+  </dest>
+  <voice>
+    *: "Delete this playlist?"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_PLAYLIST_EMPTY
+  desc: Trimpod empty playlist message
+  user: core
+  <source>
+    *: "Playlist is empty"
+  </source>
+  <dest>
+    *: "Playlist is empty"
+  </dest>
+  <voice>
+    *: "Playlist is empty"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_PLAYLIST_HINT_1
+  desc: Trimpod first empty playlist hint row
+  user: core
+  <source>
+    *: "Hold A on any song"
+  </source>
+  <dest>
+    *: "Hold A on any song"
+  </dest>
+  <voice>
+    *: "Hold A on any song"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_PLAYLIST_HINT_2
+  desc: Trimpod second empty playlist hint row
+  user: core
+  <source>
+    *: "to add it to a playlist"
+  </source>
+  <dest>
+    *: "to add it to a playlist"
+  </dest>
+  <voice>
+    *: "to add it to a playlist"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_PREVIEW
+  desc: Trimpod visualizer preset context action
+  user: core
+  <source>
+    *: "Preview"
+  </source>
+  <dest>
+    *: "Preview"
+  </dest>
+  <voice>
+    *: "Preview"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_START_VISUALIZER
+  desc: Trimpod Now Playing menu action
+  user: core
+  <source>
+    *: "Start Visualizer"
+  </source>
+  <dest>
+    *: "Start Visualizer"
+  </dest>
+  <voice>
+    *: "Start Visualizer"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_DYNAMIC
+  desc: Trimpod dynamic CPU frequency value
+  user: core
+  <source>
+    *: "Dynamic"
+  </source>
+  <dest>
+    *: "Dynamic"
+  </dest>
+  <voice>
+    *: "Dynamic"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CUSTOM
+  desc: Trimpod custom theme value
+  user: core
+  <source>
+    *: "Custom"
+  </source>
+  <dest>
+    *: "Custom"
+  </dest>
+  <voice>
+    *: "Custom"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CHARGE_LIMIT
+  desc: Trimpod Settings Power charge limit row
+  user: core
+  <source>
+    *: "Charge Limit"
+  </source>
+  <dest>
+    *: "Charge Limit"
+  </dest>
+  <voice>
+    *: "Charge Limit"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_USB_CONNECTED
+  desc: Trimpod USB screen connection status
+  user: core
+  <source>
+    *: "USB Connected"
+  </source>
+  <dest>
+    *: "USB Connected"
+  </dest>
+  <voice>
+    *: "USB Connected"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_USB_EJECT
+  desc: Trimpod USB screen safe removal warning
+  user: core
+  <source>
+    *: "Eject Before Disconnecting"
+  </source>
+  <dest>
+    *: "Eject Before Disconnecting"
+  </dest>
+  <voice>
+    *: "Eject Before Disconnecting"
   </voice>
 </phrase>
 <phrase>

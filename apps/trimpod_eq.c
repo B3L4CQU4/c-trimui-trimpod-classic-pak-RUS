@@ -63,7 +63,7 @@ void trimpod_eq_draw(struct screen *display, struct viewport *vp)
         if (y > H - 1) y = H - 1;
         if (px >= 0)
             display->drawline(px, py, x, y);
-        display->fillrect(x - 1, y - 1, 3, 3);  /* node marker */
+        display->fillrect(x - 2, y - 2, 5, 5);  /* node marker */
         px = x;
         py = y;
     }

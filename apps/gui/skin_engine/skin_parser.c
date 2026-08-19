@@ -56,6 +56,7 @@
 
 #include "backdrop.h"
 #include "statusbar-skinned.h"
+#include "trimpod_ui.h"
 
 #define WPS_ERROR_INVALID_PARAM         -1
 
@@ -1515,7 +1516,10 @@ static bool skin_load_fonts(struct wps_data *data)
         if (font->id < 0)
         {
             char path[MAX_PATH];
-            snprintf(path, sizeof path, FONT_DIR "/%s", font->name);
+            char resolved_font[MAX_FILENAME + 1];
+            const char *font_name = trimpod_resolve_ui_font(
+                font->name, resolved_font, sizeof(resolved_font));
+            snprintf(path, sizeof path, FONT_DIR "/%s", font_name);
             font->id = font_load_ex(path, 0, skinfonts[font_id-2].glyphs);
 
             //printf("[%d] %s -> %d\n",font_id, font->name, font->id);

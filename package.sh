@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Assemble dist/Trimpod.pak from the build (build-trimpod), the bundled theme
+# Assemble dist/TrimPod(RUS).pak from the build, the bundled theme
 # (assets/theme), and the static pak files (pak/ -- launch.sh, licenses,
 # config.cfg and the .sys device files).
 # Run ./build.sh first (it produces the runtime zip via 'make fullzip').
@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 ZIP="$ROOT/build-trimpod/trimpod-full.zip"
-PAK="$ROOT/dist/Trimpod.pak"
+PAK="$ROOT/dist/TrimPod(RUS).pak"
 THEME="$ROOT/assets/theme/1ST_GEN_REMIX/.rockbox"
 
 [ -n "$ZIP" ] && [ -f "$ZIP" ] || { echo "Missing build-trimpod/*-full.zip — run ./build.sh first."; exit 1; }
@@ -23,6 +23,13 @@ unzip -q "$ZIP" -d "$tmp"
 # The zip stores the runtime under tmp/trimpod/ (data dir = /tmp/trimpod).
 cp -a "$tmp/tmp/trimpod" "$PAK/trimpod"
 rm -rf "$tmp"
+
+for language in english russian; do
+    [ -f "$PAK/trimpod/langs/$language.lng" ] || {
+        echo "Build is missing $language.lng -- rerun ./build.sh clean." >&2
+        exit 1
+    }
+done
 
 echo ">> Pruning stock Rockbox themes (1ST_GEN_REMIX is the only theme)"
 # The build zip bundles the stock themes (cabbiev2, classic_statusbar, ...).
@@ -38,14 +45,29 @@ cp -a "$THEME/wps/." "$PAK/trimpod/wps/"
 cp -a "$THEME/icons/." "$PAK/trimpod/icons/"
 cp -a "$THEME/themes/." "$PAK/trimpod/themes/"
 
-echo ">> Pruning stock Rockbox fonts (only ChicagoFLF ships; Font menu removed)"
+echo ">> Pruning stock Rockbox fonts (only Trimpod UI fonts ship; Font menu removed)"
 # The build zip bundles the whole upstream font set (Terminus, Adobe-Helvetica, ...).
-# Nothing references them (themes are hardcoded to ChicagoFLF), so drop them all.
+# Nothing else references them; the language-aware theme uses the three
+# original ChicagoFLF files plus three generated TrimpodRus files below.
 rm -f "$PAK/trimpod/fonts/"*.fnt "$PAK/trimpod/fonts/COPYING-fonts.txt" 2>/dev/null || true
 
-echo ">> Injecting ChicagoFLF fonts (see assets/fonts)"
-cp -a "$ROOT"/assets/fonts/*.fnt "$PAK/trimpod/fonts/"
+for family in ChicagoFLF TrimpodRus; do
+    for size in 18 20 24; do
+        [ -f "$ROOT/assets/fonts/${size}-${family}.fnt" ] || {
+            echo "Missing assets/fonts/${size}-${family}.fnt -- run ./build.sh first." >&2
+            exit 1
+        }
+    done
+done
+echo ">> Injecting language-aware compact UI fonts"
+for family in ChicagoFLF TrimpodRus; do
+    for size in 18 20 24; do
+        cp "$ROOT/assets/fonts/${size}-${family}.fnt" "$PAK/trimpod/fonts/"
+    done
+done
 cp "$ROOT/assets/fonts/COPYING" "$PAK/trimpod/fonts/COPYING-fonts.txt"
+cp "$ROOT/assets/fonts/sources/Mulmaru-OFL.txt" \
+   "$PAK/trimpod/fonts/OFL-Mulmaru.txt"
 
 echo ">> Injecting Milkdrop visualizer presets (see assets/presets)"
 mkdir -p "$PAK/trimpod/presets"
@@ -57,21 +79,28 @@ echo ">> Overlaying the static pak files (pak/: launch.sh, licenses, config, .sy
 # pak.json lives at the repo root (the Pak Store reads it there); copy it in too.
 cp -a "$ROOT/pak/." "$PAK/"
 cp -a "$ROOT/pak.json" "$PAK/pak.json"
+# A Windows checkout may already contain CRLF files created before the
+# .gitattributes policy was introduced.  A trailing CR becomes part of every
+# exported sysfs path when BusyBox sh sources a .sys file, so hardware writes
+# silently target names such as ".../brightness\r".  Normalize the deployed
+# shell inputs unconditionally.
+find "$PAK" -type f \( -name '*.sh' -o -name '*.sys' \) \
+     -exec sed -i 's/\r$//' {} +
 chmod +x "$PAK/launch.sh" "$PAK/trimpod/trimpod"
 
-echo ">> Packaging the Pak Store release asset (dist/Trimpod.pak.zip)"
+echo ">> Packaging the Pak Store release asset (dist/TrimPod(RUS).pak.zip)"
 # NextUI Pak Store: the zip's ROOT must be the contents of the .pak directory
 # (launch.sh, pak.json, trimpod/, ...) -- the store names the installed folder
 # from pak.json "name".  The filename must match release_filename in pak.json,
 # and the GitHub release tag must match the pak.json "version".
-rm -f "$ROOT/dist/Trimpod.pak.zip"
+rm -f "$ROOT/dist/TrimPod(RUS).pak.zip"
 if command -v zip >/dev/null 2>&1; then
-    ( cd "$PAK" && zip -qr "$ROOT/dist/Trimpod.pak.zip" . )
+    ( cd "$PAK" && zip -qr "$ROOT/dist/TrimPod(RUS).pak.zip" . )
 else   # no 'zip' binary -- fall back to python3 (contents at archive root)
     ( cd "$PAK" && python3 -c "import shutil,sys; shutil.make_archive(sys.argv[1],'zip','.')" \
-          "$ROOT/dist/Trimpod.pak" )
+          "$ROOT/dist/TrimPod(RUS).pak" )
 fi
 
 echo ">> Done: $PAK"
 du -sh "$PAK"
-du -h "$ROOT/dist/Trimpod.pak.zip"
+du -h "$ROOT/dist/TrimPod(RUS).pak.zip"

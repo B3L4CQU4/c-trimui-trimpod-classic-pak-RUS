@@ -627,7 +627,9 @@ static enum pv_context_result context_menu(int index)
 
     char name[MAX_PATH];
     format_name(name, current_track->name, sizeof(name));
-    static const char *const opts[] = { "Remove from Playlist", "Move" };
+    static const char *const opts[] = {
+        ID2P(LANG_TRIMPOD_REMOVE_FROM_PLAYLIST), ID2P(LANG_MOVE)
+    };
     int sel = trimpod_context_menu(name, opts, 2);
     if (sel >= 0)
     {

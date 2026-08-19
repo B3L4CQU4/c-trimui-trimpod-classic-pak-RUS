@@ -1,11 +1,11 @@
 {
-  "name": "Trimpod Classic",
-  "version": "v1.0.7",
+  "name": "TrimPod(RUS)",
+  "version": "v1.0.7-rus",
   "type": "TOOL",
-  "description": "An iPod Classic-inspired, offline music player for the TrimUI Brick/Hammer with winamp-like visualizations.",
-  "author": "tyrannotorus",
-  "repo_url": "https://github.com/tyrannotorus/c-trimui-trimpod-classic-pak",
-  "release_filename": "Trimpod.pak.zip",
+  "description": "A Russian-language fork of TrimPod Classic for TrimUI Brick/Brick Pro, with pixel-perfect output.",
+  "author": "B3L4CQU4",
+  "repo_url": "https://github.com/B3L4CQU4/c-trimui-trimpod-classic-pak-RUS",
+  "release_filename": "TrimPod(RUS).pak.zip",
   "screenshots": [
     "screenshots/now-playing.png",
     "screenshots/settings-power.png",
@@ -13,6 +13,7 @@
   ],
   "platforms": ["tg5040"],
   "changelog": {
+    "v1.0.7-rus": "Russian fork of TrimPod 1.0.7 with TrimUI Brick Pro support, exact 512x384 to 1024x768 2x rendering, Russian UI, an RU/EN UTF-8 keyboard, ChicagoFLF for English, and the Mulmaru-based Russian font family.",
     "v1.0.7": "Added Themes with Dark, Light, and a third ink variant per color. Volume bar now reads 'Volume X/40'. Fixed: playlist song menu not sliding back on close, status bar showing '.trimpod_queue', divider line ignoring the foreground color, and Now Playing spacing/status-bar text alignment.",
     "v1.0.6": "Fixed music playing about 8% too fast (roughly 1.4 semitones sharp). USB-C headphones work again, with in-app volume control. Powering off a Bluetooth speaker no longer crashes the app. Unplugging headphones or losing a Bluetooth device now pauses playback instead of switching to the internal speaker.",
     "v1.0.5": "Fixed bug allowing user to escape to file system after song end",

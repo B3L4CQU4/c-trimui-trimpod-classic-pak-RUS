@@ -230,7 +230,7 @@ void list_draw(struct screen *display, struct gui_synclist *list)
     struct line_desc linedes = LINE_DESC_DEFINIT;
     bool show_title;
     struct viewport *list_text_vp = &list_text[screen];
-    int indent = 8; /* small left margin so entries aren't flush-left
+    int indent = 10; /* compact left margin; selection still spans full width
                      * (offsets only the text; the selection bar stays full width) */
 
     if (list->callback_draw_item != NULL)
@@ -260,7 +260,7 @@ void list_draw(struct screen *display, struct gui_synclist *list)
             list->callback_get_item_indicator(list->selected_item, list->data) : ">";
         if (!s || !*s)
             s = ">";
-        indic_gutter = list_indicator_width(display, (const unsigned char *)s) + 6;
+        indic_gutter = list_indicator_width(display, (const unsigned char *)s) + 8;
         list_text_vp->width -= indic_gutter;
     }
 

@@ -165,7 +165,7 @@ static const char *tp_cpu_value_get(void *ctx, char *buf, int len)
 {
     (void)ctx; (void)buf; (void)len;
     if (retrohh_cpu_is_dynamic())
-        return "Dynamic";
+        return (const char *)str(LANG_TRIMPOD_DYNAMIC);
     return trimpod_cpu_labels[trimpod_cpu_nearest_index(retrohh_cpu_get_freq())];
 }
 static void tp_cpu_value_cycle(void *ctx, int dir)
@@ -188,8 +188,8 @@ static const struct menu_value_cb trimpod_cpu_value =
 static int tp_theme_cur_index(void)
 {
     for (int i = 0; i < TRIMPOD_NTHEMES; i++)
-        if (trimpod_themes[i].bg == global_settings.bg_color &&
-            trimpod_themes[i].fg == global_settings.fg_color)
+        if (trimpod_themes[i].bg == (unsigned)global_settings.bg_color &&
+            trimpod_themes[i].fg == (unsigned)global_settings.fg_color)
             return i;
     return -1;
 }
@@ -197,7 +197,9 @@ static const char *tp_theme_value_get(void *ctx, char *buf, int len)
 {
     (void)ctx; (void)buf; (void)len;
     int idx = tp_theme_cur_index();
-    return idx >= 0 ? trimpod_themes[idx].name : "Custom";
+    if (idx >= 0)
+        return trimpod_themes[idx].name;
+    return (const char *)str(LANG_TRIMPOD_CUSTOM);
 }
 static void tp_theme_value_cycle(void *ctx, int dir)
 {
@@ -237,7 +239,8 @@ MENUITEM_SETTING(tp_pw_brightness, &global_settings.brightness, NULL);
 MENUITEM_VALUE(tp_pw_theme, ID2P(LANG_TRIMPOD_THEME), &trimpod_theme_value, Icon_NOICON);
 MENUITEM_SETTING(tp_pw_screenoff, &global_settings.backlight_timeout, NULL);
 MENUITEM_SETTING(tp_pw_idlepoweroff, &global_settings.poweroff, NULL);
-MENUITEM_VALUE(tp_pw_charge, "Charge Limit", &trimpod_charge_value, Icon_NOICON);
+MENUITEM_VALUE(tp_pw_charge, ID2P(LANG_TRIMPOD_CHARGE_LIMIT),
+               &trimpod_charge_value, Icon_NOICON);
 /* Two variants: the Charge Limit row is present only when Trimpod manages
  * charging.  When the Battery Care daemon owns the bit the row is simply absent
  * (the "_nobatt" menu) rather than shown disabled -- see trimpod_power_page. */

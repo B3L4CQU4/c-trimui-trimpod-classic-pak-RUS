@@ -1,26 +1,64 @@
 #!/bin/sh
 # Trimpod — Rockbox-based music player for the TrimUI Brick (NextUI).
 # Launches our independently-built Rockbox SDL app with the 1ST_GEN_REMIX theme.
-PAK_DIR="$(dirname "$0")"
+PAK_DIR="$(CDPATH= cd "$(dirname "$0")" 2>/dev/null && pwd)" || exit 1
 RBDIR="$PAK_DIR/trimpod"
 RBDIR_BIND="/tmp/trimpod"
 cd "$PAK_DIR" || exit 1
 
+# NextUI treats a parenthesized pak suffix as a hidden platform/tag marker, so
+# TrimPod(RUS).pak is normally displayed as just "TrimPod".  Register an
+# official Tools/map.txt alias for the actual folder name without disturbing
+# aliases belonging to other tools.  NextUI picks it up when Tools is reloaded.
+PAK_NAME="$(basename "$PAK_DIR")"
+TOOLS_DIR="$(dirname "$PAK_DIR")"
+TOOLS_MAP="$TOOLS_DIR/map.txt"
+TOOLS_MAP_TMP="$TOOLS_DIR/.map.txt.trimpod.$$"
+
+register_tools_name() {
+  if [ -f "$TOOLS_MAP" ]; then
+    awk -v key="$PAK_NAME" 'index($0, key "\t") != 1' "$TOOLS_MAP" > "$TOOLS_MAP_TMP" || {
+      rm -f "$TOOLS_MAP_TMP"
+      return
+    }
+  else
+    : > "$TOOLS_MAP_TMP" || return
+  fi
+
+  if ! printf '%s\t%s\n' "$PAK_NAME" 'TrimPod(RUS)' >> "$TOOLS_MAP_TMP" ||
+     ! mv "$TOOLS_MAP_TMP" "$TOOLS_MAP"; then
+    rm -f "$TOOLS_MAP_TMP"
+  fi
+}
+
+register_tools_name
+
 # Rockbox stores its config/playlists under HOME; keep it on the SD card.
 HOME="$USERDATA_PATH"
 
-# Per-device sysfs paths (battery/backlight) + integer-ish display zoom value.
-if [ "$PLATFORM" = "tg5040" ]; then
-  if [ "$DEVICE" = "brick" ]; then
-    RBDEVICE="TUI-Brick"; . "$RBDIR/systems/tui-brick.sys"
-  else
-    RBDEVICE="TUI-SmartPro"; . "$RBDIR/systems/tui-spoon.sys"
-  fi
-elif [ "$PLATFORM" = "my355" ]; then
-  RBDEVICE="Miyoo-Flip"; . "$RBDIR/systems/my355.sys"
-else
-  RBDEVICE="fallback"; . "$RBDIR/systems/fallback.sys"
+# This build targets the 1024x768 Brick family only. NextUI exposes both
+# devices under PLATFORM=tg5040 and distinguishes them with DEVICE.
+if [ "$PLATFORM" != "tg5040" ]; then
+  echo "Unsupported platform: ${PLATFORM:-unset} (expected tg5040)" >&2
+  exit 1
 fi
+
+case "$DEVICE" in
+  brick)
+    RBDEVICE="TUI-Brick"
+    . "$RBDIR/systems/tui-brick.sys"
+    ;;
+  brickpro)
+    RBDEVICE="TUI-BrickPro"
+    . "$RBDIR/systems/tui-brick.sys"
+    ;;
+  *)
+    echo "Unsupported tg5040 device: ${DEVICE:-unset} (expected brick or brickpro)" >&2
+    exit 1
+    ;;
+esac
+
+echo "Trimpod device: PLATFORM=$PLATFORM DEVICE=$DEVICE MODEL=${TRIMUI_MODEL:-unknown} logical=512x384 zoom=$ZOOMVAL" >&2
 
 # The app's data dir is built as /tmp/trimpod, so bind our pak data there.
 if [ ! -f "$RBDIR_BIND/rockbox" ]; then

@@ -348,7 +348,7 @@ MENUITEM_RETURNVALUE(shuffle_item, ID2P(LANG_TRIMPOD_SHUFFLE_ALL), GO_TO_TRIMPOD
 
 struct menu_item_ex root_menu_;
 static struct menu_callback_with_desc root_menu_desc = {
-        item_callback, ID2P(LANG_ROCKBOX_TITLE), Icon_Rockbox };
+        item_callback, ID2P(LANG_TRIMPOD_HEADER), Icon_Rockbox };
 
 static struct menu_table menu_table[] = {
     /* Order here represents the default ordering (Trimpod layout) */

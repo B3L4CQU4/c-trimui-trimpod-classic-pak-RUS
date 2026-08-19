@@ -659,7 +659,7 @@ static const struct menu_value_cb np_sleep_value =
 static const char *np_pause_get(void *ctx, char *buf, int len)
 {
     (void)ctx; (void)buf; (void)len;
-    return (audio_status() & AUDIO_STATUS_PAUSE) ? "Play" : "Pause";
+    return str((audio_status() & AUDIO_STATUS_PAUSE) ? LANG_PLAY : LANG_PAUSE);
 }
 static void np_pause_cycle(void *ctx, int dir)
 {
@@ -671,9 +671,10 @@ static const struct menu_value_cb np_pause_value =
     { np_pause_get, np_pause_cycle, NULL };
 MENUITEM_VALUE(np_pause, "", &np_pause_value, Icon_NOICON);
 MENUITEM_VALUE(np_sleeptimer, ID2P(LANG_SLEEP_TIMER), &np_sleep_value, Icon_NOICON);
-MENUITEM_RETURNVALUE(np_addpl, "Add to Playlist", NP_ADD_TO_PLAYLIST,
+MENUITEM_RETURNVALUE(np_addpl, ID2P(LANG_ADD_TO_PL), NP_ADD_TO_PLAYLIST,
                      NULL, Icon_NOICON);
-MENUITEM_RETURNVALUE(np_viz, "Start Visualizer", NP_START_VIZ, NULL, Icon_NOICON);
+MENUITEM_RETURNVALUE(np_viz, ID2P(LANG_TRIMPOD_START_VISUALIZER), NP_START_VIZ,
+                     NULL, Icon_NOICON);
 /* Shuffle/Repeat: inline setting rows (LEFT/RIGHT cycle, applied live to the
  * running playlist via their settings_list callbacks); auto-labelled. */
 MENUITEM_SETTING(np_shuffle, &global_settings.playlist_shuffle, NULL);
