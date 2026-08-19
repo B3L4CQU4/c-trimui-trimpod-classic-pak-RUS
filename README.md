@@ -20,7 +20,8 @@ liability for any damage to your device when it melts from awesomeness.
 
 This fork retains substantial code from TrimPod Classic and Rockbox. Changes specific to the fork
 include Brick Pro/1024×768 adaptation, Russian localization, Cyrillic-capable fonts and a Russian
-UTF-8 keyboard.
+UTF-8 keyboard. 
+Note: Like the original project, this one was designed by a human, but slop-coded via codex. I'm a frontend developer. Have mercy on me )
 
 ## Supported Platforms
 
