@@ -1,7 +1,7 @@
 # TrimPod(RUS) for TrimUI Brick / Brick Pro
 
-<img width="256" height="192" alt="main-menu" src="https://github.com/user-attachments/assets/bac035ca-062e-42cf-a8d1-99fae6e1c871" /><img width="256" height="192" alt="now-playing" src="https://github.com/user-attachments/assets/60acf397-0810-4258-9c20-f16d1b049ea3" /><img width="256" height="192" alt="settings-power" src="https://github.com/user-attachments/assets/5d72058c-c2fe-47ca-937e-4190594fe4cf" />
-<img width="256" height="192" alt="viz-7" src="https://github.com/user-attachments/assets/654e9b30-07da-4072-b63c-15d9fd64ab67" /><img width="256" height="192" alt="viz-4" src="https://github.com/user-attachments/assets/c32f0fce-867e-4afe-8b78-df97928ddded" /><img width="256" height="192" alt="viz-1" src="https://github.com/user-attachments/assets/322a70cc-901e-45e7-9e69-b693386055b8" />
+<img width="256" height="192" alt="Main menu" src="screenshots/main-menu.png" /><img width="256" height="192" alt="Now playing" src="screenshots/now-playing.png" /><img width="256" height="192" alt="Synchronized lyrics" src="screenshots/lyrics.png" />
+<img width="256" height="192" alt="Context menu" src="screenshots/context-menu.png" /><img width="256" height="192" alt="MilkDrop visualizer" src="screenshots/visualizer.png" />
 
 ## Description
 
