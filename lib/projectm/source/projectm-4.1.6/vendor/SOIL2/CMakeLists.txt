@@ -33,9 +33,7 @@ target_link_libraries(SOIL2
         ${PROJECTM_OPENGL_LIBRARIES}
         )
 
-# ENABLE_GLES is the public projectM option used by the cross-build. Check it
-# directly as well, so SOIL2 cannot fall back to desktop GL during configure.
-if(USE_GLES OR ENABLE_GLES)
+if(USE_GLES)
     target_compile_definitions(SOIL2
             PRIVATE
             SOIL_GLES3

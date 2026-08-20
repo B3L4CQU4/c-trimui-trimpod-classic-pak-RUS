@@ -16,7 +16,7 @@ recipient can inspect, rebuild, replace and relink these LGPL components.
 The source snapshot is in `source/projectm-4.1.6/`. The projectM-eval source is
 populated in its upstream `vendor/projectm-eval/` location. TrimPod-specific
 source changes are recorded in `patches/`: the framebuffer preservation patch
-and the SOIL2 GLES cross-build fix. Both patches are already applied to the
+and the SOIL2 GLES3 header-selection fix. Both patches are already applied to the
 checked-in source tree.
 
 ## Prebuilt archives

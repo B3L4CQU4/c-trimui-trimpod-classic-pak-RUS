@@ -1,0 +1,15 @@
+diff --git a/vendor/SOIL2/SOIL2.c b/vendor/SOIL2/SOIL2.c
+index b6f7b79..102cd98 100644
+--- a/vendor/SOIL2/SOIL2.c
++++ b/vendor/SOIL2/SOIL2.c
+@@ -45,9 +45,7 @@ using Sean Barret's stb_image as a base
+     #include <GLES3/gl3.h>
+ 
+ 	#define APIENTRY GL_APIENTRY
+-#endif
+-
+-#if defined( SOIL_GLES2 )
++#elif defined( SOIL_GLES2 )
+ 	#ifdef SOIL_PLATFORM_IOS
+ 		#include <OpenGLES/ES2/gl.h>
+ 		#include <OpenGLES/ES2/glext.h>

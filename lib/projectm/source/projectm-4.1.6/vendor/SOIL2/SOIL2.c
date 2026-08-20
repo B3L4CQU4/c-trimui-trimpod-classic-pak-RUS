@@ -45,9 +45,7 @@
     #include <GLES3/gl3.h>
 
 	#define APIENTRY GL_APIENTRY
-#endif
-
-#if defined( SOIL_GLES2 )
+#elif defined( SOIL_GLES2 )
 	#ifdef SOIL_PLATFORM_IOS
 		#include <OpenGLES/ES2/gl.h>
 		#include <OpenGLES/ES2/glext.h>
