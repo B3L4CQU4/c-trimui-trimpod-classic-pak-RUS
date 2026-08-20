@@ -19,10 +19,11 @@ lib/projectm/lib/libprojectM-4.a
 lib/projectm/lib/libprojectM_eval.a
 ```
 
-The source already contains the TrimPod framebuffer patch. To start from the
-unmodified upstream file, reverse it from the source directory with:
+The source already contains the TrimPod patches. To start from the unmodified
+upstream files, reverse them from the source directory with:
 
 ```sh
+git apply -R ../../patches/0002-soil2-use-gles-option.patch
 git apply -R ../../patches/0001-preserve-caller-framebuffer.patch
 ```
 

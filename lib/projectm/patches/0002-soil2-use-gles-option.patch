@@ -1,0 +1,15 @@
+diff --git a/vendor/SOIL2/CMakeLists.txt b/vendor/SOIL2/CMakeLists.txt
+index 2bfe88a..f492157 100644
+--- a/vendor/SOIL2/CMakeLists.txt
++++ b/vendor/SOIL2/CMakeLists.txt
+@@ -33,7 +33,9 @@ target_link_libraries(SOIL2
+         ${PROJECTM_OPENGL_LIBRARIES}
+         )
+ 
+-if(USE_GLES)
++# ENABLE_GLES is the public projectM option used by the cross-build. Check it
++# directly as well, so SOIL2 cannot fall back to desktop GL during configure.
++if(USE_GLES OR ENABLE_GLES)
+     target_compile_definitions(SOIL2
+             PRIVATE
+             SOIL_GLES3
