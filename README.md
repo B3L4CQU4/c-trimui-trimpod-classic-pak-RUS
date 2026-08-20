@@ -87,8 +87,10 @@ Pro. Its provenance, checksum and GPLv3 license are in `pak/licenses/`.
 Cross-compiled in the NextUI `tg5040` Docker toolchain. Needs `docker` (and `adb` to deploy).
 
 ```sh
+# Required after changing projectM, and always performed by release CI:
+bash tools/build_projectm.sh
 ./build.sh      # cross-compile Rockbox -> build-trimpod/trimpod (+ the runtime zip)
-./package.sh    # assemble dist/TrimPod(RUS).pak (+ dist/TrimPod(RUS).pak.zip)
+./package.sh    # assemble the pak, release zip and LGPL relinking kit
 
 # Deploy: clear the destination FIRST. `adb push <dir> <existing-dir>` nests the
 # source inside it (you'd get "TrimPod(RUS).pak/TrimPod(RUS).pak/...") and leaves
@@ -100,6 +102,8 @@ adb shell "rm -rf \"$PAK\"" && adb push 'dist/TrimPod(RUS).pak' "$PAK"
 `./build.sh` also reproducibly rebuilds the compact 18/20/24px language-aware UI
 Russian fonts from the vendored PixelMplus and Mulmaru sources. English loads
 the original checked-in ChicagoFLF files unchanged; Russian uses Mulmaru for all available glyphs.
+Release CI first rebuilds the statically linked projectM archives from their
+checked-in corresponding source.
 `./build.sh clean` forces a fresh
 reconfigure. A full pak deploy resets on-device settings — the live
 config (`trimpod/config.cfg`) is bind-mounted from inside the pak, so replacing it restores defaults.
@@ -123,6 +127,7 @@ as SDL joystick events and the power key as an SDL keyboard scancode (no gptokey
 | `Dockerfile.trimpod` | the toolchain image (NextUI tg5040 + font/build tools + an `sdl2-config` shim) |
 | `pak/` | the pak skeleton: `launch.sh`, bundled Wget, licenses, `config.cfg`, `.sys` files (`pak.json` lives at the repo root) |
 | `assets/` | theme, language-aware UI font sources/output, icons and Milkdrop presets |
+| `third_party/` | complete upstream source archives required by bundled command-line tools |
 | `apps/`, `firmware/`, `lib/`, `tools/` | the Rockbox source tree + the Trimpod target |
 
 > clangd flags missing `config.h` / undeclared identifiers in this tree — they resolve only inside
@@ -132,7 +137,15 @@ as SDL joystick events and the power key as an SDL keyboard scancode (no gptokey
 
 TrimPod(RUS) is a fork of TrimPod Classic and an independent build of
 [Rockbox](https://github.com/Rockbox/rockbox). It is
-licensed under the **GNU General Public License v2.0**.
+licensed under the [**GNU General Public License v2.0**](LICENSE).
+
+Third-party license texts and attributions shipped with the pak are indexed in
+[`pak/licenses/THIRD_PARTY_NOTICES.txt`](pak/licenses/THIRD_PARTY_NOTICES.txt).
+The complete projectM 4.1.6 source, the TrimPod framebuffer patch, provenance,
+and instructions for replacing and relinking the statically linked library are
+under [`lib/projectm/`](lib/projectm/). Release builds also publish a matching
+`TrimPod(RUS)-relink-kit.tar.gz` asset with the machine-readable Rockbox object
+files needed for relinking.
 
 ### Credits
 
@@ -140,9 +153,13 @@ licensed under the **GNU General Public License v2.0**.
   ([tyrannotorus/c-trimui-trimpod-classic-pak](https://github.com/tyrannotorus/c-trimui-trimpod-classic-pak)).
 - **B3L4CQU4** — maintainer of the TrimPod(RUS) fork.
 - **Rockbox** — the firmware this is built from. GPLv2.
-- **projectM** — the Milkdrop-compatible visualizer engine ([projectM-visualizer/projectm](https://github.com/projectM-visualizer/projectm)). LGPL 2.1.
+- **projectM 4.1.6** — the Milkdrop-compatible visualizer engine
+  ([projectM-visualizer/projectm](https://github.com/projectM-visualizer/projectm)).
+  LGPL-2.1-or-later; complete source and the local framebuffer patch are
+  included under `lib/projectm/`.
+- **projectM-eval 1.0.5** — the expression evaluator bundled with projectM. MIT License.
 - **Cream of the Crop** — the bundled Milkdrop preset pack ([presets-cream-of-the-crop](https://github.com/projectM-visualizer/presets-cream-of-the-crop)).
-- **1ST_GEN_REMIX** theme by Monica G. — [themes.rockbox.org #3958](https://themes.rockbox.org/index.php?themeid=3958).
+- **1ST_GEN_REMIX** theme by Monica G. — [themes.rockbox.org #3958](https://themes.rockbox.org/index.php?themeid=3958), modified for TrimPod and distributed under CC BY-SA 3.0.
 - **ChicagoFLF** — public-domain Chicago-style Latin glyphs (bundled, anti-aliased).
 - **Mulmaru** by Mushsooni — the complete Russian UI glyph design in
   TrimpodRus. SIL Open Font License 1.1.
@@ -152,5 +169,9 @@ licensed under the **GNU General Public License v2.0**.
 - **NextUI Music Player** by Mohammad Syuhada — the lyrics lookup and caching
   flow in TrimPod(RUS) is based in part on its implementation
   ([mohammadsyuhada/nextui-music-player](https://github.com/mohammadsyuhada/nextui-music-player)). MIT License.
-- **GNU Wget 1.24.5** — bundled AArch64 HTTPS downloader used for LRCLIB. GPLv3-or-later.
-- Hardware-enablement files adapted from IncognitoMan's GPL work.
+- **GNU Wget 1.24.5** — bundled AArch64 HTTPS downloader used for LRCLIB.
+  GPLv3-or-later; its official source archive is included under
+  `third_party/wget/`.
+- Hardware-enablement files adapted from Hairo R. Carela's GPL work in
+  [IncognitoMan/rockbox](https://github.com/IncognitoMan/rockbox); original file
+  headers are retained.

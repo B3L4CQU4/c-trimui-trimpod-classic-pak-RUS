@@ -8,12 +8,19 @@ Upstream project and source for version 1.24.5:
   https://www.gnu.org/software/wget/
   https://ftp.gnu.org/gnu/wget/wget-1.24.5.tar.gz
 
+The complete upstream archive is included in the source repository and
+attached directly to GitHub releases as:
+  third_party/wget/wget-1.24.5.tar.gz
+
+Source archive SHA-256:
+  FA2DC35BAB5184ECBC46A9EF83DEF2AAAA3F4C9F3C97D4BD19DCB07D4DA637DE
+
 Bundled AArch64 executable SHA-256:
   8BE6464DD41F601612F4CA73397E8EC756B2AB6056D4571B5D5F0A860751F6D2
 
-The exact prebuilt AArch64 executable was obtained from the following
-distribution artifact.  NextUI Music Player is not the developer or upstream
-source of GNU Wget:
+The exact prebuilt AArch64 executable was inherited unchanged from the
+following distribution artifact. NextUI Music Player is its binary provenance,
+not the developer or upstream source of GNU Wget:
   https://github.com/nborodikhin/nextui-music-player/blob/a88c38defd145915f5f9451329015d134b3be0b0/bin/wget
 
 GNU Wget is licensed under the GNU General Public License version 3 or (at

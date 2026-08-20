@@ -104,3 +104,8 @@ fi
 echo ">> Done: $PAK"
 du -sh "$PAK"
 du -h "$ROOT/dist/TrimPod(RUS).pak.zip"
+
+# projectM is LGPL and linked statically. Publish the matching machine-readable
+# object files and library source needed to substitute it and relink TrimPod.
+bash "$ROOT/tools/package_relink_kit.sh"
+du -h "$ROOT/dist/TrimPod(RUS)-relink-kit.tar.gz"

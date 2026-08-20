@@ -1,5 +1,5 @@
 # Builds the pak in the public tg5040 toolchain and publishes the Pak Store
-# release asset (Trimpod.pak.zip) whenever a v* tag is pushed.
+# release assets whenever a v* tag is pushed.
 #
 # The NextUI Pak Store pulls the asset named release_filename in pak.json from
 # the GitHub release whose tag matches the pak.json "version", so this workflow
@@ -29,7 +29,9 @@ jobs:
             echo "::error::pak.json version ($ver) != tag (${GITHUB_REF_NAME})"; exit 1; }
 
       - name: Build (Docker tg5040 toolchain)
-        run: ./build.sh clean
+        run: |
+          bash tools/build_projectm.sh
+          ./build.sh clean
 
       - name: Package pak + Pak Store zip
         run: ./package.sh
@@ -39,6 +41,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" \
-            dist/Trimpod.pak.zip \
+            "dist/TrimPod(RUS).pak.zip" \
+            "dist/TrimPod(RUS)-relink-kit.tar.gz" \
+            third_party/wget/wget-1.24.5.tar.gz \
             --title "${GITHUB_REF_NAME}" \
             --generate-notes

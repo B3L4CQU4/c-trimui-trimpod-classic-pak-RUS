@@ -1,0 +1,11 @@
+FFmpeg-derived WMA decoder
+==========================
+
+Copyright (c) 2002 The FFmpeg Project
+
+The WMA decoder in Rockbox is distributed under the GNU Lesser General Public
+License, version 2 or (at your option) any later version. The LGPL 2.1 text
+provided as ../lgpl-2.1.txt is a later version permitted by that notice.
+
+Additional Rockbox adaptations retain their GPL notices in the source tree and
+are covered by ../rockbox_gplv2.txt.

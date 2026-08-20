@@ -1,0 +1,29 @@
+diff --git a/src/libprojectM/ProjectM.cpp b/src/libprojectM/ProjectM.cpp
+index ae9390e..d3d7569 100644
+--- a/src/libprojectM/ProjectM.cpp
++++ b/src/libprojectM/ProjectM.cpp
+@@ -98,6 +98,12 @@ void ProjectM::RenderFrame()
+         return;
+     }
+ 
++    // TrimPod renders projectM into its own low-resolution framebuffer and
++    // upscales the result. Keep the draw framebuffer selected by the caller;
++    // projectM binds several private framebuffers while rendering a preset.
++    GLint callerDrawFramebuffer{};
++    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &callerDrawFramebuffer);
++
+     // Update FPS and other timer values.
+     m_timeKeeper->UpdateTimers();
+ 
+@@ -166,8 +172,9 @@ void ProjectM::RenderFrame()
+     // ToDo: Call the to-be-implemented render method in Renderer
+     m_activePreset->RenderFrame(audioData, renderContext);
+ 
+-    // ToDo: Allow external apps to provide a custom target framebuffer.
+-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
++    // Composite into the framebuffer that was bound by the application when
++    // projectm_opengl_render_frame() was called, not framebuffer zero.
++    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(callerDrawFramebuffer));
+ 
+     if (m_transition != nullptr && m_transitioningPreset != nullptr)
+     {
