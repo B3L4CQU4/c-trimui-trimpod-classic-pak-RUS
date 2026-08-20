@@ -45,7 +45,7 @@ bool trimpod_visualizer_maybe_autostart(void);
 
 /* Settings -> Visualizers: a flat on/off toggle list of the shipped presets.
  * A toggles the highlighted preset (only enabled presets are auto-cycled on Now
- * Playing); Hold A opens a context submenu with Preview; B leaves the list.
+ * Playing); MENU opens a context popup with Preview; B leaves the list.
  * MENUITEM_FUNCTION callback (returns GO_TO_PREVIOUS). */
 int trimpod_visualizer_menu(void);
 

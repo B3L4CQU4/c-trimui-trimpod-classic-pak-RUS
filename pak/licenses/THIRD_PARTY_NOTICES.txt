@@ -1,0 +1,28 @@
+TrimPod(RUS) third-party notices
+================================
+
+This directory accompanies the runtime distribution. It contains the license
+texts and notices for software and assets used by TrimPod(RUS):
+
+- Rockbox and TrimPod application code: rockbox_gplv2.txt and
+  rockbox_license.txt.
+- Statically linked projectM 4.1.6: projectM_COPYING.txt and lgpl-2.1.txt.
+  Corresponding source and relinking instructions are in the repository under
+  lib/projectm/. Binary releases provide a matching relink-kit asset.
+- projectM dependencies: projectM_eval_MIT.txt,
+  projectM_hlslparser_MIT.txt, projectM_GLM_MIT.txt,
+  projectM_SOIL2_NOTICE.txt, utf8proc_MIT_Unicode.txt, tlsf_COPYING.txt and
+  sqlite_PROVENANCE.md.
+- Rockbox codec libraries: rockbox-codecs/. LGPL-covered codec code refers to
+  lgpl-2.1.txt; permissive codec notices are retained in their subdirectories.
+- GNU Wget 1.24.5: wget_NOTICE.txt and wget_gplv3.txt. Its complete upstream
+  source archive is included in the repository under third_party/wget/.
+- NextUI Music Player-derived lyrics flow: nextui_music_player_MIT.txt.
+- Hardware-enablement code adapted from Hairo R. Carela's IncognitoMan
+  Rockbox fork: incognitoman_NOTICE.txt and rockbox_gplv2.txt.
+- 1ST_GEN_REMIX theme: theme_1ST_GEN_REMIX_NOTICE.txt.
+- Runtime fonts: the deployed trimpod/fonts/COPYING-fonts.txt and
+  trimpod/fonts/OFL-Mulmaru.txt files are copied from assets/fonts/ by
+  package.sh.
+
+MilkDrop preset metadata is documented separately in the preset directory.

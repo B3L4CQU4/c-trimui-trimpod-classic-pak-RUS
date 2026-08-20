@@ -73,6 +73,16 @@ bool power_display_off(void) { return power_blanked; }
  * JOYBUTTON/JOYHAT/JOYAXIS events to Rockbox buttons in event_handler. */
 static SDL_Joystick **joysticks = NULL;
 static int num_joysticks = 0;
+static int hat_directions;
+static int stick_directions;
+
+#define JOYSTICK_DEADZONE 16384
+#define DIRECTION_BUTTONS (BUTTON_UP | BUTTON_DOWN | BUTTON_LEFT | BUTTON_RIGHT)
+
+static void update_joystick_directions(void)
+{
+    btn = (btn & ~DIRECTION_BUTTONS) | hat_directions | stick_directions;
+}
 
 static void open_joysticks(void)
 {
@@ -245,19 +255,41 @@ static bool event_handler(SDL_Event *event)
     }
     case SDL_JOYHATMOTION:
     {
-        /* Brick d-pad is a hat; rebuild the four direction bits each event. */
+        /* Brick d-pad is a hat; keep it independent from the left stick. */
         int hat = event->jhat.value;
-        btn &= ~(BUTTON_UP | BUTTON_DOWN | BUTTON_LEFT | BUTTON_RIGHT);
-        if (hat & SDL_HAT_UP)    btn |= BUTTON_UP;
-        if (hat & SDL_HAT_DOWN)  btn |= BUTTON_DOWN;
-        if (hat & SDL_HAT_LEFT)  btn |= BUTTON_LEFT;
-        if (hat & SDL_HAT_RIGHT) btn |= BUTTON_RIGHT;
+        hat_directions = BUTTON_NONE;
+        if (hat & SDL_HAT_UP)    hat_directions |= BUTTON_UP;
+        if (hat & SDL_HAT_DOWN)  hat_directions |= BUTTON_DOWN;
+        if (hat & SDL_HAT_LEFT)  hat_directions |= BUTTON_LEFT;
+        if (hat & SDL_HAT_RIGHT) hat_directions |= BUTTON_RIGHT;
+        update_joystick_directions();
         break;
     }
     case SDL_JOYAXISMOTION:
     {
-        /* L2/R2 triggers report as axes; any positive deflection = pressed
-         * (matches NextUI's val > 0 test).  Non-trigger axes map to nothing. */
+        /* Brick Pro left stick (axes 0/1) behaves like the d-pad. */
+        if (event->jaxis.axis == 0)
+        {
+            stick_directions &= ~(BUTTON_LEFT | BUTTON_RIGHT);
+            if (event->jaxis.value < -JOYSTICK_DEADZONE)
+                stick_directions |= BUTTON_LEFT;
+            else if (event->jaxis.value > JOYSTICK_DEADZONE)
+                stick_directions |= BUTTON_RIGHT;
+            update_joystick_directions();
+            break;
+        }
+        if (event->jaxis.axis == 1)
+        {
+            stick_directions &= ~(BUTTON_UP | BUTTON_DOWN);
+            if (event->jaxis.value < -JOYSTICK_DEADZONE)
+                stick_directions |= BUTTON_UP;
+            else if (event->jaxis.value > JOYSTICK_DEADZONE)
+                stick_directions |= BUTTON_DOWN;
+            update_joystick_directions();
+            break;
+        }
+
+        /* L2/R2 triggers report as axes; any positive deflection = pressed. */
         int b = joyaxis_to_button(event->jaxis.axis);
         if (b != BUTTON_NONE)
         {
@@ -420,6 +452,8 @@ int button_read_device(void)
          * leaks from the switch itself.  Still discard any button held across
          * the lock edge so it can't survive into the locked state. */
         btn = 0;
+        hat_directions = BUTTON_NONE;
+        stick_directions = BUTTON_NONE;
         return BUTTON_NONE;
     }
 

@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+struct gui_synclist;
+struct viewport;
+
 /* Language-aware font aliases used by the theme. English resolves directly to
  * the original ChicagoFLF files; Russian resolves to the all-Mulmaru
  * TrimpodRus derivative. `name` may include the .fnt extension. */
@@ -45,6 +48,14 @@ bool trimpod_confirm(const char *question, const char *detail);
  * sliding list Page of `count` option strings titled `title`.  Returns the
  * chosen row index, or -1 if the user backed out with B.  Blocking. */
 int trimpod_context_menu(const char *title, const char *const *items, int count);
+
+/* Lightweight modal frame used by context menus. begin() captures the screen,
+ * layout() sizes the supplied list viewport, draw() paints the frame + list,
+ * and end() restores the captured screen. Only one popup may be active. */
+void trimpod_popup_begin(struct viewport *parent);
+void trimpod_popup_layout(struct gui_synclist *lists);
+void trimpod_popup_draw(struct gui_synclist *lists);
+void trimpod_popup_end(void);
 
 /* The About screen: a credits reel that drifts up and down on its own (B leaves).
  * Blocking. */

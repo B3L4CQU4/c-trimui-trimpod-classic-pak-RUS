@@ -1,0 +1,12 @@
+IncognitoMan Rockbox hardware-enablement code
+==============================================
+
+Portions of the retro-handheld target and keymap were adapted from Hairo R.
+Carela's Rockbox work. The original copyright and GPL notices remain in the
+source files.
+
+Upstream repository:
+  https://github.com/IncognitoMan/rockbox
+
+These portions are licensed under GNU GPL version 2 or (at your option) any
+later version. The GPL version 2 text is included as rockbox_gplv2.txt.

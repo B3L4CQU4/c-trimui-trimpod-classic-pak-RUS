@@ -689,7 +689,7 @@ bool trimpod_visualizer_maybe_autostart(void)
 /* ---- Settings -> Visualizers: the on/off toggle list -----------------------
  * A flat list of the shipped presets, each with an [x]/[ ] toggle (like
  * Settings -> Menu Settings).  A flips the highlighted preset on/off; only
- * enabled presets are played by the Now Playing auto-cycle.  Hold A opens a
+ * enabled presets are played by the Now Playing auto-cycle.  MENU opens a
  * context submenu with Preview (B leaves the preview).  B leaves the list.
  * The list is the scanned name_buf/name_off/preset_enabled set (one at a time,
  * so it lives in the file-scope statics). */
@@ -733,7 +733,7 @@ static void vm_preview(int sel)
 }
 
 /* No legend: the [x]/[ ] checkboxes make A=toggle self-evident, B=back is the
- * universal convention, and Preview lives in the Hold-A context submenu. */
+ * universal convention, and Preview lives in the MENU context popup. */
 
 static void vm_draw(struct trimpod_page *self)
 {
@@ -765,7 +765,7 @@ static enum trimpod_page_result vm_on_action(struct trimpod_page *self, int acti
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_CONTEXT:     /* Hold A: context submenu for this preset */
+        case ACTION_STD_CONTEXT:     /* MENU: context popup for this preset */
             if (have)
             {
                 static const char *const opts[] = { ID2P(LANG_TRIMPOD_PREVIEW) };
@@ -791,7 +791,7 @@ static const struct trimpod_page_vtable vm_vtable =
     .on_action = vm_on_action,
 };
 
-/* A (toggle), Hold-A (context: Preview), B (back) */
+/* A (toggle), MENU (context: Preview), B (back) */
 static const int vm_allowed[] =
     { ACTION_STD_OK, ACTION_STD_CONTEXT, ACTION_STD_CANCEL, -1 };
 

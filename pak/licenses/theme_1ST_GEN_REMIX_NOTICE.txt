@@ -1,0 +1,15 @@
+1ST_GEN_REMIX theme
+===================
+
+1ST_GEN_REMIX v1.0 by Monica G. is distributed under the Creative Commons
+Attribution-ShareAlike 3.0 Unported license:
+  https://creativecommons.org/licenses/by-sa/3.0/
+
+Original Rockbox theme page:
+  https://themes.rockbox.org/index.php?themeid=3958
+
+The original theme headers describe its icons as based on artwork by Susan
+Kare. TrimPod Classic adapted the theme for its player interface. TrimPod(RUS)
+further modifies the layouts for a logical 512x384 display, language-aware UI
+fonts, and the shared header, controls and status elements. These theme
+modifications are distributed under the same CC BY-SA 3.0 license.

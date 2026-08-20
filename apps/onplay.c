@@ -1200,7 +1200,7 @@ int onplay(char* file, int attr, int from_context, bool hotkey, int customaction
         menu = &wps_onplay_menu;
     else
         menu = &tree_onplay_menu;
-    menu_selection = do_menu(menu, NULL, NULL, false);
+    menu_selection = do_menu_popup(menu, NULL);
     pop_current_activity();
 
     if (menu_selection == GO_TO_WPS)

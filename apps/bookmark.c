@@ -955,7 +955,7 @@ static int select_bookmark(const char* bookmark_file_name,
                                 ID2P(LANG_DELETE));
             static const int menu_actions[] = {ACTION_STD_OK,
                                                ACTION_BMS_DELETE};
-            int selection = do_menu(&menu_items, NULL, NULL, false);
+            int selection = do_menu_popup(&menu_items, NULL);
             refresh = true;
 
             if (selection >= 0 && selection <=

@@ -7,12 +7,12 @@
  *     an empty .m3u8 and the list refreshes.
  *   A on a playlist row    -> its track listing (the playlist viewer); A on a
  *     track there starts playback from it.
- *   Hold A on a playlist   -> a Play/Shuffle/Rename/Edit/Delete context menu;
+ *   MENU on a playlist     -> a Play/Shuffle/Rename/Edit/Delete context menu;
  *     Play/Shuffle start playback at once (track list sits behind Now Playing).
  *   B                      -> leave, back to the main menu.
  *
  * The run loop, header and key whitelist are owned by trimpod_page_run; this
- * page only describes the list and what A/B/Hold-A do.
+ * page only describes the list and what A/B/MENU do.
  ****************************************************************************/
 #include "config.h"
 #include <stdbool.h>
@@ -62,7 +62,7 @@ static bool pl_have_last;
  * GO_TO_PLAYLIST_VIEWER (playlist_view() in root_menu.c):
  *   view (tap A)          -> open the playlist's track listing in the viewer
  *     (trimpod_playlists_take_pending_view);
- *   play/shuffle (Hold A) -> trimpod_playlists_start_pending() begins playback
+ *   play/shuffle (MENU) -> trimpod_playlists_start_pending() begins playback
  *     so the track list sits *behind* Now Playing (backing out of the WPS
  *     reveals it).  Filename only -- the catalog dir is the stable pl_dir. */
 static char pl_pending_file[MAX_PATH];
@@ -152,7 +152,7 @@ struct playlists_page
     struct gui_synclist lists;
     int result;                       /* GO_TO_* handed back to the root dispatch */
 
-    /* "pick" mode (Hold-A = Add to Playlist): the chosen or newly created
+    /* "pick" mode (MENU = Add to Playlist): the chosen or newly created
      * playlist receives the selection via the stock Rockbox catalog_insert_into().
      * Either a single (pick_sel, pick_attr) -- a file appended, a directory
      * expanded into its tracks -- OR, when pick_paths is set, an explicit set of
@@ -262,7 +262,7 @@ static const char *editor_get_name(int sel, void *data, char *buf, size_t buf_le
     return buf;
 }
 
-/* No legend: B=back is the universal convention and Remove lives in the Hold-A
+/* No legend: B=back is the universal convention and Remove lives in the MENU
  * context submenu. */
 
 static void editor_draw(struct trimpod_page *self)
@@ -287,7 +287,7 @@ static enum trimpod_page_result editor_on_action(struct trimpod_page *self, int 
     if (action == ACTION_STD_CANCEL)             /* B: leave (saved on exit) */
         return TRIMPOD_PAGE_DONE;
 
-    if (action == ACTION_STD_CONTEXT && sel >= 0 && sel < n)   /* Hold A: context */
+    if (action == ACTION_STD_CONTEXT && sel >= 0 && sel < n)   /* MENU: context */
     {
         char name[MAX_PATH];
         editor_track_name(p, sel, name, sizeof(name));
@@ -314,7 +314,7 @@ static const struct trimpod_page_vtable editor_vtable =
     .on_action = editor_on_action,
 };
 
-/* only Hold-A (context: remove) and B (back) act; scrolling is consumed in poll */
+/* only MENU (context: remove) and B (back) act; scrolling is consumed in poll */
 static const int editor_allowed[] = { ACTION_STD_CONTEXT, ACTION_STD_CANCEL, -1 };
 
 /* Edit playlist `sel`: load it, let the user remove tracks, save if changed. */
@@ -369,7 +369,7 @@ static void edit_playlist(int sel)
     playlist_close(p.pl);
 }
 
-/* The per-playlist Hold-A context menu, titled with the playlist's name.
+/* The per-playlist MENU context menu, titled with the playlist's name.
  * trimpod_context_menu returns the row index or -1 on cancel. */
 enum { PL_ACT_PLAY = 0, PL_ACT_SHUFFLE, PL_ACT_RENAME, PL_ACT_EDIT, PL_ACT_DELETE };
 static const char *const playlist_action_opts[] =
@@ -529,7 +529,7 @@ static enum trimpod_page_result playlists_on_action(struct trimpod_page *self,
             return TRIMPOD_PAGE_DONE;
         }
     }
-    else if (action == ACTION_STD_CONTEXT       /* Hold A: playlist actions */
+    else if (action == ACTION_STD_CONTEXT       /* MENU: playlist actions */
              && !p->pick && sel >= 0 && sel < pl_count)
     {
         enum trimpod_page_result r = playlist_action(p, sel);
@@ -548,7 +548,7 @@ static const struct trimpod_page_vtable playlists_vtable =
     .on_action = playlists_on_action,
 };
 
-/* A (open/add), Hold-A (playlist actions) and B (back) act; list scrolling is
+/* A (open/add), MENU (playlist actions) and B (back) act; list scrolling is
  * consumed in poll */
 static const int playlists_allowed[] = { ACTION_STD_OK, ACTION_STD_CONTEXT,
                                          ACTION_STD_CANCEL, -1 };
@@ -670,7 +670,7 @@ static void trimpod_playlists_pick_tracks(char **paths, int count)
     run_playlists(&p, str(LANG_ADD_TO_PL));
 }
 
-/* ---- shared Hold-A "Add to Playlist" entry points ------------------------
+/* ---- shared MENU "Add to Playlist" entry points --------------------------
  * The one gesture every music browser routes through: show the context submenu
  * for `title`, and on confirm add the selection.  One flow, so a page only has
  * to resolve its highlighted row to a path (or a set of track paths). */

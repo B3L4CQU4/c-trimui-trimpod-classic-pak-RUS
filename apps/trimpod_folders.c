@@ -55,7 +55,7 @@
 #include "trimpod_ui.h"
 #include "trimpod_page.h"
 #include "trimpod_transition.h"   /* slide on folder descend/ascend */
-#include "trimpod_playlists.h"    /* Hold-A = add highlighted file/folder to a playlist */
+#include "trimpod_playlists.h"    /* MENU = add highlighted file/folder to a playlist */
 #include "trimpod_library.h"      /* Shuffle Songs builds from the SQLite index */
 
 #define PICKER_ROOT     "/mnt/SDCARD"
@@ -239,7 +239,7 @@ struct picker_page
     struct gui_synclist lists;
     char   curdir[FPATH_LEN];
     char   root[FPATH_LEN];
-    /* folder-picker mode (out!=NULL): Hold A picks a folder into out[] */
+    /* folder-picker mode (out!=NULL): MENU picks a folder into out[] */
     char  *out;
     size_t out_len;
     bool   picked;
@@ -423,11 +423,11 @@ static const char *pick_get_name(int sel, void *data, char *buf, size_t buf_len)
 
 static const char *picker_legend(struct trimpod_page *self)
 {
-    /* music: no legend (A plays / opens, Hold-A adds to a playlist, B backs out).
-     * folder-picker (Settings): A opens and B backs (universal), but Hold-A to add
+    /* music: no legend (A plays / opens, MENU adds to a playlist, B backs out).
+     * folder-picker (Settings): A opens and B backs (universal), but MENU to add
      * is the one non-obvious gesture, so publicize just that. */
     return ((struct picker_page *)self)->music ? NULL
-                                               : "Hold A to add";
+                                               : str(LANG_TRIMPOD_MENU_TO_ADD);
 }
 
 static void picker_draw(struct trimpod_page *self)
@@ -475,7 +475,7 @@ static enum trimpod_page_result picker_on_action(struct trimpod_page *self,
             }
             return TRIMPOD_PAGE_STAY;
 
-        case ACTION_STD_CONTEXT:     /* Hold A: add-to-playlist (music) / pick folder */
+        case ACTION_STD_CONTEXT:     /* MENU: add-to-playlist (music) / pick folder */
             if (p->music)
             {
                 if (have_sel)
@@ -535,7 +535,7 @@ static const struct trimpod_page_vtable picker_vtable =
     .on_action = picker_on_action,
 };
 
-/* A (descend/play), B (up/leave), Hold-A (music: add-to-playlist / picker: add folder) */
+/* A (descend/play), B (up/leave), MENU (music: add-to-playlist / picker: add folder) */
 static const int picker_allowed[] =
     { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_CONTEXT, -1 };
 

@@ -26,7 +26,7 @@ bool trimpod_playlists_take_pending_view(char *path, size_t len);
  * catalog_insert_into() -- a directory is expanded into its tracks. */
 void trimpod_playlists_pick(const char *sel, int sel_attr);
 
-/* Shared Hold-A "Add to Playlist" gesture used by every music browser: show the
+/* Shared MENU "Add to Playlist" action used by every music browser: show the
  * context submenu for `title`, then on confirm add the selection to a chosen /
  * new playlist.  Two forms -- a single file/dir path, or an explicit set of
  * track paths (a library album/artist has no single path to expand). */

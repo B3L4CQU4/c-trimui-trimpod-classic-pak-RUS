@@ -586,7 +586,7 @@ const struct settings_list settings[] = {
                  LANG_ON, LANG_OFF, shuffle_playlist_callback),
 
     CHOICE_SETTING(F_CB_ON_SELECT_ONLY|F_CB_ONLY_IF_CHANGED, repeat_mode,
-                   LANG_REPEAT, REPEAT_OFF, "repeat", "off,all,one"
+                   LANG_REPEAT, REPEAT_ALL, "repeat", "off,all,one"
 #ifdef AB_REPEAT_ENABLE
                    ",ab"
 #endif

@@ -45,6 +45,7 @@
 #include "sound.h"
 #include "onplay.h"
 #include "playback.h"
+#include "rbunicode.h"
 #include "splash.h"
 #include "cuesheet.h"
 #include "ata_idle_notify.h"
@@ -54,6 +55,7 @@
 #include "powermgmt.h"            /* sleep timer (Now Playing knob) */
 #include "trimpod_playlists.h"    /* trimpod_playlists_pick (Add to Playlist) */
 #include "trimpod_page.h"          /* Now Playing is a trimpod_page */
+#include "trimpod_ui.h"            /* refresh the SBS after lyrics toggle */
 #include "backdrop.h"
 #include "shortcuts.h"
 #include "appevents.h"
@@ -63,6 +65,7 @@
 #include "playlist_viewer.h"
 #include "wps.h"
 #include "trimpod_visualizer.h"
+#include "trimpod_lyrics.h"
 #include "statusbar-skinned.h"
 #include "skin_engine/wps_internals.h"
 
@@ -528,7 +531,239 @@ struct wps_page
     bool bookmark;        /* autobookmark on exit */
     bool update;          /* force a non-static skin update on the next draw */
     bool theme_enabled;   /* pass-through to gwps_enter_wps() */
+    bool lyrics_visible;
+    bool lyrics_refresh_header;
+    int lyrics_manual_index; /* -1 = follow playback */
+    long lyrics_manual_tick;
+    char lyrics_track_path[MAX_PATH];
 };
+
+#define WPS_LYRICS_X             0
+#define WPS_LYRICS_Y             74  /* original metadata/spectrum area */
+#define WPS_LYRICS_W             LCD_WIDTH
+#define WPS_LYRICS_H             233 /* keep y=307..383 progress/volume strip */
+#define WPS_LYRICS_CONTENT_Y     56  /* screen y=130: below number + title */
+#define WPS_LYRICS_AROUND        2
+#define WPS_LYRICS_WRAP_ROWS     2
+#define WPS_LYRICS_ROW_GAP       4
+#define WPS_LYRICS_MANUAL_TICKS  (5 * HZ)
+
+struct wps_wrapped_lyric
+{
+    char row[WPS_LYRICS_WRAP_ROWS][256];
+    int rows;
+    int font;
+    int line_height;
+};
+
+static int wps_lyrics_fit_row(struct screen *s, const char *text,
+                              int max_width, char *dst, size_t dst_size,
+                              const char **next)
+{
+    const char *p = text;
+    const char *fit = text;
+    const char *last_space = NULL;
+    char trial[256];
+
+    while (*p)
+    {
+        int bytes = utf8seek((const unsigned char *)p, 1);
+        const char *after;
+        size_t len;
+        int width;
+
+        if (bytes <= 0)
+            bytes = 1;
+        after = p + bytes;
+        len = (size_t)(after - text);
+        if (len >= sizeof(trial))
+            break;
+        memcpy(trial, text, len);
+        trial[len] = '\0';
+        s->getstringsize((const unsigned char *)trial, &width, NULL);
+        if (width > max_width)
+            break;
+        fit = after;
+        if (*p == ' ' || *p == '\t')
+            last_space = p;
+        p = after;
+    }
+
+    if (!*p)
+        fit = p;
+    else if (last_space && last_space > text)
+        fit = last_space;
+    else if (fit == text)
+    {
+        int bytes = utf8seek((const unsigned char *)text, 1);
+        fit = text + (bytes > 0 ? bytes : 1);
+    }
+
+    size_t len = (size_t)(fit - text);
+    while (len > 0 && (text[len - 1] == ' ' || text[len - 1] == '\t'))
+        len--;
+    if (len >= dst_size)
+        len = dst_size - 1;
+    memcpy(dst, text, len);
+    dst[len] = '\0';
+
+    p = fit;
+    while (*p == ' ' || *p == '\t')
+        p++;
+    *next = p;
+    return (int)len;
+}
+
+static void wps_lyrics_wrap(struct screen *s, const char *text, int font,
+                            int max_width, struct wps_wrapped_lyric *wrapped)
+{
+    const char *p = text;
+    memset(wrapped, 0, sizeof(*wrapped));
+    wrapped->font = font;
+    s->setfont(font);
+    s->getstringsize((const unsigned char *)"Ag", NULL,
+                     &wrapped->line_height);
+
+    while (*p && wrapped->rows < WPS_LYRICS_WRAP_ROWS)
+    {
+        const char *next;
+        wps_lyrics_fit_row(s, p, max_width,
+                           wrapped->row[wrapped->rows],
+                           sizeof(wrapped->row[wrapped->rows]), &next);
+        wrapped->rows++;
+        if (next <= p)
+            break;
+        p = next;
+    }
+}
+
+static void wps_lyrics_center_text(struct screen *s, const char *text,
+                                   int y, int width)
+{
+    int text_width;
+    s->getstringsize((const unsigned char *)text, &text_width, NULL);
+    s->putsxy(MAX(0, (width - text_width) / 2), y,
+              (const unsigned char *)text);
+}
+
+static void wps_lyrics_sync_track(struct wps_page *w,
+                                  const struct wps_state *state)
+{
+    if (!state->id3 || !state->id3->path[0])
+        return;
+
+    if (strcmp(w->lyrics_track_path, state->id3->path))
+    {
+        snprintf(w->lyrics_track_path, sizeof(w->lyrics_track_path), "%s",
+                 state->id3->path);
+        w->lyrics_manual_index = -1;
+    }
+
+    /* Also revalidate the same path: fast-skip preview metadata may be
+     * replaced later by the complete artist/title without another path change. */
+    trimpod_lyrics_request(state->id3);
+}
+
+static void wps_lyrics_draw(struct wps_page *w, struct wps_state *state)
+{
+    struct screen *s = &screens[SCREEN_MAIN];
+    struct viewport vp = {0};
+    struct viewport *old_vp;
+    enum trimpod_lyrics_status status;
+    int old_font = lcd_getfont();
+    int old_mode = lcd_get_drawmode();
+    unsigned old_fg = s->get_foreground();
+    unsigned old_bg = s->get_background();
+
+    wps_lyrics_sync_track(w, state);
+    trimpod_lyrics_poll();
+    if (w->lyrics_manual_index >= 0 &&
+        TIME_AFTER(current_tick,
+                   w->lyrics_manual_tick + WPS_LYRICS_MANUAL_TICKS))
+        w->lyrics_manual_index = -1;
+
+    viewport_set_defaults(&vp, SCREEN_MAIN);
+    vp.x = WPS_LYRICS_X;
+    vp.y = WPS_LYRICS_Y;
+    vp.width = WPS_LYRICS_W;
+    vp.height = WPS_LYRICS_H;
+    vp.font = FONT_UI;
+    old_vp = s->set_viewport(&vp);
+    s->set_drawmode(DRMODE_SOLID);
+    s->set_background(global_settings.bg_color);
+    s->set_foreground(global_settings.bg_color);
+    /* Preserve the playlist number and track title already rendered at
+     * y=74..129, while replacing artist/album/spectrum below them.  Keeping
+     * the taller viewport lets the five lyric lines sit almost as high as in
+     * the original full metadata-area overlay. */
+    s->fillrect(0, WPS_LYRICS_CONTENT_Y, vp.width,
+                vp.height - WPS_LYRICS_CONTENT_Y);
+    s->set_foreground(global_settings.fg_color);
+
+    status = trimpod_lyrics_get_status();
+    if (status != TRIMPOD_LYRICS_READY)
+    {
+        const char *message;
+        int height;
+        s->setfont(FONT_UI);
+        if (status == TRIMPOD_LYRICS_LOADING)
+            message = str(LANG_TRIMPOD_LYRICS_LOADING);
+        else if (status == TRIMPOD_LYRICS_NOT_FOUND)
+            message = str(LANG_TRIMPOD_LYRICS_NOT_FOUND);
+        else
+            message = str(LANG_TRIMPOD_LYRICS_ERROR);
+        s->getstringsize((const unsigned char *)message, NULL, &height);
+        wps_lyrics_center_text(s, message, (vp.height - height) / 2,
+                               vp.width);
+    }
+    else
+    {
+        struct wps_wrapped_lyric wrapped[WPS_LYRICS_AROUND * 2 + 1];
+        int count = trimpod_lyrics_count();
+        int current = trimpod_lyrics_current(
+            state->id3 ? state->id3->elapsed : 0);
+        int anchor = w->lyrics_manual_index >= 0 ?
+                     w->lyrics_manual_index : current;
+        int first, last, entries, total_height = 0, y;
+
+        if (anchor < 0) anchor = 0;
+        if (anchor >= count) anchor = count - 1;
+        first = MAX(0, anchor - WPS_LYRICS_AROUND);
+        last = MIN(count - 1, anchor + WPS_LYRICS_AROUND);
+        entries = last - first + 1;
+
+        for (int i = 0; i < entries; i++)
+        {
+            int index = first + i;
+            const struct trimpod_lyric_line *line = trimpod_lyrics_line(index);
+            int font = index == current ? FONT_UI : 2;
+            wps_lyrics_wrap(s, line ? line->text : "", font,
+                            vp.width - 32, &wrapped[i]);
+            total_height += wrapped[i].rows * wrapped[i].line_height;
+            if (i + 1 < entries)
+                total_height += WPS_LYRICS_ROW_GAP;
+        }
+
+        y = MAX(WPS_LYRICS_CONTENT_Y,
+                (vp.height - total_height) / 2);
+        for (int i = 0; i < entries; i++)
+        {
+            s->setfont(wrapped[i].font);
+            for (int row = 0; row < wrapped[i].rows; row++)
+            {
+                wps_lyrics_center_text(s, wrapped[i].row[row], y, vp.width);
+                y += wrapped[i].line_height;
+            }
+            y += WPS_LYRICS_ROW_GAP;
+        }
+    }
+
+    s->set_viewport(old_vp);
+    s->setfont(old_font);
+    s->set_drawmode(old_mode);
+    s->set_foreground(old_fg);
+    s->set_background(old_bg);
+}
 
 static void wps_page_draw(struct trimpod_page *p)
 {
@@ -581,6 +816,30 @@ static void wps_page_draw(struct trimpod_page *p)
         }
         w->update = false;
     }
+
+    if (w->lyrics_visible)
+    {
+        wps_lyrics_draw(w, state);
+        /* %pm is normally animated from skin_wait_for_action(), after this
+         * page draw. Disable that fast path while lyrics cover the spectrum;
+         * the next ordinary skin render re-enables it automatically. */
+        FOR_NB_SCREENS(i)
+            skin_get_gwps(WPS, i)->data->spectrum_enabled = false;
+    }
+
+    if (w->lyrics_visible || w->lyrics_refresh_header)
+    {
+        w->lyrics_refresh_header = false;
+        trimpod_header_refresh();
+        if (!w->lyrics_visible)
+            lcd_update();
+    }
+
+    /* With %pm disabled, skin_wait_for_action() no longer owns presentation.
+     * Present the complete lyrics frame (including the restored SBS header)
+     * once at the normal 5 Hz WPS cadence. */
+    if (w->lyrics_visible)
+        lcd_update();
 }
 
 static int wps_page_poll(struct trimpod_page *p, int timeout)
@@ -607,10 +866,10 @@ static int wps_page_poll(struct trimpod_page *p, int timeout)
     return button;
 }
 
-/* Hold-A on Now Playing opens this menu (do_menu returns NP_PAUSE / NP_ADD_TO_PLAYLIST /
+/* MENU on Now Playing opens this popup (returns NP_ADD_TO_PLAYLIST /
  * NP_START_VIZ; GO_TO_PREVIOUS on cancel).  Sleep Timer is an inline knob: LEFT/RIGHT
  * (or A) cycle Off/5/10.../90 min and arm the timer live; the value shows minutes left.
- * Opened like the context menu (gwps_leave_wps -> menu -> restore) so it themes. */
+ * It uses the current WPS theme and does not leave the skin while open. */
 enum { NP_PAUSE = 0, NP_ADD_TO_PLAYLIST, NP_START_VIZ };
 
 static const int np_sleep_min[] = { 0, 5, 10, 15, 30, 45, 60, 75, 90 };
@@ -691,6 +950,37 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
 
         switch(button)
         {
+            case ACTION_TP_LYRICS_TOGGLE:
+                w->lyrics_visible = !w->lyrics_visible;
+                w->lyrics_manual_index = -1;
+                w->lyrics_refresh_header = true;
+                if (w->lyrics_visible)
+                    wps_lyrics_sync_track(w, state);
+                else
+                {
+                    skin_request_full_update(WPS);
+                    skin_request_full_update(CUSTOM_STATUSBAR);
+                }
+                w->update = true;
+                break;
+
+            case ACTION_TP_LYRICS_UP:
+            case ACTION_TP_LYRICS_DOWN:
+                if (w->lyrics_visible &&
+                    trimpod_lyrics_get_status() == TRIMPOD_LYRICS_READY)
+                {
+                    int count = trimpod_lyrics_count();
+                    int index = w->lyrics_manual_index;
+                    if (index < 0)
+                        index = trimpod_lyrics_current(
+                            state->id3 ? state->id3->elapsed : 0);
+                    index += button == ACTION_TP_LYRICS_UP ? -1 : 1;
+                    w->lyrics_manual_index = MAX(0, MIN(count - 1, index));
+                    w->lyrics_manual_tick = current_tick;
+                    w->update = true;
+                }
+                break;
+
 #ifdef HAVE_HOTKEY
             case ACTION_WPS_HOTKEY:
             {
@@ -750,23 +1040,29 @@ static enum trimpod_page_result wps_page_on_action(struct trimpod_page *p,
                 wps_do_action(WPS_PLAYPAUSE, true);
                 break;
 
-                /* Hold A: the Now Playing menu (pause/shuffle/repeat/sleep/
-                 * add-to-playlist/visualizer).  Same pattern as ACTION_WPS_CONTEXT:
-                 * leave the skin so the menu themes + tweens, act on the choice,
-                 * then restore the WPS. */
+                /* MENU: centered Now Playing popup (pause/shuffle/repeat/sleep/
+                 * add-to-playlist/visualizer). Keep the skin entered while the
+                 * modal is open; leave it only for an action that opens another
+                 * full screen. */
             case ACTION_STD_CONTEXT:
             {
-                gwps_leave_wps(true);
-                int sel = do_menu(&nowplaying_menu, NULL, NULL, false);
+                int sel = do_menu_popup(&nowplaying_menu, NULL);
                 if (sel == NP_ADD_TO_PLAYLIST &&
                          state->id3 && state->id3->path[0])
+                {
+                    gwps_leave_wps(true);
                     trimpod_playlists_pick(state->id3->path, FILE_ATTR_AUDIO);
+                    w->restore = true;
+                }
                 else if (sel == NP_START_VIZ)
+                {
+                    gwps_leave_wps(true);
                     trimpod_visualizer_run();   /* B returns to Now Playing */
+                    w->restore = true;
+                }
 
                 if (!audio_status())   /* music stopped while away -> leave WPS */
                     { w->result = GO_TO_ROOT; return TRIMPOD_PAGE_DONE; }
-                w->restore = true;
                 break;
             }
 
@@ -930,11 +1226,13 @@ long gui_wps_show(void)
         .result        = GO_TO_ROOT,
         .restore       = true,
         .theme_enabled = true,
+        .lyrics_manual_index = -1,
     };
 
     wps_state_init();
 
     trimpod_page_run(&w.base);
+    trimpod_lyrics_clear();
     if (w.base.home)
     {
         /* Hold-B home: the run loop breaks out before on_action can leave the

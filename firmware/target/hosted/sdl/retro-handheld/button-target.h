@@ -47,7 +47,10 @@
 #define RC_BUTTON_PREVSONG    0x00020000
 #define RC_BUTTON_NEXTSONG    0x00040000
 
-#define BUTTON_MAIN 0xFFFF
+/* Dedicated NextUI menu key (raw SDL joystick button 8). */
+#define BUTTON_MENU           0x00080000
+
+#define BUTTON_MAIN 0x0008FFFF
 
 /* Software power-off */
 #define POWEROFF_BUTTON BUTTON_POWER

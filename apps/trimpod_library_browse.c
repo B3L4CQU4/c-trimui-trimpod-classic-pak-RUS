@@ -40,7 +40,7 @@
 #include "trimpod_folders.h"        /* TP_CAT_MUSIC */
 #include "trimpod_library.h"
 #include "trimpod_library_browse.h"
-#include "trimpod_playlists.h"      /* Hold-A = Add to Playlist */
+#include "trimpod_playlists.h"      /* MENU = Add to Playlist */
 #include "filetypes.h"              /* FILE_ATTR_AUDIO */
 
 /* ---- growable string list (rows collected from the enumerators) ------- */
@@ -102,7 +102,7 @@ static void track_cb(const char *title, const char *path, void *ctx)
     slist_add(t->paths, path ? path : "");
 }
 
-/* Hold-A "Add to Playlist" for a whole album/artist: collect their file paths. */
+/* MENU "Add to Playlist" for a whole album/artist: collect their file paths. */
 static void path_collect_cb(const char *title, const char *path, void *ctx)
 {
     (void)title;
@@ -337,7 +337,7 @@ static enum trimpod_page_result lib_on_action(struct trimpod_page *self, int act
         }
     }
 
-    if (action == ACTION_STD_CONTEXT)               /* Hold A: Add to Playlist */
+    if (action == ACTION_STD_CONTEXT)               /* MENU: Add to Playlist */
     {
         switch (p->level)
         {
@@ -393,7 +393,7 @@ static const struct trimpod_page_vtable lib_vtable =
     .poll = lib_poll, .on_action = lib_on_action,
 };
 
-/* A (descend/play), B (up/leave), Hold-A (Add to Playlist); scrolling in poll */
+/* A (descend/play), B (up/leave), MENU (Add to Playlist); scrolling in poll */
 static const int lib_allowed[] =
     { ACTION_STD_OK, ACTION_STD_CANCEL, ACTION_STD_CONTEXT, -1 };
 

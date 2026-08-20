@@ -1,0 +1,11 @@
+Ayumi AY/YM sound-chip emulator
+===============================
+
+Author: Peter Sovietov
+Original project page: https://sovietov.com/app/ayumi/ayumi.html
+
+The imported source files identify Peter Sovietov as their author but do not
+carry a separate license text. They are present in this GPL-covered Rockbox
+source tree; the complete GPL version 2 text is provided as
+../rockbox_gplv2.txt. This notice records attribution without claiming an
+additional upstream license that is not present in the imported files.
