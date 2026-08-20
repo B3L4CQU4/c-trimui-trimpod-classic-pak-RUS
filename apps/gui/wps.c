@@ -664,6 +664,34 @@ static void wps_lyrics_sync_track(struct wps_page *w,
     trimpod_lyrics_request(state->id3);
 }
 
+static void wps_lyrics_stop_covered_scrollers(void)
+{
+    struct gui_wps *gwps = skin_get_gwps(WPS, SCREEN_MAIN);
+    struct wps_data *data = gwps->data;
+    char *skin_buffer = get_skin_buffer(data);
+    struct skin_element *element;
+    const int top = WPS_LYRICS_Y + WPS_LYRICS_CONTENT_Y;
+    const int bottom = WPS_LYRICS_Y + WPS_LYRICS_H;
+
+    if (!skin_buffer)
+        return;
+
+    for (element = SKINOFFSETTOPTR(skin_buffer, data->tree);
+         element;
+         element = SKINOFFSETTOPTR(skin_buffer, element->next))
+    {
+        struct skin_viewport *skin_vp =
+            SKINOFFSETTOPTR(skin_buffer, element->data);
+        struct viewport *vp;
+
+        if (!skin_vp)
+            continue;
+        vp = &skin_vp->vp;
+        if (vp->y < bottom && vp->y + vp->height > top)
+            gwps->display->scroll_stop_viewport(vp);
+    }
+}
+
 static void wps_lyrics_draw(struct wps_page *w, struct wps_state *state)
 {
     struct screen *s = &screens[SCREEN_MAIN];
@@ -819,6 +847,10 @@ static void wps_page_draw(struct trimpod_page *p)
 
     if (w->lyrics_visible)
     {
+        /* Artist/album marquee callbacks run outside the WPS draw loop. Stop
+         * only the viewports hidden by lyrics so they cannot repaint through
+         * the overlay; keep the track title and bottom strip scrolling/live. */
+        wps_lyrics_stop_covered_scrollers();
         wps_lyrics_draw(w, state);
         /* %pm is normally animated from skin_wait_for_action(), after this
          * page draw. Disable that fast path while lyrics cover the spectrum;

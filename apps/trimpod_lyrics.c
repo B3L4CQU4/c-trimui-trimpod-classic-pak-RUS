@@ -28,7 +28,7 @@
 #define LYRICS_MAX_FILE        (256 * 1024)
 #define LYRICS_CACHE_DIR_NAME  "lyrics"
 #define LYRICS_WGET            "./bin/wget"
-#define LYRICS_USER_AGENT      "TrimPod(RUS)/1.0.7-rus-0.2 " \
+#define LYRICS_USER_AGENT      "TrimPod(RUS)/1.0.7-rus-0.3 " \
                                "(https://github.com/B3L4CQU4/" \
                                "c-trimui-trimpod-classic-pak-RUS)"
 

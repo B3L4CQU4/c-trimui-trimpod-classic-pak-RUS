@@ -1,18 +1,21 @@
 {
   "name": "TrimPod(RUS)",
-  "version": "v1.0.7-rus-0.2",
+  "version": "v1.0.7-rus-0.3",
   "type": "TOOL",
   "description": "A Russian-language fork of TrimPod Classic for TrimUI Brick/Brick Pro, with pixel-perfect output.",
   "author": "B3L4CQU4",
   "repo_url": "https://github.com/B3L4CQU4/c-trimui-trimpod-classic-pak-RUS",
   "release_filename": "TrimPod(RUS).pak.zip",
   "screenshots": [
+    "screenshots/main-menu.png",
     "screenshots/now-playing.png",
-    "screenshots/settings-power.png",
+    "screenshots/lyrics.png",
+    "screenshots/context-menu.png",
     "screenshots/visualizer.png"
   ],
   "platforms": ["tg5040"],
   "changelog": {
+    "v1.0.7-rus-0.3": "Fixed scrolling artist or album text flashing through the synchronized lyrics overlay and refreshed the interface screenshots.",
     "v1.0.7-rus-0.2": "Added the MENU-button popup context menu, synchronized LRC lyrics with local/cache/LRCLIB lookup and scrolling, repeat enabled by default, lyric caching and track-switch fixes, and expanded third-party licensing and source materials.",
     "v1.0.7-rus": "Russian fork of TrimPod 1.0.7 with TrimUI Brick Pro support, exact 512x384 to 1024x768 2x rendering, Russian UI, an RU/EN UTF-8 keyboard, ChicagoFLF for English, and the Mulmaru-based Russian font family.",
     "v1.0.7": "Added Themes with Dark, Light, and a third ink variant per color. Volume bar now reads 'Volume X/40'. Fixed: playlist song menu not sliding back on close, status bar showing '.trimpod_queue', divider line ignoring the foreground color, and Now Playing spacing/status-bar text alignment.",
