@@ -1,0 +1,21 @@
+GNU Wget 1.24.5
+================
+
+TrimPod(RUS) includes an unmodified AArch64 GNU Wget executable used only to
+retrieve synchronized lyrics from LRCLIB over HTTPS.
+
+Upstream project and source for version 1.24.5:
+  https://www.gnu.org/software/wget/
+  https://ftp.gnu.org/gnu/wget/wget-1.24.5.tar.gz
+
+Bundled AArch64 executable SHA-256:
+  8BE6464DD41F601612F4CA73397E8EC756B2AB6056D4571B5D5F0A860751F6D2
+
+The exact prebuilt AArch64 executable was obtained from the following
+distribution artifact.  NextUI Music Player is not the developer or upstream
+source of GNU Wget:
+  https://github.com/nborodikhin/nextui-music-player/blob/a88c38defd145915f5f9451329015d134b3be0b0/bin/wget
+
+GNU Wget is licensed under the GNU General Public License version 3 or (at
+your option) any later version.  The license text is included alongside this
+notice as wget_gplv3.txt.

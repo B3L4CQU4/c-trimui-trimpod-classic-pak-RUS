@@ -17371,13 +17371,41 @@
   desc: Trimpod controls help row
   user: core
   <source>
-    *: "Hold A - Context Menus"
+    *: "MENU - Context Menus"
   </source>
   <dest>
-    *: "Удерж. A - Меню"
+    *: "MENU - Контекстное меню"
   </dest>
   <voice>
-    *: "Удерживать A для меню"
+    *: "MENU открывает контекстное меню"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_LYRICS
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "X - Lyrics"
+  </source>
+  <dest>
+    *: "X - Текст песни"
+  </dest>
+  <voice>
+    *: "X показывает текст песни"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_MENU_TO_ADD
+  desc: Trimpod folder picker header hint
+  user: core
+  <source>
+    *: "MENU to add"
+  </source>
+  <dest>
+    *: "MENU - добавить"
+  </dest>
+  <voice>
+    *: "MENU, добавить"
   </voice>
 </phrase>
 <phrase>
@@ -17455,13 +17483,13 @@
   desc: Trimpod first empty playlist hint row
   user: core
   <source>
-    *: "Hold A on any song"
+    *: "Press MENU on any song"
   </source>
   <dest>
-    *: "Удерживайте A на песне"
+    *: "Нажмите MENU на песне"
   </dest>
   <voice>
-    *: "Удерживайте A на любой песне"
+    *: "Нажмите MENU на любой песне"
   </voice>
 </phrase>
 <phrase>
@@ -17504,6 +17532,48 @@
   </dest>
   <voice>
     *: "Запустить визуализатор"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_LOADING
+  desc: Trimpod lyrics loading message
+  user: core
+  <source>
+    *: "Loading lyrics..."
+  </source>
+  <dest>
+    *: "Загрузка текста..."
+  </dest>
+  <voice>
+    *: "Загрузка текста песни"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_NOT_FOUND
+  desc: Trimpod lyrics not found message
+  user: core
+  <source>
+    *: "Lyrics not found"
+  </source>
+  <dest>
+    *: "Текст песни не найден"
+  </dest>
+  <voice>
+    *: "Текст песни не найден"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_ERROR
+  desc: Trimpod lyrics load error message
+  user: core
+  <source>
+    *: "Could not load lyrics"
+  </source>
+  <dest>
+    *: "Не удалось загрузить текст"
+  </dest>
+  <voice>
+    *: "Не удалось загрузить текст песни"
   </voice>
 </phrase>
 <phrase>

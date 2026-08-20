@@ -45,14 +45,17 @@ static const struct button_mapping button_context_standard[]  = {
     { ACTION_STD_OK,            BUTTON_A|BUTTON_REL,        BUTTON_A },
     { ACTION_STD_CANCEL,        BUTTON_B|BUTTON_REL,        BUTTON_B },
     { ACTION_STD_MENU,          BUTTON_Y|BUTTON_REL,        BUTTON_Y },
-    { ACTION_STD_CONTEXT,       BUTTON_START|BUTTON_REL,    BUTTON_START },
+    { ACTION_STD_CONTEXT,       BUTTON_MENU|BUTTON_REL,     BUTTON_MENU },
     {ACTION_STD_KEYLOCK,        BUTTON_L2|BUTTON_R2,        BUTTON_NONE},
 
     LAST_ITEM_IN_LIST
 }; /* button_context_standard */
 
 /* Trimpod: simplified iPod-style Now Playing controls.
- *   A            = play / pause + Now Playing menu (incl. Start Visualizer)
+ *   A            = play / pause
+ *   MENU         = Now Playing context menu (incl. Start Visualizer)
+ *   X            = show / hide synchronized lyrics
+ *   D-pad up/down= scroll lyrics by one line
  *   D-pad <- ->  = previous / next track
  *   L1 / R1      = seek -10s / +10s in the current track
  *   Volume +/-   = volume (dedicated hardware rocker)
@@ -60,6 +63,12 @@ static const struct button_mapping button_context_standard[]  = {
  * All other buttons intentionally do nothing on this screen. */
 static const struct button_mapping button_context_wps[]  = {
     { ACTION_WPS_PLAY,      BUTTON_A|BUTTON_REL,            BUTTON_A },
+    { ACTION_STD_CONTEXT,   BUTTON_MENU|BUTTON_REL,         BUTTON_MENU },
+    { ACTION_TP_LYRICS_TOGGLE, BUTTON_X|BUTTON_REL,         BUTTON_X },
+    { ACTION_TP_LYRICS_UP,  BUTTON_UP,                       BUTTON_NONE },
+    { ACTION_TP_LYRICS_UP,  BUTTON_UP|BUTTON_REPEAT,         BUTTON_NONE },
+    { ACTION_TP_LYRICS_DOWN,BUTTON_DOWN,                     BUTTON_NONE },
+    { ACTION_TP_LYRICS_DOWN,BUTTON_DOWN|BUTTON_REPEAT,       BUTTON_NONE },
     { ACTION_WPS_SKIPPREV,  BUTTON_LEFT|BUTTON_REL,         BUTTON_LEFT },
     { ACTION_WPS_SKIPNEXT,  BUTTON_RIGHT|BUTTON_REL,        BUTTON_RIGHT },
     { ACTION_WPS_SEEKBACK,  BUTTON_L|BUTTON_REL,            BUTTON_L },

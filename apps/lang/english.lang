@@ -11997,13 +11997,41 @@
   desc: Trimpod controls help row
   user: core
   <source>
-    *: "Hold A - Context Menus"
+    *: "MENU - Context Menus"
   </source>
   <dest>
-    *: "Hold A - Context Menus"
+    *: "MENU - Context Menus"
   </dest>
   <voice>
-    *: "Hold A for Context Menus"
+    *: "MENU opens Context Menus"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_CONTROL_LYRICS
+  desc: Trimpod controls help row
+  user: core
+  <source>
+    *: "X - Lyrics"
+  </source>
+  <dest>
+    *: "X - Lyrics"
+  </dest>
+  <voice>
+    *: "X shows Lyrics"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_MENU_TO_ADD
+  desc: Trimpod folder picker header hint
+  user: core
+  <source>
+    *: "MENU to add"
+  </source>
+  <dest>
+    *: "MENU to add"
+  </dest>
+  <voice>
+    *: "MENU to add"
   </voice>
 </phrase>
 <phrase>
@@ -12081,13 +12109,13 @@
   desc: Trimpod first empty playlist hint row
   user: core
   <source>
-    *: "Hold A on any song"
+    *: "Press MENU on any song"
   </source>
   <dest>
-    *: "Hold A on any song"
+    *: "Press MENU on any song"
   </dest>
   <voice>
-    *: "Hold A on any song"
+    *: "Press MENU on any song"
   </voice>
 </phrase>
 <phrase>
@@ -12130,6 +12158,48 @@
   </dest>
   <voice>
     *: "Start Visualizer"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_LOADING
+  desc: Trimpod lyrics loading message
+  user: core
+  <source>
+    *: "Loading lyrics..."
+  </source>
+  <dest>
+    *: "Loading lyrics..."
+  </dest>
+  <voice>
+    *: "Loading lyrics"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_NOT_FOUND
+  desc: Trimpod lyrics not found message
+  user: core
+  <source>
+    *: "Lyrics not found"
+  </source>
+  <dest>
+    *: "Lyrics not found"
+  </dest>
+  <voice>
+    *: "Lyrics not found"
+  </voice>
+</phrase>
+<phrase>
+  id: LANG_TRIMPOD_LYRICS_ERROR
+  desc: Trimpod lyrics load error message
+  user: core
+  <source>
+    *: "Could not load lyrics"
+  </source>
+  <dest>
+    *: "Could not load lyrics"
+  </dest>
+  <voice>
+    *: "Could not load lyrics"
   </voice>
 </phrase>
 <phrase>

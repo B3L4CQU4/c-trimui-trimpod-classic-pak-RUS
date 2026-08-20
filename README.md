@@ -35,9 +35,35 @@ UTF-8 keyboard.
 | **Pixel-perfect display** | The 512×384 logical UI is enlarged exactly 2× to the 1024×768 panel with nearest-neighbour filtering. |
 | **Russian interface** | Russian is the default; Settings → Language switches between Russian and English. Russian mode uses the pixel Mulmaru design for Cyrillic, Latin, digits and symbols with slightly wider glyph spacing; English keeps ChicagoFLF. The UTF-8 keyboard has RU/EN layouts. |
 | **Audio spectrum** | A live spectrum on the Now Playing screen. |
+| **Synchronized lyrics** | Press X in Now Playing to show local `.lrc` lyrics or fetch them from LRCLIB. The current line follows playback and is drawn larger; Up/Down scroll one line. |
 | **iPod volume bar** | The volume rocker works from any screen; a momentary iPod-style bar shows the level. |
 | **Folder-based music** | Browse your own source folders rather than a fixed library (default `/mnt/SDCARD/Music`; add more in Settings). |
 | **Colour themes** | Several iPod colour palettes (Settings → Power → Color). |
+
+## Controls
+
+- `A` — select; play/pause in Now Playing.
+- `B` — back/cancel; hold for the main menu.
+- `MENU` — open the context menu as a centered popup.
+- `X` — show/hide synchronized lyrics in Now Playing.
+- D-pad or left stick — navigate; Up/Down scroll lyrics one line while lyrics are shown.
+- `L1` / `R1` — seek backward/forward by 10 seconds in Now Playing.
+
+## Lyrics
+
+When lyrics mode is opened with `X`, TrimPod(RUS) checks these sources in order:
+
+1. A sidecar file with the same name as the track, for example `Song.flac` → `Song.lrc`.
+2. The persistent cache under `$HOME/lyrics/` on the SD card.
+3. Synced lyrics from [LRCLIB](https://lrclib.net/), first by exact metadata and then by search.
+
+The supported format is synchronized LRC with timestamps such as `[01:23.45]` or
+`[01:23.456]`. Up/Down temporarily scrolls the text; automatic following resumes after five
+seconds. Network lookup sends the track title, artist and duration to LRCLIB. It starts only when
+lyrics mode is opened and neither a sidecar nor cached file is available.
+
+GNU Wget is bundled in the pak for HTTPS, so nothing needs to be installed on the Brick or Brick
+Pro. Its provenance, checksum and GPLv3 license are in `pak/licenses/`.
 
 ## Install
 
@@ -95,7 +121,7 @@ as SDL joystick events and the power key as an SDL keyboard scancode (no gptokey
 |---|---|
 | `build.sh`, `package.sh` | build, then assemble the pak |
 | `Dockerfile.trimpod` | the toolchain image (NextUI tg5040 + font/build tools + an `sdl2-config` shim) |
-| `pak/` | the pak skeleton: `launch.sh`, `config.cfg`, `.sys` files (`pak.json` lives at the repo root) |
+| `pak/` | the pak skeleton: `launch.sh`, bundled Wget, licenses, `config.cfg`, `.sys` files (`pak.json` lives at the repo root) |
 | `assets/` | theme, language-aware UI font sources/output, icons and Milkdrop presets |
 | `apps/`, `firmware/`, `lib/`, `tools/` | the Rockbox source tree + the Trimpod target |
 
@@ -123,4 +149,8 @@ licensed under the **GNU General Public License v2.0**.
 - **PixelMplus** by Itou Hiroki — the Japanese glyphs merged into the UI fonts
   ([itouhiro/PixelMplus](https://github.com/itouhiro/PixelMplus)). M+ FONT LICENSE.
 - **NextUI** by LoveRetro — the launcher and toolchain this builds against.
+- **NextUI Music Player** by Mohammad Syuhada — the lyrics lookup and caching
+  flow in TrimPod(RUS) is based in part on its implementation
+  ([mohammadsyuhada/nextui-music-player](https://github.com/mohammadsyuhada/nextui-music-player)). MIT License.
+- **GNU Wget 1.24.5** — bundled AArch64 HTTPS downloader used for LRCLIB. GPLv3-or-later.
 - Hardware-enablement files adapted from IncognitoMan's GPL work.

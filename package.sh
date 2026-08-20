@@ -86,7 +86,7 @@ cp -a "$ROOT/pak.json" "$PAK/pak.json"
 # shell inputs unconditionally.
 find "$PAK" -type f \( -name '*.sh' -o -name '*.sys' \) \
      -exec sed -i 's/\r$//' {} +
-chmod +x "$PAK/launch.sh" "$PAK/trimpod/trimpod"
+chmod +x "$PAK/launch.sh" "$PAK/trimpod/trimpod" "$PAK/bin/wget"
 
 echo ">> Packaging the Pak Store release asset (dist/TrimPod(RUS).pak.zip)"
 # NextUI Pak Store: the zip's ROOT must be the contents of the .pak directory

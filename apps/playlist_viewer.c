@@ -51,7 +51,7 @@
 #include "file.h"                 /* truncate an emptied playlist on autosave */
 #include "trimpod_transition.h"   /* slide the viewer in/out like every other screen */
 #include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
-#include "trimpod_ui.h"           /* the Hold-A context menu */
+#include "trimpod_ui.h"           /* the MENU context popup */
 #include "trimpod_visualizer.h"   /* idle auto-start while music plays */
 
 
@@ -615,7 +615,7 @@ static enum pv_context_result delete_track(int current_track_index,
     return PV_CONTEXT_MODIFIED;
 }
 
-/* Hold-A on a track: the Trimpod context menu, titled with the track's name.
+/* MENU on a track: the Trimpod context menu, titled with the track's name.
  * Just the two edit actions -- everything else lives elsewhere (play = A,
  * shuffle = the playlist's own menu, track info = Now Playing). */
 static enum pv_context_result context_menu(int index)
@@ -728,13 +728,6 @@ static bool update_viewer(struct gui_synclist *playlist_lists, enum pv_context_r
     bool exit = apply_context_result(res);
     update_gui(playlist_lists, false);
     return exit;
-}
-
-/* render callback for the back-slide out of the Hold-A context menu: the
- * viewer redraw is the slide's destination frame */
-static void pv_list_render(void *ctx)
-{
-    update_gui((struct gui_synclist *)ctx, false);
 }
 
 static bool open_playlist_viewer(const char* filename,
@@ -971,13 +964,6 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
             case ACTION_STD_CONTEXT:
             {
                 enum pv_context_result cres = context_menu(viewer.selected_track);
-                /* The context menu is a trimpod_page: closing it (A or B)
-                 * armed a back slide.  Consume it and slide the viewer back
-                 * in, as trimpod_page_run does for its nested pages --
-                 * skipped during a home unwind (one slide at the Main Menu)
-                 * and when the viewer itself is about to close (its exit
-                 * arms the parent's slide instead). */
-                bool back = trimpod_transition_take_back();
                 if (trimpod_home_pending)
                     break;
                 if (apply_context_result(cres))
@@ -985,9 +971,6 @@ enum playlist_viewer_result playlist_viewer_ex(const char* filename,
                     exit = true;
                     ret = PLAYLIST_VIEWER_CANCEL;
                 }
-                else if (back)
-                    trimpod_transition_animate(TRIMPOD_TRANS_BACK,
-                                               pv_list_render, &playlist_lists);
                 else
                     update_gui(&playlist_lists, false);
                 break;

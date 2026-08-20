@@ -204,14 +204,159 @@ bool trimpod_confirm(const char *question, const char *detail)
     return p.result;
 }
 
-/* ---- context submenu (Hold-A) ----------------------------------------- */
+/* ---- modal context-menu frame ----------------------------------------- */
 
-/* A small sliding list Page (not a popup): holding A on a context-aware entry
- * opens it, A picks a row (index returned to the caller), B backs out (-1). */
+#define TP_POPUP_WIDTH       416
+#define TP_POPUP_BORDER        2
+#define TP_POPUP_TITLE_GAP     6
+#define TP_POPUP_MAX_ROWS      8
+
+/* One modal can be open at a time. Keeping the snapshot off the stack avoids
+ * a ~576 KiB stack allocation at the logical 512x384 RGB framebuffer size. */
+static fb_data popup_background[LCD_FBWIDTH * LCD_FBHEIGHT];
+static bool popup_active;
+static struct viewport popup_title_vp[NB_SCREENS];
+
+void trimpod_popup_begin(struct viewport parent[NB_SCREENS])
+{
+    FOR_NB_SCREENS(i)
+        screens[i].scroll_stop_viewport(&popup_title_vp[i]);
+    lcd_set_viewport(NULL);
+    memcpy(popup_background, FBADDR(0, 0), FRAMEBUFFER_SIZE);
+    popup_active = true;
+
+    FOR_NB_SCREENS(i)
+    {
+        viewport_set_defaults(&parent[i], screens[i].screen_type);
+        parent[i].font = FONT_UI;
+    }
+}
+
+void trimpod_popup_layout(struct gui_synclist *lists)
+{
+    FOR_NB_SCREENS(i)
+    {
+        struct screen *s = &screens[i];
+        struct viewport *vp = lists->parent[i];
+        int line_h = font_get(vp->font)->height;
+        int rows = lists->nb_items;
+        if (rows < 1) rows = 1;
+        if (rows > TP_POPUP_MAX_ROWS) rows = TP_POPUP_MAX_ROWS;
+
+        int outer_w = MIN(TP_POPUP_WIDTH, s->lcdwidth - 24);
+        int title_h = lists->title ? line_h : 0;
+        int outer_h = TP_POPUP_BORDER * 2 + rows * line_h;
+        if (title_h)
+            outer_h += title_h + TP_POPUP_TITLE_GAP;
+
+        int outer_x = (s->lcdwidth - outer_w) / 2;
+        int outer_y = (s->lcdheight - outer_h) / 2;
+
+        vp->x = outer_x + TP_POPUP_BORDER;
+        vp->y = outer_y + TP_POPUP_BORDER +
+                (title_h ? title_h + TP_POPUP_TITLE_GAP : 0);
+        vp->width = outer_w - TP_POPUP_BORDER * 2;
+        vp->height = rows * line_h;
+        vp->font = FONT_UI;
+    }
+    gui_synclist_select_item(lists, gui_synclist_get_sel_pos(lists));
+}
+
+void trimpod_popup_draw(struct gui_synclist *lists)
+{
+    if (!popup_active)
+        return;
+
+    lcd_set_viewport(NULL);
+    memcpy(FBADDR(0, 0), popup_background, FRAMEBUFFER_SIZE);
+    trimpod_popup_layout(lists);
+
+    FOR_NB_SCREENS(i)
+    {
+        struct screen *s = &screens[i];
+        struct viewport *vp = lists->parent[i];
+        const char *title = lists->title;
+        int title_h = title ? font_get(vp->font)->height : 0;
+        int outer_x = vp->x - TP_POPUP_BORDER;
+        int outer_y = vp->y - TP_POPUP_BORDER -
+                      (title_h ? title_h + TP_POPUP_TITLE_GAP : 0);
+        int outer_w = vp->width + TP_POPUP_BORDER * 2;
+        int outer_h = vp->height + TP_POPUP_BORDER * 2 +
+                      (title_h ? title_h + TP_POPUP_TITLE_GAP : 0);
+        int old_font = lcd_getfont();
+        int old_mode = lcd_get_drawmode();
+        unsigned old_fg = s->get_foreground();
+        unsigned old_bg = s->get_background();
+
+        s->set_viewport(NULL);
+        s->set_drawmode(DRMODE_SOLID);
+        s->set_background(global_settings.bg_color);
+        s->set_foreground(global_settings.bg_color);
+        s->fillrect(outer_x, outer_y, outer_w, outer_h);
+        s->set_foreground(global_settings.fg_color);
+        s->drawrect(outer_x, outer_y, outer_w, outer_h);
+        if (title)
+        {
+            int tw, th;
+            s->setfont(vp->font);
+            s->getstringsize((const unsigned char *)title, &tw, &th);
+            popup_title_vp[i] = *vp;
+            popup_title_vp[i].x = outer_x + TP_POPUP_BORDER + 8;
+            popup_title_vp[i].y = outer_y + TP_POPUP_BORDER;
+            popup_title_vp[i].width = outer_w - TP_POPUP_BORDER * 2 - 16;
+            popup_title_vp[i].height = th;
+            popup_title_vp[i].font = vp->font;
+            popup_title_vp[i].drawmode = DRMODE_SOLID;
+            popup_title_vp[i].fg_pattern = global_settings.fg_color;
+            popup_title_vp[i].bg_pattern = global_settings.bg_color;
+            s->set_viewport(&popup_title_vp[i]);
+            if (tw > popup_title_vp[i].width)
+                s->puts_scroll(0, 0, (const unsigned char *)title);
+            else
+            {
+                s->scroll_stop_viewport(&popup_title_vp[i]);
+                s->putsxy((popup_title_vp[i].width - tw) / 2, 0,
+                          (const unsigned char *)title);
+            }
+        }
+        else
+            s->scroll_stop_viewport(&popup_title_vp[i]);
+
+        /* The popup owns its title; suppress the list renderer's normal SBS
+         * title routing so the title stays inside the modal frame. */
+        lists->title = NULL;
+        gui_synclist_draw(lists);
+        lists->title = title;
+
+        s->set_viewport(NULL);
+        s->setfont(old_font);
+        s->set_drawmode(old_mode);
+        s->set_foreground(old_fg);
+        s->set_background(old_bg);
+        s->update();
+    }
+}
+
+void trimpod_popup_end(void)
+{
+    if (!popup_active)
+        return;
+    FOR_NB_SCREENS(i)
+        screens[i].scroll_stop_viewport(&popup_title_vp[i]);
+    lcd_set_viewport(NULL);
+    memcpy(FBADDR(0, 0), popup_background, FRAMEBUFFER_SIZE);
+    lcd_update();
+    popup_active = false;
+}
+
+/* ---- context submenu (MENU) ------------------------------------------- */
+
+/* A compact modal list: MENU opens it, A picks a row and B closes it. */
 struct ctxmenu_page
 {
     struct trimpod_page base;
     struct gui_synclist lists;
+    struct viewport     parent[NB_SCREENS];
     const char *const  *items;
     int                 result;        /* chosen row, or -1 if cancelled */
     char                title[MAX_PATH];  /* owned copy: callers pass volatile
@@ -227,7 +372,7 @@ static const char *ctxmenu_get_name(int sel, void *data, char *buf, size_t len)
 
 static void ctxmenu_draw(struct trimpod_page *self)
 {
-    gui_synclist_draw(&((struct ctxmenu_page *)self)->lists);
+    trimpod_popup_draw(&((struct ctxmenu_page *)self)->lists);
 }
 
 static int ctxmenu_poll(struct trimpod_page *self, int timeout)
@@ -267,16 +412,21 @@ int trimpod_context_menu(const char *title, const char *const *items, int count)
     struct ctxmenu_page p =
     {
         .base = { .vt = &ctxmenu_vtable, .context = CONTEXT_LIST,
-                  .allowed = ctxmenu_allowed },
+                  .allowed = ctxmenu_allowed, .no_enter_anim = true,
+                  .no_arm_back = true, .no_header_refresh = true },
         .items  = items,
         .result = -1,
     };
     strlcpy(p.title, title ? title : "", sizeof p.title);
-    gui_synclist_init(&p.lists, ctxmenu_get_name, &p, false, 1, NULL);
+    trimpod_popup_begin(p.parent);
+    gui_synclist_init(&p.lists, ctxmenu_get_name, &p, false, 1, p.parent);
     gui_synclist_set_title(&p.lists, p.title, Icon_NOICON);
     gui_synclist_set_nb_items(&p.lists, count);
     gui_synclist_select_item(&p.lists, 0);
+    trimpod_popup_layout(&p.lists);
     trimpod_page_run(&p.base);
+    gui_synclist_scroll_stop(&p.lists);
+    trimpod_popup_end();
     return p.result;
 }
 
@@ -633,11 +783,12 @@ void trimpod_message_page(const char *title, const char *const *rows, int nrows)
     trimpod_page_run(&p.base);
 }
 
-/* Controls: a static reference card for the four inputs. */
+/* Controls: a static reference card for the main inputs. */
 static const char *const controls_rows[] = {
     ID2P(LANG_TRIMPOD_CONTROL_BACK),
     ID2P(LANG_TRIMPOD_CONTROL_SELECT),
     ID2P(LANG_TRIMPOD_CONTROL_CONTEXT),
+    ID2P(LANG_TRIMPOD_CONTROL_LYRICS),
     ID2P(LANG_TRIMPOD_CONTROL_LOCK),
 };
 #define CONTROLS_NROWS ((int)(sizeof(controls_rows) / sizeof(controls_rows[0])))

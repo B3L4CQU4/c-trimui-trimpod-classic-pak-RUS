@@ -42,6 +42,7 @@
 #include "option_select.h"
 #include "trimpod_transition.h"   /* page slide transitions (shared) */
 #include "trimpod_page.h"         /* trimpod_home_pending (hold-BACK -> root) */
+#include "trimpod_ui.h"           /* centered modal context-menu frame */
 #include "trimpod_visualizer.h"   /* idle auto-start while music plays */
 #include "screens.h"
 #include "lang.h"
@@ -325,6 +326,18 @@ static int init_menu_lists(const struct menu_item_ex *menu,
     return start_action;
 }
 
+static int menu_init_lists(const struct menu_item_ex *menu,
+                           struct gui_synclist *lists, int selected,
+                           bool callback, struct viewport parent[NB_SCREENS],
+                           char *buf, size_t buf_sz, bool popup)
+{
+    int action = init_menu_lists(menu, lists, selected, callback, parent,
+                                 buf, buf_sz);
+    if (popup)
+        trimpod_popup_layout(lists);
+    return action;
+}
+
 void do_setting_screen(const struct settings_list *setting, const char * title,
                         struct viewport parent[NB_SCREENS])
 {
@@ -360,8 +373,9 @@ static void menu_transition_render(void *ctx)
     gui_synclist_draw((struct gui_synclist *)ctx);
 }
 
-int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
-            struct viewport parent[NB_SCREENS], bool hide_theme)
+static int do_menu_internal(const struct menu_item_ex *start_menu,
+            int *start_selected, struct viewport parent[NB_SCREENS],
+            bool hide_theme, bool popup)
 {
     int selected = start_selected? *start_selected : 0;
     int ret = 0;
@@ -370,6 +384,7 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
     int icon;
     char buf[80], *title;
     struct gui_synclist lists;
+    struct viewport popup_parent[NB_SCREENS];
     const struct menu_item_ex *temp = NULL;
     const struct menu_item_ex *menu = start_menu;
 
@@ -380,11 +395,20 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
     int old_audio_status = audio_status();
 
-    title = init_title(menu, &icon, buf, sizeof buf);
-    FOR_NB_SCREENS(i)
+    if (popup)
     {
-        sb_set_persistent_title(title, icon, i);
-        viewportmanager_theme_enable(i, !hide_theme, NULL);
+        trimpod_popup_begin(popup_parent);
+        parent = popup_parent;
+    }
+
+    title = init_title(menu, &icon, buf, sizeof buf);
+    if (!popup)
+    {
+        FOR_NB_SCREENS(i)
+        {
+            sb_set_persistent_title(title, icon, i);
+            viewportmanager_theme_enable(i, !hide_theme, NULL);
+        }
     }
     struct menu_data_t mstack[MAX_MENUS]; /* menu, selected */
     int stack_top = 0;
@@ -396,8 +420,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
      * this function, e.g. with viewport_set_defaults(parent, screen)
      * start_action allows an action to be processed
      * by menu logic by bypassing get_action on the initial run */
-    start_action = init_menu_lists(menu, &lists, selected, true, parent,
-                                   buf, sizeof buf);
+    start_action = menu_init_lists(menu, &lists, selected, true, parent,
+                                   buf, sizeof buf, popup);
     vps = *(lists.parent);
     in_stringlist = ((menu->flags&MENU_TYPE_MASK) == MT_RETURN_ID);
     /* load the callback, and only reload it if menu changes */
@@ -408,7 +432,9 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
      * launch has no prior frame to slide from, so render it with no slide.  A
      * return from a screen that aborted before rendering (an empty facet that
      * only splashed) is handled inside animate: it presents with no motion. */
-    if (trimpod_transition_first_screen())
+    if (popup)
+        trimpod_popup_draw(&lists);
+    else if (trimpod_transition_first_screen())
         gui_synclist_draw(&lists);
     else
         trimpod_transition_animate(
@@ -442,7 +468,7 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
         /* Idle auto-start of the visualizer while music plays (the WPS runs
          * its own inline hook -- it restores the skin around it). */
-        if (action == ACTION_NONE && trimpod_visualizer_maybe_autostart())
+        if (!popup && action == ACTION_NONE && trimpod_visualizer_maybe_autostart())
             redraw_lists = true;
 
         int new_action = menu_callback(action, menu, &lists);
@@ -511,11 +537,19 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
         }
         else if (action == ACTION_STD_CONTEXT)
         {
-            /* Trimpod's root menu is fixed, so Hold-A has no context action there
+            /* MENU opened a popup, so the same button closes the whole popup
+             * again.  B keeps its normal behaviour (back one level, or close
+             * at the popup root). */
+            if (popup)
+            {
+                ret = GO_TO_PREVIOUS;
+                done = true;
+            }
+            /* Trimpod's root menu is fixed, so MENU has no context action there
              * -- and the stock GO_TO_ROOTITEM_CONTEXT reorder screen is NOT wired
              * into the dispatch, so returning it spins the dispatch loop (freeze).
              * Only non-root setting rows have a context menu (reset). */
-            if (menu != &root_menu_ && !in_stringlist)
+            else if (menu != &root_menu_ && !in_stringlist)
             {
                 int type = (menu->flags&MENU_TYPE_MASK);
                 selected = get_menu_selection(gui_synclist_get_sel_pos(&lists),menu);
@@ -538,7 +572,7 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                                         ID2P(LANG_RESET_SETTING),
                                        );
                     context_menu = &settings_op_menu;
-                    int msel = do_menu(context_menu, NULL, NULL, false);
+                    int msel = do_menu_popup(context_menu, NULL);
 
                     switch (msel)
                     {
@@ -587,7 +621,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                 if (!exiting_menu && (menu->flags&MENU_EXITAFTERTHISMENU))
                     done = true;
                 else
-                    init_menu_lists(menu, &lists, msel, false, vps, buf, sizeof buf);
+                    menu_init_lists(menu, &lists, msel, false, vps, buf,
+                                    sizeof buf, popup);
                 redraw_lists = true;
                 if (!done)
                     menu_trans = TRIMPOD_TRANS_BACK;   /* slide back to parent */
@@ -630,7 +665,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                         mstack[stack_top].selected = selected;
                         stack_top++;
                         menu = temp;
-                        init_menu_lists(menu, &lists, 0, true, vps, buf, sizeof buf);
+                        menu_init_lists(menu, &lists, 0, true, vps, buf,
+                                        sizeof buf, popup);
                         menu_trans = TRIMPOD_TRANS_FORWARD;  /* slide into submenu */
                     }
                     break;
@@ -651,8 +687,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                             (temp->flags&MENU_EXITAFTERTHISMENU))
                     {
                         /* Reload menu but don't run the calback again FS#8117 */
-                        init_menu_lists(menu, &lists, selected, false, vps,
-                                        buf, sizeof buf);
+                        menu_init_lists(menu, &lists, selected, false, vps,
+                                        buf, sizeof buf, popup);
                     }
                     /* if the function ran a page that armed a back slide,
                      * play it on the redraw below */
@@ -677,7 +713,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                     const struct settings_list *set = find_setting(temp->variable);
                     if (set)
                         option_select_next_val(set, false, true);
-                    init_menu_lists(menu, &lists, selected, false, vps, buf, sizeof buf);
+                    menu_init_lists(menu, &lists, selected, false, vps, buf,
+                                    sizeof buf, popup);
                     redraw_lists = true;
                     break;
                 }
@@ -693,7 +730,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                         mstack[stack_top].selected = selected;
                         stack_top++;
                         menu = temp;
-                        init_menu_lists(menu, &lists, 0, false, vps, buf, sizeof buf);
+                        menu_init_lists(menu, &lists, 0, false, vps, buf,
+                                        sizeof buf, popup);
                         in_stringlist = true;
                     }
                     break;
@@ -712,7 +750,8 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
                 menu_callback(ACTION_EXIT_MENUITEM, temp, &lists);
             }
             if (current_submenus_menu != menu)
-                init_menu_lists(menu, &lists,selected, true, vps, buf, sizeof buf);
+                menu_init_lists(menu, &lists, selected, true, vps, buf,
+                                sizeof buf, popup);
             /* callback was changed, so reload the menu's callback */
             get_menu_callback(menu, &menu_callback);
             if ((menu->flags&MENU_EXITAFTERTHISMENU) &&
@@ -754,7 +793,12 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
 
 
             gui_synclist_set_title(&lists, lists.title, lists.title_icon);
-            if (menu_trans >= 0)
+            if (popup)
+            {
+                trimpod_popup_draw(&lists);
+                menu_trans = -1;
+            }
+            else if (menu_trans >= 0)
             {
                 trimpod_transition_animate(menu_trans, menu_transition_render, &lists);
                 menu_trans = -1;
@@ -771,21 +815,43 @@ int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
         if (stack_top > 0)
         {
             menu = mstack[0].menu;
-            init_menu_lists(menu, &lists, mstack[0].selected, true, vps,
-                            buf, sizeof buf);
+            menu_init_lists(menu, &lists, mstack[0].selected, true, vps,
+                            buf, sizeof buf, popup);
         }
         *start_selected = get_menu_selection(
                             gui_synclist_get_sel_pos(&lists), menu);
     }
 
-    FOR_NB_SCREENS(i)
+    if (!popup)
     {
-        sb_set_persistent_title(lists.title, lists.title_icon, i);
-        viewportmanager_theme_undo(i, false);
-        skinlist_set_cfg(i, NULL); /* Bugfix dangling reference in skin_draw() */
+        FOR_NB_SCREENS(i)
+        {
+            sb_set_persistent_title(lists.title, lists.title_icon, i);
+            viewportmanager_theme_undo(i, false);
+            skinlist_set_cfg(i, NULL); /* avoid a dangling skin reference */
+        }
+    }
+    else
+    {
+        gui_synclist_scroll_stop(&lists);
+        FOR_NB_SCREENS(i)
+            skinlist_set_cfg(i, NULL);
+        trimpod_popup_end();
     }
     /* leaving by backing out -> tell our caller to slide us away */
-    if (ret == GO_TO_PREVIOUS)
+    if (!popup && ret == GO_TO_PREVIOUS)
         trimpod_transition_arm_back();
     return ret;
+}
+
+int do_menu(const struct menu_item_ex *start_menu, int *start_selected,
+            struct viewport parent[NB_SCREENS], bool hide_theme)
+{
+    return do_menu_internal(start_menu, start_selected, parent, hide_theme,
+                            false);
+}
+
+int do_menu_popup(const struct menu_item_ex *start_menu, int *start_selected)
+{
+    return do_menu_internal(start_menu, start_selected, NULL, true, true);
 }
